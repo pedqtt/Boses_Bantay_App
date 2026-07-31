@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Boses Bantay",
+    "slug": "boses-bantay-mobile",
+    "scheme": "bosesbantay",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "ph.edu.tip.bosesbantay",
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Boses Bantay to access your microphone to record voice reports."
+        }
+      ],
+      "expo-font",
+      "expo-asset"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    }
+  }
+}
