@@ -23,7 +23,14 @@ export default function ReportsScreen() {
         <Text className="text-[24px] font-semibold text-ink tracking-tight">My Reports</Text>
         <Text className="text-[13px] text-ink-faint mt-0.5">{reports.length} total</Text>
       </View>
-      <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1 px-5"
+        showsVerticalScrollIndicator={false}
+        // Same reason as home.tsx: reserve room for the floating Bot
+        // button (rendered outside this screen) so the last report card
+        // never ends up scrolled underneath it.
+        contentContainerStyle={{ paddingBottom: 110 }}
+      >
         {loading ? (
           <Card className="p-8 items-center mb-8">
             <ActivityIndicator color="#1D4ED8" />

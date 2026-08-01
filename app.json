@@ -15,7 +15,9 @@
     "android": {
       "package": "ph.edu.tip.bosesbantay",
       "permissions": [
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "plugins": [
@@ -28,11 +30,22 @@
         }
       ],
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "ndkVersion": "27.1.12297006"
+          }
+        }
+      ]
     ],
     "extra": {
       "router": {
         "origin": false
+      },
+      "eas": {
+        "projectId": "3954fa33-a4d6-4777-a74f-d0b76a3537a0"
       }
     }
   }

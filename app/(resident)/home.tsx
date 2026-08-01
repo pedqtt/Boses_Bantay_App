@@ -28,7 +28,18 @@ export default function ResidentHome() {
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
-      <ScrollView className="flex-1 px-5 pt-3" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1 px-5 pt-3"
+        showsVerticalScrollIndicator={false}
+        // The floating Bot button lives outside this screen (rendered by
+        // the tab layout as an absolute overlay), so nothing here knows
+        // about it by default — without this, the last "Recent reports"
+        // card can scroll to sit directly underneath it. Reserves enough
+        // bottom space that content always ends above where the button
+        // floats, instead of the button covering whatever happens to
+        // scroll to the bottom.
+        contentContainerStyle={{ paddingBottom: 110 }}
+      >
         {/* Orientation only — small and quiet so it doesn't compete with
             the primary action directly below it. */}
         <View className="mb-6">

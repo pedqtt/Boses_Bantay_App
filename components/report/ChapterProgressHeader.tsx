@@ -1,6 +1,7 @@
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
+import { BackButton } from "@/components/BackButton";
 import type { ChapterProgress } from "@/lib/reportQuestions";
 
 /**
@@ -20,9 +21,16 @@ import type { ChapterProgress } from "@/lib/reportQuestions";
 export function ChapterProgressHeader({
   progress,
   isOptional,
+  onBack,
 }: {
   progress: ChapterProgress;
   isOptional: boolean;
+  // Same action as the "Bumalik" button in the bottom nav bar (previous
+  // question, or exit to the intro on question 1) — this isn't a second,
+  // different kind of back, just the same one made discoverable in the
+  // conventional top-left spot too, for anyone who looks there first out
+  // of habit rather than scanning the bottom of the screen.
+  onBack: () => void;
 }) {
   return (
     // More generous padding (pt-5 pb-6, was pt-3 pb-4) plus a hairline
@@ -31,11 +39,12 @@ export function ChapterProgressHeader({
     // the scrolling page that happen to have a progress bar in them.
     <View className="px-5 pt-5 pb-6 border-b border-gray-100">
       <View className="flex-row items-center justify-between mb-4">
-        {/* Icon + title anchor the left edge (natural reading start);
-            the "1/3" pill is a status marker, not content, so it sits at
-            the row's far right — the same spot a screen title's trailing
-            metadata (a count, a badge) conventionally lives. */}
+        {/* Back control anchors the true left edge; icon + title read as
+            the row's actual content, same as before. */}
         <View className="flex-row items-center flex-1 mr-3">
+          <View className="mr-2">
+            <BackButton onPress={onBack} />
+          </View>
           <Ionicons name={progress.chapter.icon as any} size={18} color="#1D4ED8" style={{ marginRight: 6 }} />
           <Text className="text-[18px] font-bold text-ink flex-1" numberOfLines={1}>
             {progress.chapter.label}

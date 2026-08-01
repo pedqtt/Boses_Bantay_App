@@ -2,6 +2,7 @@ import { View, Text, Pressable, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
+import { BackButton } from "@/components/BackButton";
 import { REPORT_QUESTIONS, CHAPTERS, INTRO_COPY } from "@/lib/reportQuestions";
 
 /**
@@ -10,9 +11,18 @@ import { REPORT_QUESTIONS, CHAPTERS, INTRO_COPY } from "@/lib/reportQuestions";
  * but the framing sets expectations at the size the task actually feels
  * like ("3 bahagi"), not the size a flat 7-item list would suggest.
  */
-export function IntroScreen({ onStart }: { onStart: () => void }) {
+export function IntroScreen({ onStart, onBack }: { onStart: () => void; onBack: () => void }) {
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+      {/* Before this, there was no way out of the report flow except
+          starting it — a resident who tapped the mic FAB by mistake, or
+          changed their mind before recording anything, had no exit except
+          the phone's own back gesture, which isn't something every user
+          reliably knows about (Nielsen: user control and freedom — always
+          leave an obvious, undoable way out). */}
+      <View className="px-5 pt-3">
+        <BackButton onPress={onBack} />
+      </View>
       {/* Same flexGrow + justify-between fix as the step screen: the intro
           copy + chapters card is one group, the Simulan button + its
           footnote is the other, and they get pushed apart to fill the
@@ -20,7 +30,7 @@ export function IntroScreen({ onStart }: { onStart: () => void }) {
           under the status bar with dead space before the bottom edge. */}
       <ScrollView
         className="flex-1 px-5"
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "space-between", paddingTop: 28, paddingBottom: 28 }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "space-between", paddingTop: 12, paddingBottom: 28 }}
         showsVerticalScrollIndicator={false}
       >
         <View>

@@ -68,7 +68,7 @@ export function StepScreen({
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <ChapterProgressHeader progress={progress} isOptional={!question.required} />
+        <ChapterProgressHeader progress={progress} isOptional={!question.required} onBack={onBack} />
 
         {/* flexGrow on the content container fixes "everything crammed at
             the top." Within it: the question stays pinned to the top

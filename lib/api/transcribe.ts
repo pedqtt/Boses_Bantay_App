@@ -5,12 +5,30 @@
 import type { ReportFieldKey } from "@/lib/reportQuestions";
 
 const WHISPER_API_URL = process.env.EXPO_PUBLIC_WHISPER_API_URL ?? "";
+// Only needed once the server is reachable from the open internet (see
+// whisper-server/README.md's tunnel setup) — empty is fine for same-Wi-Fi
+// local dev, where the server has no WHISPER_API_KEY set either.
+const WHISPER_API_KEY = process.env.EXPO_PUBLIC_WHISPER_API_KEY ?? "";
 
 // True once EXPO_PUBLIC_WHISPER_API_URL points at a running server (see
 // ../../whisper-server). Until then, transcribeVoiceReport() returns a fake
 // transcript after a short delay so the recording flow is fully clickable
 // with zero backend — same idea as mock auth mode.
 export const isWhisperConfigured = Boolean(WHISPER_API_URL);
+
+// A silent fallback to fake transcripts is exactly the kind of bug that
+// looks like "the app is broken" instead of "the app is unconfigured" —
+// this makes the distinction loud and impossible to miss in logs, instead
+// of only being discoverable by reading this file's source.
+if (!isWhisperConfigured) {
+  console.warn(
+    "[transcribe] EXPO_PUBLIC_WHISPER_API_URL is not set in this build — " +
+      "every voice answer will return a canned mock transcript instead of a real one. " +
+      "If this is an installed APK, the .env values weren't present when it was built " +
+      "(EAS Build does not read a gitignored .env by default — set the vars with " +
+      "`eas env:create` instead, then rebuild)."
+  );
+}
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -82,6 +100,7 @@ export async function transcribeVoiceReport(
       // hardcoded "multipart/form-data" (no boundary) means the server can't
       // parse the body at all and silently fails on every real (non-mock)
       // request.
+      headers: WHISPER_API_KEY ? { "X-API-Key": WHISPER_API_KEY } : undefined,
     });
   } catch (err: any) {
     if (err?.name === "AbortError") {
@@ -90,13 +109,27 @@ export async function transcribeVoiceReport(
       );
     }
     throw new Error(
-      "Hindi maabot ang server. Tiyakin pong nasa parehong Wi-Fi ang telepono at laptop."
+      "Hindi maabot ang server. Tiyakin pong may internet ang telepono at gumagana ang server."
     );
   } finally {
     clearTimeout(timeout);
   }
 
   if (!res.ok) {
+    // 401 specifically means the app and server disagree on the API key —
+    // a config problem, not a transient network/server issue, so it gets
+    // its own message instead of the generic "(status) + raw body" dump,
+    // which would otherwise show a resident a JSON error blob.
+    if (res.status === 401) {
+      throw new Error(
+        "Hindi tugma ang API key ng server. Kontakin po ang admin ng app."
+      );
+    }
+    if (res.status >= 500) {
+      throw new Error(
+        "Nagka-problema ang transcription server. Subukan po muli pagkalipas ng ilang saglit."
+      );
+    }
     const detail = await res.text().catch(() => "");
     throw new Error(
       `Hindi na-transcribe (${res.status}). ${detail.slice(0, 120) || "Tingnan po kung tumatakbo pa ang server."}`

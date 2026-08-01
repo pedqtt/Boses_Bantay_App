@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useCallback, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -10,10 +10,42 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router, useFocusEffect, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { sendBotMessage, type ChatMessage } from "@/lib/api/mockData";
+import { BackButton } from "@/components/BackButton";
 
 export default function BotScreen() {
+  // Same tab-bar-hiding recipe used on the report flow: a chat screen with
+  // a keyboard and a send button right above the same screen edge the tab
+  // bar occupies is exactly the kind of layout where an accidental tap on
+  // "Home" or "Reports" costs you the message you were mid-typing. Hiding
+  // it removes that misclick target for the whole time this screen is
+  // focused, not just visually decluttering it.
+  const navigation = useNavigation();
+  useFocusEffect(
+    useCallback(() => {
+      navigation.setOptions({ tabBarStyle: { display: "none" } });
+      return () => {
+        navigation.setOptions({ tabBarStyle: undefined });
+      };
+    }, [navigation])
+  );
+
+  // The bot is reached both by pushing (Home's quick-access card, the
+  // floating FAB) and — because it's a tab-navigator screen with
+  // href: null, not a plain stack screen — there isn't always a
+  // guaranteed "previous screen" in history to pop back to.
+  // canGoBack() covers the normal pushed case; Home is the safe fallback
+  // for any path that got here without adding to the stack.
+  function goBack() {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.push("/(resident)/home");
+    }
+  }
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: "welcome", from: "bot", text: "Kumusta! Ask me about barangay services, requirements, or office hours." },
   ]);
@@ -39,8 +71,20 @@ export default function BotScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
-      <View className="px-5 pt-3 pb-4">
-        <Text className="text-[24px] font-semibold text-ink tracking-tight">Barangay-Bot</Text>
+      <View className="flex-row items-center px-5 pt-3 pb-4">
+        <View className="mr-2">
+          <BackButton onPress={goBack} />
+        </View>
+        {/* A first-time visitor lands here with no other context than the
+            title — a one-line description sets expectations up front (what
+            this is for, that a real person isn't reading it) instead of
+            making them guess from the welcome bubble below. */}
+        <View className="flex-1">
+          <Text className="text-[24px] font-semibold text-ink tracking-tight">Barangay-Bot</Text>
+          <Text className="text-[13px] text-ink-soft mt-0.5">
+            Magtanong tungkol sa mga serbisyo, requirements, o oras ng opisina
+          </Text>
+        </View>
       </View>
 
       {/* behavior was "undefined" on Android, which is a no-op — the input

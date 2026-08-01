@@ -6,10 +6,12 @@ import type { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-// Active tab gets a solid pill behind its icon — a second signal beyond
-// color alone, so the current tab is unmistakable at a glance rather than
-// depending on noticing a subtle blue-vs-gray shift. Solid fill, not a
-// soft tint — icon flips to white so it stays legible against it.
+// Active tab gets a pill behind its icon — still a second signal beyond
+// color alone (shape, not just hue, changes on selection), but a soft
+// brand-tinted fill instead of a solid block. A fully solid pill next to
+// four quiet outline icons was the loudest thing in the bar; a tint keeps
+// the same "unmistakable at a glance" property (constraint: never rely on
+// color alone) while reading as calm rather than a bright patch.
 function TabIcon({
   focused,
   outline,
@@ -23,9 +25,9 @@ function TabIcon({
 }) {
   return (
     <View
-      className={`w-12 h-8 rounded-full items-center justify-center ${focused ? "bg-brand" : ""}`}
+      className={`w-12 h-8 rounded-full items-center justify-center ${focused ? "bg-brand-50" : ""}`}
     >
-      <Ionicons name={focused ? filled : outline} size={22} color={focused ? "white" : color} />
+      <Ionicons name={focused ? filled : outline} size={22} color={focused ? "#1D4ED8" : color} />
     </View>
   );
 }
@@ -60,11 +62,15 @@ function TabLabel({ focused, color, children }: { focused: boolean; color: strin
  * critical action deserves the largest, easiest-to-hit target, not just an
  * equal slot in a row of six).
  *
- * Kept flat, per the app's no-shadow design language: the "lift" comes from
- * a solid white ring around the circle (so it reads as sitting above the
- * bar) and a negative top margin, not a drop shadow. The label stays
- * beneath it, same as every other tab — a FAB with no text label would
- * break the app's standing rule that icons are always paired with text.
+ * The "lift" is signaled two ways now: a solid white ring around the circle
+ * (so it reads as cleanly cut out from the bar behind it) plus a subtle
+ * drop shadow — unlike flat surfaces elsewhere in the app (cards, buttons),
+ * a shadow here is a genuine depth cue, not decoration: this control is
+ * literally floating above the bar, so it should look like it. Kept soft
+ * (low opacity, small radius) rather than a heavy Material-style shadow —
+ * minimalist means restrained, not absent. The label stays beneath it, same
+ * as every other tab — a FAB with no text label would break the app's
+ * standing rule that icons are always paired with text.
  */
 function ReportFabButton({ onPress, accessibilityState }: BottomTabBarButtonProps) {
   const focused = Boolean(accessibilityState?.selected);
@@ -83,6 +89,11 @@ function ReportFabButton({ onPress, accessibilityState }: BottomTabBarButtonProp
           marginTop: -26,
           borderWidth: 4,
           borderColor: "white",
+          shadowColor: "#1D4ED8",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.28,
+          shadowRadius: 8,
+          elevation: 6,
         }}
       >
         <Ionicons name="mic" size={24} color="white" />
@@ -90,7 +101,9 @@ function ReportFabButton({ onPress, accessibilityState }: BottomTabBarButtonProp
       <Text
         style={{
           marginTop: 4,
-          color: focused ? "#1D4ED8" : "#6B7280",
+          // Same `ink-faint` (#4B5563) inactive color as the rest of the
+          // bar — see the tabBarInactiveTintColor comment below for why.
+          color: focused ? "#1D4ED8" : "#4B5563",
           fontSize: focused ? 11 : 10.5,
           fontWeight: focused ? "700" : "500",
         }}
@@ -118,25 +131,32 @@ function ReportFabButton({ onPress, accessibilityState }: BottomTabBarButtonProp
  */
 function BotFab({ bottom }: { bottom: number }) {
   return (
-    <Pressable
-      onPress={() => router.push("/(resident)/bot")}
-      accessibilityRole="button"
-      accessibilityLabel="Ask the Bot"
-      className="absolute items-center justify-center bg-brand active:opacity-85"
-      style={{
-        right: 16,
-        bottom,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        // Flat, matching the rest of the app's no-shadow language.
-        elevation: 0,
-        shadowOpacity: 0,
-        shadowColor: "transparent",
-      }}
-    >
-      <Ionicons name="chatbubble-ellipses" size={24} color="white" />
-    </Pressable>
+    <View className="absolute items-center" style={{ right: 16, bottom }}>
+      <Pressable
+        onPress={() => router.push("/(resident)/bot")}
+        accessibilityRole="button"
+        // No visible text label anymore (removed per explicit request), so
+        // this accessibilityLabel is the only place the button's purpose is
+        // still spelled out — screen readers still announce "Ask the Bot,"
+        // even though sighted users now rely on the icon alone.
+        accessibilityLabel="Ask the Bot"
+        className="items-center justify-center bg-brand active:opacity-85"
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          borderWidth: 4,
+          borderColor: "white",
+          shadowColor: "#1D4ED8",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.14,
+          shadowRadius: 6,
+          elevation: 3,
+        }}
+      >
+        <Ionicons name="chatbubble-ellipses" size={30} color="white" />
+      </Pressable>
+    </View>
   );
 }
 
@@ -146,7 +166,15 @@ export default function ResidentLayout() {
   // the last few pixels of the bar instead of sitting cleanly below it.
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const hideBotFab = pathname?.includes("/report");
+  // Hidden during the report flow and on the bot screen itself — both
+  // screens hide the tab bar for the same misclick-prevention reason, and
+  // a floating "open the bot" button has nothing to float above once the
+  // bar it normally sits over is gone, plus it'd be pointless while
+  // already inside that exact screen. Exact match, not `.includes()` —
+  // "/report" is a substring of "/reports" (the reports LIST screen,
+  // which should keep showing the button), so a substring check was
+  // silently hiding it there too.
+  const hideBotFab = pathname === "/report" || pathname === "/bot";
   const tabBarHeight = 64 + insets.bottom;
 
   return (
@@ -155,21 +183,31 @@ export default function ResidentLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#1D4ED8",
-        // Darker than the typical "inactive gray" — the original #9CA3AF was
-        // failing WCAG AA contrast at this label size, same class of bug
-        // fixed earlier on status badges.
-        tabBarInactiveTintColor: "#6B7280",
+        // This is the app's `ink-faint` token (#4B5563), not an arbitrary
+        // gray — reused here rather than a fresh hex value so the tab
+        // labels meet the same WCAG AA contrast floor already established
+        // for status badges and chapter headers elsewhere in the app. The
+        // previous value (#6B7280, Tailwind's gray-500) was closer to
+        // borderline-AA than genuinely safe at this label's small size —
+        // "legible under stress" (skill constraint 6) means erring toward
+        // more contrast, not the minimum that technically passes.
+        tabBarInactiveTintColor: "#4B5563",
         tabBarStyle: {
-          borderTopColor: "#E5E7EB",
-          borderTopWidth: 1,
           height: 64 + insets.bottom,
           paddingBottom: insets.bottom + 6,
           paddingTop: 8,
           backgroundColor: "white",
-          // Flat — no native shadow/elevation, the border alone defines the edge.
-          elevation: 0,
-          shadowOpacity: 0,
-          shadowColor: "transparent",
+          // A soft shadow instead of a hard 1px border — separates the bar
+          // from content with the same "this is a raised surface" cue as
+          // the two FABs above it, rather than a drawn rule. Subtle on
+          // purpose (low opacity, small radius): minimalism here means one
+          // quiet depth signal for the whole bar, not a heavy card-style
+          // shadow competing with the FABs for attention.
+          shadowColor: "#000000",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+          elevation: 8,
         },
       }}
     >
@@ -218,11 +256,18 @@ export default function ResidentLayout() {
         }}
       />
       {/*
-        Bot dropped out of the tab bar — it's still one tap away via Home's
-        "Ask the Bot" quick-access card, so removing it here isn't losing
-        the feature, it's removing a duplicate path to it and freeing a
-        slot for Report to become the FAB above.
+        Bot dropped out of the tab bar — it's still reachable via the
+        floating BotFab above and Home's "Ask the Bot" quick-access card.
+        `href: null` is required here, not just omitting this entry: Expo
+        Router auto-generates a plain tab button for any route file inside
+        a <Tabs> folder that isn't explicitly registered, using the raw
+        filename as an unstyled label with no icon — that was rendering as
+        a stray, broken-looking 6th "bot" tab alongside the real, styled
+        floating button. `href: null` keeps the route navigable
+        (router.push still works) while telling the tab bar not to render
+        a button for it at all.
       */}
+      <Tabs.Screen name="bot" options={{ href: null }} />
       <Tabs.Screen
         name="directory"
         options={{
@@ -252,7 +297,7 @@ export default function ResidentLayout() {
         }}
       />
     </Tabs>
-    {!hideBotFab && <BotFab bottom={tabBarHeight + 16} />}
+    {!hideBotFab && <BotFab bottom={tabBarHeight + 20} />}
     </View>
   );
 }

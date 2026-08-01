@@ -48,7 +48,13 @@ export default function DirectoryScreen() {
         <Text className="text-[24px] font-semibold text-ink tracking-tight">Emergency Directory</Text>
         <Text className="text-[13px] text-ink-faint mt-0.5">Tap a contact to call</Text>
       </View>
-      <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1 px-5"
+        showsVerticalScrollIndicator={false}
+        // Same reason as home.tsx: reserve room for the floating Bot
+        // button so the last contact card doesn't end up underneath it.
+        contentContainerStyle={{ paddingBottom: 110 }}
+      >
         {loading ? (
           <Card className="p-8 items-center">
             <ActivityIndicator color="#1D4ED8" />

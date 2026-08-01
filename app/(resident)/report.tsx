@@ -269,6 +269,14 @@ export default function ReportScreen() {
     }
   }
 
+  // Report is a tab, not a pushed screen, so there's no natural "previous
+  // screen" for router.back() to return to from the intro — Home is the
+  // one predictable destination regardless of how the resident arrived
+  // here (tab bar FAB, or a "File a report" card from another screen).
+  function exitToHome() {
+    router.push("/(resident)/home");
+  }
+
   if (stage === "submitted") {
     return (
       <SubmittedScreen
@@ -328,5 +336,5 @@ export default function ReportScreen() {
     );
   }
 
-  return <IntroScreen onStart={startFlow} />;
+  return <IntroScreen onStart={startFlow} onBack={exitToHome} />;
 }

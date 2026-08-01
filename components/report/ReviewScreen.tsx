@@ -2,6 +2,7 @@ import { View, Text, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingV
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
+import { BackButton } from "@/components/BackButton";
 import { CHAPTERS, REPORT_QUESTIONS, type ReportFieldKey } from "@/lib/reportQuestions";
 import { AnswerEditor } from "./AnswerEditor";
 import type { AnswersMap } from "./types";
@@ -33,7 +34,15 @@ export function ReviewScreen({
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <ScrollView className="flex-1 px-5 pt-6" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView className="flex-1 px-5 pt-3" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {/* Same action as "Bumalik sa mga tanong" below — this is the
+              conventional top-left spot, that one keeps its clearer,
+              fully-worded label. Having both isn't redundant so much as
+              covering two different habits: some people look up first,
+              some scan to the bottom. */}
+          <View className="mb-3">
+            <BackButton onPress={onBackToQuestions} />
+          </View>
           <Text className={`${REPORT_TYPE.heroTitle} mb-2`}>Suriin ang report</Text>
           <Text className={`${REPORT_TYPE.subtitle} mb-8`}>Itama po ang anumang mali bago ipasa.</Text>
 
