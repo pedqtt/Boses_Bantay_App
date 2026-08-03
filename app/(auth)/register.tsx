@@ -12,8 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { registerResident } from "@/lib/api/auth";
-import { useAuth } from "@/lib/auth-context";
+import { signUpUser } from "@/lib/api/auth";
 import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 
 function Field({
@@ -24,14 +23,18 @@ function Field({
   placeholder,
   keyboardType,
   autoFocus,
+  secureTextEntry,
+  autoCapitalize,
 }: {
   label: string;
   value: string;
   onChangeText: (t: string) => void;
   onFocus?: (e: any) => void;
   placeholder: string;
-  keyboardType?: "default" | "phone-pad";
+  keyboardType?: "default" | "phone-pad" | "email-address";
   autoFocus?: boolean;
+  secureTextEntry?: boolean;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
 }) {
   return (
     <View className="mb-7">
@@ -46,6 +49,8 @@ function Field({
         placeholderTextColor="#9CA3AF"
         keyboardType={keyboardType ?? "default"}
         autoFocus={autoFocus}
+        secureTextEntry={secureTextEntry}
+        autoCapitalize={autoCapitalize}
         className="text-[17px] text-ink border-b border-gray-200 pb-3"
       />
     </View>
@@ -53,23 +58,42 @@ function Field({
 }
 
 export default function RegisterScreen() {
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [purok, setPurok] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { setPendingPhone } = useAuth();
+
   const { scrollRef, handleFocus, handleContainerLayout } = useKeyboardFocusScroll();
 
   async function handleRegister() {
-    if (!fullName.trim() || !purok.trim() || phone.replace(/\s/g, "").length < 10) {
-      Alert.alert("Missing info", "Fill in your full name, purok, and a valid mobile number.");
+    if (
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !purok.trim() ||
+      !phone.trim() ||
+      !password.trim()
+    ) {
+      Alert.alert("Missing info", "Please fill out all fields.");
       return;
     }
+
     setLoading(true);
+
     try {
-      await registerResident({ fullName, phone, purok });
-      setPendingPhone(phone);
-      router.push({ pathname: "/(auth)/otp", params: { phone, mode: "register" } });
+      const { normalizedPhone } = await signUpUser({
+        phone: phone.trim(),
+        password: password.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        purok: purok.trim(),
+      });
+
+      router.push({
+        pathname: "/(auth)/otp",
+        params: { phone: normalizedPhone, mode: "register" },
+      });
     } catch (err: any) {
       Alert.alert("Registration failed", err.message ?? "Please try again.");
     } finally {
@@ -79,9 +103,6 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* Mobile number is the last field — without KeyboardAvoidingView the
-          keyboard was covering it while typing, since a ScrollView alone
-          doesn't auto-shift to keep the focused input visible. */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -97,20 +118,24 @@ export default function RegisterScreen() {
             <Text className="text-brand text-[15px]">← Back</Text>
           </Pressable>
 
-          <Text className="text-[26px] font-semibold text-ink tracking-tight mb-1.5">
+          <Text className="text-[26px] font-semibold text-ink tracking-tight mb-8">
             Create your account
-          </Text>
-          <Text className="text-[15px] text-ink-soft mb-10 leading-5">
-            You'll upload your Barangay ID for verification after this step.
           </Text>
 
           <Field
-            label="Full name"
-            value={fullName}
-            onChangeText={setFullName}
+            label="First name"
+            value={firstName}
+            onChangeText={setFirstName}
             onFocus={handleFocus}
-            placeholder="Juan Dela Cruz"
+            placeholder="Juan"
             autoFocus
+          />
+          <Field
+            label="Last name"
+            value={lastName}
+            onChangeText={setLastName}
+            onFocus={handleFocus}
+            placeholder="Dela Cruz"
           />
           <Field
             label="Purok / address"
@@ -124,8 +149,17 @@ export default function RegisterScreen() {
             value={phone}
             onChangeText={setPhone}
             onFocus={handleFocus}
-            placeholder="+63 912 345 6789"
+            placeholder="09171234567"
             keyboardType="phone-pad"
+            autoCapitalize="none"
+          />
+          <Field
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            onFocus={handleFocus}
+            placeholder="Enter a secure password"
+            secureTextEntry={true}
           />
 
           <Pressable

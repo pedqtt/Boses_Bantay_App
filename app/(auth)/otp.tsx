@@ -12,7 +12,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { verifyOtp, requestOtp } from "@/lib/api/auth";
+
+// ✅ Import our custom bypass function here
+import { verifyPhoneCode } from "@/lib/api/auth"; 
 import { useAuth } from "@/lib/auth-context";
 import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 
@@ -20,7 +22,6 @@ export default function OtpScreen() {
   const { phone, mode } = useLocalSearchParams<{ phone: string; mode: string }>();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
   const { signIn } = useAuth();
   const { scrollRef, handleFocus, handleContainerLayout } = useKeyboardFocusScroll();
 
@@ -29,11 +30,22 @@ export default function OtpScreen() {
       Alert.alert("Enter code", "The verification code is 6 digits.");
       return;
     }
+
     setLoading(true);
+
     try {
-      const { profile } = await verifyOtp(phone, code);
-      signIn(profile);
-      router.replace("/(resident)/home");
+      // ✅ Call OUR bypass function instead of supabase.auth directly
+      const response = await verifyPhoneCode(phone, code);
+
+      if (response.ok) {
+        // Update Auth Context with the real profile returned from our bypass!
+        if (signIn) {
+          await signIn(response.profile);
+        }
+        
+        // Redirect to Home
+        router.replace("/(resident)/home");
+      }
     } catch (err: any) {
       Alert.alert("Verification failed", err.message ?? "Please try again.");
     } finally {
@@ -42,15 +54,8 @@ export default function OtpScreen() {
   }
 
   async function handleResend() {
-    setResending(true);
-    try {
-      await requestOtp(phone);
-      Alert.alert("Code sent", "A new code has been sent.");
-    } catch (err: any) {
-      Alert.alert("Couldn't resend", err.message ?? "Please try again.");
-    } finally {
-      setResending(false);
-    }
+    // Mock resend since we are bypassing real SMS
+    Alert.alert("Code resent", "Use the mock code: 123456");
   }
 
   return (
@@ -67,7 +72,10 @@ export default function OtpScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-8 justify-center">
-            <Pressable onPress={() => router.back()} className="mb-8 -ml-1 py-1 self-start absolute top-4 left-8">
+            <Pressable
+              onPress={() => router.back()}
+              className="mb-8 -ml-1 py-1 self-start absolute top-4 left-8"
+            >
               <Text className="text-brand text-[15px]">← Back</Text>
             </Pressable>
 
@@ -104,9 +112,9 @@ export default function OtpScreen() {
               )}
             </Pressable>
 
-            <Pressable onPress={handleResend} disabled={resending} className="items-center py-2">
+            <Pressable onPress={handleResend} className="items-center py-2">
               <Text className="text-brand text-[14px] font-medium">
-                {resending ? "Resending…" : "Resend code"}
+                Didn't get the code?
               </Text>
             </Pressable>
           </View>

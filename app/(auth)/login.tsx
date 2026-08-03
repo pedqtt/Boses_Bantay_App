@@ -11,30 +11,42 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link, router } from "expo-router";
-import { requestOtp } from "@/lib/api/auth";
+import { router } from "expo-router";
+
+// ✅ Import our custom bypass function and Auth Context
+import { logInUser } from "@/lib/api/auth";
 import { useAuth } from "@/lib/auth-context";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { setPendingPhone } = useAuth();
   const { scrollRef, handleFocus, handleContainerLayout } = useKeyboardFocusScroll();
+  
+  // ✅ Get signIn from our context so the app knows we are logged in
+  const { signIn } = useAuth(); 
 
-  async function handleSendCode() {
-    if (phone.replace(/\s/g, "").length < 10) {
-      Alert.alert("Invalid number", "Enter a valid mobile number, e.g. +63 912 345 6789.");
+  async function handleLogin() {
+    if (!phone.trim() || !password.trim()) {
+      Alert.alert("Missing info", "Please enter both phone number and password.");
       return;
     }
+
     setLoading(true);
+
     try {
-      await requestOtp(phone);
-      setPendingPhone(phone);
-      router.push({ pathname: "/(auth)/otp", params: { phone, mode: "login" } });
+      // ✅ Call OUR bypass wrapper instead of supabase directly!
+      const response = await logInUser(phone.trim(), password.trim());
+
+      if (response.ok) {
+        if (signIn) {
+          await signIn(response.profile);
+        }
+        router.replace("/(resident)/home");
+      }
     } catch (err: any) {
-      Alert.alert("Couldn't send code", err.message ?? "Please try again.");
+      Alert.alert("Login failed", err.message ?? "Invalid phone number or password.");
     } finally {
       setLoading(false);
     }
@@ -42,10 +54,6 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* Keyboard was covering the phone input because the layout was a
-          fixed, vertically-centered View with no way to shift or scroll
-          when the keyboard opens. KeyboardAvoidingView + a scrollable
-          container fixes that on both platforms. */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -58,61 +66,61 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-8 justify-center">
-            <View className="mb-12">
-              <View className="w-12 h-12 rounded-2xl bg-brand items-center justify-center mb-6">
-                <Text className="text-white text-xl font-bold">B</Text>
-              </View>
-              <Text className="text-[28px] font-semibold text-ink tracking-tight">
-                Boses Bantay
-              </Text>
-              <Text className="text-[15px] text-ink-soft mt-1.5 leading-5">
-                Report, track, and get updates from your barangay.
-              </Text>
-            </View>
+            <Text className="text-[28px] font-bold text-ink tracking-tight mb-2">
+              Welcome back
+            </Text>
+            <Text className="text-[15px] text-ink-soft mb-8">
+              Sign in to access your barangay portal account.
+            </Text>
 
-            {!isSupabaseConfigured && (
-              <View className="mb-8">
-                <Text className="text-[13px] text-brand leading-5">
-                  Mock mode — no backend connected yet. Any number works, code is 123456.
-                </Text>
-              </View>
-            )}
-
-            <View className="mb-8">
+            <View className="mb-6">
               <Text className="text-[13px] font-medium text-ink-soft mb-2 uppercase tracking-wide">
-                Mobile number
+                Mobile Number
               </Text>
               <TextInput
                 value={phone}
                 onChangeText={setPhone}
                 onFocus={handleFocus}
-                keyboardType="phone-pad"
-                placeholder="+63 912 345 6789"
+                placeholder="09171234567"
                 placeholderTextColor="#9CA3AF"
-                autoFocus
-                className="text-[17px] text-ink border-b border-gray-200 pb-3 focus:border-brand"
+                keyboardType="phone-pad"
+                autoCapitalize="none"
+                className="text-[17px] text-ink border-b border-gray-200 pb-3"
+              />
+            </View>
+
+            <View className="mb-8">
+              <Text className="text-[13px] font-medium text-ink-soft mb-2 uppercase tracking-wide">
+                Password
+              </Text>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                onFocus={handleFocus}
+                placeholder="Enter password"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry
+                className="text-[17px] text-ink border-b border-gray-200 pb-3"
               />
             </View>
 
             <Pressable
-              onPress={handleSendCode}
+              onPress={handleLogin}
               disabled={loading}
-              className="bg-brand rounded-2xl py-4 items-center active:opacity-85"
+              className="bg-brand rounded-2xl py-4 items-center mb-6 active:opacity-85"
             >
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-white font-semibold text-[16px]">Send code</Text>
+                <Text className="text-white font-semibold text-[16px]">Sign In</Text>
               )}
             </Pressable>
 
-            <View className="flex-row justify-center mt-8">
-              <Text className="text-ink-soft text-[14px]">No account yet? </Text>
-              <Link href="/(auth)/register" asChild>
-                <Pressable>
-                  <Text className="text-brand font-semibold text-[14px]">Register</Text>
-                </Pressable>
-              </Link>
+            <View className="flex-row justify-center items-center">
+              <Text className="text-ink-soft text-[14px]">Don't have an account? </Text>
+              <Pressable onPress={() => router.push("/(auth)/register")}>
+                <Text className="text-brand font-semibold text-[14px]">Register</Text>
+              </Pressable>
             </View>
           </View>
         </ScrollView>

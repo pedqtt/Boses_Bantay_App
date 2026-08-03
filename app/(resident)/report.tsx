@@ -11,7 +11,7 @@ import {
   setAudioModeAsync,
 } from "expo-audio";
 import { transcribeVoiceReport } from "@/lib/api/transcribe";
-import { submitReport, type ReportDraft } from "@/lib/api/mockData";
+import { supabase } from "@/lib/supabase";
 import { REPORT_QUESTIONS, TOTAL_STEPS, getChapterProgress, type ReportFieldKey } from "@/lib/reportQuestions";
 import { IntroScreen } from "@/components/report/IntroScreen";
 import { StepScreen } from "@/components/report/StepScreen";
@@ -254,14 +254,42 @@ export default function ReportScreen() {
       return;
     }
     setSubmitting(true);
+    
     try {
+      // 1. Gather the answers
       const draft = REPORT_QUESTIONS.reduce(
         (acc, q) => ({ ...acc, [q.key]: answers[q.key].text.trim() }),
-        {} as ReportDraft
+        {} as Record<string, string> // Explicit typing added here to satisfy TypeScript
       );
-      const result = await submitReport(draft);
-      setReferenceNo(result.referenceNo);
+
+      // 2. Generate a random Reference Number (e.g., BGY-123456)
+      const refNo = `BGY-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      // 3. Get the current logged-in user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("You must be logged in to submit a report.");
+      }
+
+      // 4. Insert into Supabase
+      const { error } = await supabase
+        .from("reports") // Ensure this matches your Supabase table name
+        .insert({
+          reference_no: refNo,
+          user_id: user.id,
+          status: "Under Review", // Default status per your scope
+          category: draft.category || "General", // Adjust based on your question keys
+          summary: draft.what_happened || "Details provided in full report", // Adjust based on keys
+          full_details: draft // Saves all the question/answer pairs as JSON
+        });
+
+      if (error) throw error;
+
+      // 5. Success! Move to the next screen
+      setReferenceNo(refNo);
       setStage("submitted");
+      
     } catch (err: any) {
       Alert.alert("Hindi naipasa ang report", err?.message ?? "Subukan po muli.");
     } finally {
