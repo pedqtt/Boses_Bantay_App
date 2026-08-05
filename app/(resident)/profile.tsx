@@ -7,10 +7,13 @@ import { signOut } from "@/lib/api/auth";
 import { Card } from "@/components/Card";
 import { SectionLabel } from "@/components/SectionLabel";
 
+// Keys must match ResidentProfile["barangayIdStatus"] exactly (lib/api/auth.ts)
+// — this previously used "pending"/"verified", which don't exist in that
+// type, so the row always rendered blank for every real status value.
 const ID_STATUS_LABEL: Record<string, string> = {
   unverified: "Not submitted",
-  pending: "Pending review",
-  verified: "Verified",
+  secretary_verified: "Almost there",
+  pb_authorized: "Verified",
 };
 
 // No per-row colored icon circle: five identical blue badges in a list read
@@ -74,7 +77,11 @@ export default function ProfileScreen() {
             icon="card-outline"
             label="Barangay ID"
             value={ID_STATUS_LABEL[profile?.barangayIdStatus ?? "unverified"]}
-            onPress={() => {}}
+            onPress={
+              profile?.barangayIdStatus === "pb_authorized"
+                ? undefined
+                : () => router.push("/(resident)/verify-id")
+            }
           />
           <Row icon="notifications-outline" label="Notifications" onPress={() => {}} />
           <Row icon="help-circle-outline" label="Help & support" onPress={() => {}} isLast />

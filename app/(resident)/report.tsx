@@ -12,11 +12,13 @@ import {
 } from "expo-audio";
 import { transcribeVoiceReport } from "@/lib/api/transcribe";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import { REPORT_QUESTIONS, TOTAL_STEPS, getChapterProgress, type ReportFieldKey } from "@/lib/reportQuestions";
 import { IntroScreen } from "@/components/report/IntroScreen";
 import { StepScreen } from "@/components/report/StepScreen";
 import { ReviewScreen } from "@/components/report/ReviewScreen";
 import { SubmittedScreen } from "@/components/report/SubmittedScreen";
+import { VerificationRequiredScreen } from "@/components/report/VerificationRequiredScreen";
 import { EMPTY_ANSWER, type AnswersMap } from "@/components/report/types";
 
 /*
@@ -55,6 +57,7 @@ function makeEmptyAnswers(): AnswersMap {
 const MIN_RECORDING_MS = 1000;
 
 export default function ReportScreen() {
+  const { profile } = useAuth();
   const [stage, setStage] = useState<Stage>("intro");
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswersMap>(makeEmptyAnswers);
@@ -303,6 +306,27 @@ export default function ReportScreen() {
   // here (tab bar FAB, or a "File a report" card from another screen).
   function exitToHome() {
     router.push("/(resident)/home");
+  }
+
+  // Gate the entire flow behind full Barangay ID authorization, not just
+  // "logged in" — an unverified account has already gotten past OTP/login,
+  // so without this check anyone could file blotter reports before staff
+  // ever confirmed their ID is real. "pb_authorized" (not
+  // "secretary_verified") is deliberately the bar here: pending.tsx uses
+  // that same threshold to unlock Home in the first place, so a resident
+  // reaching this screen has already been let into the app under that
+  // rule — this just re-checks it at the point that actually matters
+  // (submitting a report), in case status was reset or a session got
+  // reused after a rejection.
+  const isFullyVerified = profile?.barangayIdStatus === "pb_authorized";
+  if (!isFullyVerified) {
+    return (
+      <VerificationRequiredScreen
+        status={profile?.barangayIdStatus ?? "unverified"}
+        onGoVerify={() => router.push("/(resident)/verify-id")}
+        onGoBack={exitToHome}
+      />
+    );
   }
 
   if (stage === "submitted") {

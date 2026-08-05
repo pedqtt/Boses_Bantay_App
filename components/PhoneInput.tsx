@@ -1,0 +1,113 @@
+import { useState } from "react";
+import { View, Text, TextInput } from "react-native";
+import { normalizePhoneDigits, formatPhoneDisplay } from "@/lib/validation";
+
+// "0917 123 4567" - the longest the formatted display can ever be (11
+// digits + 2 grouping spaces). Passed to TextInput's own maxLength as a
+// hard, native-level ceiling - belt-and-suspenders alongside
+// normalizePhoneDigits capping the stored value, so there's no frame where
+// a 12th digit is visible before the state-driven cap corrects it away.
+const MAX_FORMATTED_LENGTH = 13;
+
+type PhoneInputProps = {
+  label: string;
+  /** The 11-digit local number, leading "0" included (e.g. "09171234567"). */
+  digits: string;
+  onChangeDigits: (digits: string) => void;
+  onFocus?: (e: any) => void;
+  onBlur?: () => void;
+  error?: string | null;
+  autoFocus?: boolean;
+};
+
+/**
+ * Shared PH mobile number field for login and register. "+63" is a fixed,
+ * non-editable label - not typed text the resident could accidentally
+ * delete, duplicate (by also typing their own "+63" or "0"), or leave
+ * half-erased - so there's exactly one way this field can be filled in
+ * correctly, not several formats that all have to be separately validated
+ * and separately explained when they're wrong. Plain gray text at the same
+ * size/weight as the number itself, with a thin vertical rule as the only
+ * separator - no chip, no background fill; it reads as part of the same
+ * quiet field as every other input in these two screens, not a distinct
+ * component bolted onto it.
+ *
+ * Every keystroke goes through normalizePhoneDigits before it's stored:
+ * non-digits are dropped, and anything past the 11th digit is discarded  -
+ * both in state (normalizePhoneDigits) and at the native input level
+ * (maxLength below) - rather than silently accepted and only caught as an
+ * error later. The leading "0" is kept as part of what's typed (this is
+ * the full local format, "09171234567"); "+63" next to it is a label for
+ * the country the number belongs to, not a replacement for the 0.
+ *
+ * BUG FIX: the displayed value is re-grouped with spaces ("917 123 4567")
+ * on every keystroke, which changes the string's length out from under
+ * the cursor. Without pinning `selection` explicitly, React Native resets
+ * the cursor to the start of the field after that kind of controlled
+ * reformat - so the *next* key typed lands at position 0 instead of the
+ * end, which looked like "the number I pressed doesn't register" (it
+ * registers, just in the wrong place, silently reordering digits as you
+ * type). Forcing selection to the end after every change is what fixes it;
+ * phone entry is effectively always append-only, so pinning the cursor to
+ * the end doesn't cost anything a resident would actually want to do
+ * (there's no real use case for editing digits in the middle of a phone
+ * number instead of clearing and retyping).
+ */
+export function PhoneInput({
+  label,
+  digits,
+  onChangeDigits,
+  onFocus,
+  onBlur,
+  error,
+  autoFocus,
+}: PhoneInputProps) {
+  const formatted = formatPhoneDisplay(digits);
+  const [selection, setSelection] = useState<{ start: number; end: number } | undefined>(undefined);
+
+  function handleChangeText(t: string) {
+    const nextDigits = normalizePhoneDigits(t);
+    const nextFormatted = formatPhoneDisplay(nextDigits);
+    onChangeDigits(nextDigits);
+    // Pin the cursor to the end of what the field will render next, not
+    // wherever RN would otherwise leave it after the text underneath it
+    // changed length.
+    setSelection({ start: nextFormatted.length, end: nextFormatted.length });
+  }
+
+  return (
+    <View>
+      <Text className="text-[13px] font-medium text-ink-soft mb-2 uppercase tracking-wide">
+        {label}
+      </Text>
+      <View
+        className="flex-row items-center border-b pb-3"
+        style={{ borderColor: error ? "#DC2626" : "#E5E7EB" }}
+      >
+        <Text className="text-[17px] text-gray-400">+63</Text>
+        <View className="w-px h-4 bg-gray-300 mx-2.5" />
+        <TextInput
+          value={formatted}
+          onChangeText={handleChangeText}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          selection={selection}
+          onSelectionChange={() => {
+            // Once RN reports the cursor is where we told it to be, stop
+            // forcing it - lets a resident still tap into the middle of
+            // the field (e.g. to select-all and retype) without the next
+            // render yanking the cursor back to our pinned position.
+            setSelection(undefined);
+          }}
+          placeholder="0917 123 4567"
+          placeholderTextColor="#9CA3AF"
+          keyboardType="number-pad"
+          maxLength={MAX_FORMATTED_LENGTH}
+          autoFocus={autoFocus}
+          className="flex-1 text-[17px] text-ink"
+        />
+      </View>
+      {error && <Text className="text-[12px] text-alert mt-1.5">{error}</Text>}
+    </View>
+  );
+}
