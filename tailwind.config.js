@@ -17,8 +17,10 @@ module.exports = {
           dark: "#1638A8",
           light: "#EBF1FE",
         },
-        // Reserved urgency/alert color — active incidents that need attention.
-        // Used nowhere else in the app, so its meaning stays unambiguous.
+        // Reserved urgency/alert color — active incidents, urgent contacts
+        // (directory.tsx), and the Emergency quick-access icon (home.tsx)
+        // are the intentional uses. Never use for a purely
+        // navigational/non-urgent element.
         alert: {
           50: "#FEF2F2",
           100: "#FEE2E2",

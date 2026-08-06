@@ -5,6 +5,7 @@ import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { BackButton } from "@/components/BackButton";
 import { CHAPTERS, REPORT_QUESTIONS, type ReportFieldKey } from "@/lib/reportQuestions";
 import { AnswerEditor } from "./AnswerEditor";
+import { DraftBadge } from "./DraftBadge";
 import type { AnswersMap } from "./types";
 
 type ReviewScreenProps = {
@@ -12,6 +13,7 @@ type ReviewScreenProps = {
   submitting: boolean;
   stillTranscribing: boolean;
   onChangeAnswerText: (key: ReportFieldKey, text: string) => void;
+  onJumpToStep: (key: ReportFieldKey) => void;
   onSubmit: () => void;
   onBackToQuestions: () => void;
 };
@@ -28,9 +30,17 @@ export function ReviewScreen({
   submitting,
   stillTranscribing,
   onChangeAnswerText,
+  onJumpToStep,
   onSubmit,
   onBackToQuestions,
 }: ReviewScreenProps) {
+  // guardianName only exists as a real question when the resident is filing
+  // as a guardian — otherwise it was never shown/answered in the step flow,
+  // so surfacing it here as "Kailangan pong sagutin ito" would be a false
+  // missing-field warning for the common case (filing for yourself).
+  const isApplicable = (q: (typeof REPORT_QUESTIONS)[number]) =>
+    q.key !== "guardianName" || answers.filedByGuardian?.value === "guardian";
+
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
@@ -43,11 +53,14 @@ export function ReviewScreen({
           <View className="mb-3">
             <BackButton onPress={onBackToQuestions} />
           </View>
+          <View className="mb-3">
+            <DraftBadge />
+          </View>
           <Text className={`${REPORT_TYPE.heroTitle} mb-2`}>Suriin ang report</Text>
           <Text className={`${REPORT_TYPE.subtitle} mb-8`}>Itama po ang anumang mali bago ipasa.</Text>
 
           {CHAPTERS.map((chapter) => {
-            const chapterQuestions = REPORT_QUESTIONS.filter((q) => q.chapter === chapter.key);
+            const chapterQuestions = REPORT_QUESTIONS.filter((q) => q.chapter === chapter.key && isApplicable(q));
             return (
               <View key={chapter.key} className="mb-7">
                 <Text className={`${REPORT_TYPE.eyebrowBrand} mb-3`}>{chapter.label}</Text>
@@ -65,15 +78,34 @@ export function ReviewScreen({
                         {!q.required && <Text className={`${REPORT_TYPE.caption} ml-2`}>(opsyonal)</Text>}
                       </View>
 
-                      <AnswerEditor
-                        value={a.text}
-                        onChangeText={(text) => onChangeAnswerText(q.key, text)}
-                        placeholder={q.placeholder}
-                        isTranscribing={a.status === "transcribing"}
-                        tall={q.key === "description"}
-                        errorMessage={a.status === "error" ? a.error : undefined}
-                        missingMessage={isMissing ? "Kailangan pong sagutin ito." : undefined}
-                      />
+                      {q.inputType === "voice" ? (
+                        <AnswerEditor
+                          value={a.text}
+                          onChangeText={(text) => onChangeAnswerText(q.key, text)}
+                          placeholder={q.placeholder ?? ""}
+                          isTranscribing={a.status === "transcribing"}
+                          tall={q.key === "description"}
+                          errorMessage={a.status === "error" ? a.error : undefined}
+                          missingMessage={isMissing ? "Kailangan pong sagutin ito." : undefined}
+                        />
+                      ) : (
+                        <View>
+                          <Pressable
+                            onPress={() => onJumpToStep(q.key)}
+                            className={`flex-row items-center justify-between rounded-2xl px-4 py-3.5 active:opacity-70 ${
+                              isMissing ? "border border-alert" : "bg-gray-50 border border-gray-200"
+                            }`}
+                          >
+                            <Text className={a.text ? `${REPORT_TYPE.body} flex-1` : `${REPORT_TYPE.body} flex-1 text-ink-faint`}>
+                              {a.text || "Hindi pa nasagot"}
+                            </Text>
+                            <Text className={`${REPORT_TYPE.linkBrand} ml-2`}>Baguhin</Text>
+                          </Pressable>
+                          {isMissing && (
+                            <Text className={`${REPORT_TYPE.caption} text-alert mt-1.5`}>Kailangan pong sagutin ito.</Text>
+                          )}
+                        </View>
+                      )}
                     </View>
                   );
                 })}
@@ -90,7 +122,7 @@ export function ReviewScreen({
           <Pressable
             onPress={onSubmit}
             disabled={submitting}
-            className="bg-brand rounded-2xl py-4 items-center active:opacity-85 mb-3"
+            className="bg-brand rounded-2xl py-4 items-center overflow-hidden active:opacity-85 mb-3"
           >
             {submitting ? <ActivityIndicator color="white" /> : <Text className={REPORT_TYPE.buttonPrimary}>Ipasa ang report</Text>}
           </Pressable>

@@ -14,6 +14,7 @@ import { router, useFocusEffect, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { sendBotMessage, type ChatMessage } from "@/lib/api/mockData";
 import { BackButton } from "@/components/BackButton";
+import { colors } from "@/lib/theme";
 
 export default function BotScreen() {
   // Same tab-bar-hiding recipe used on the report flow: a chat screen with
@@ -70,7 +71,7 @@ export default function BotScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
       <View className="flex-row items-center px-5 pt-3 pb-4">
         <View className="mr-2">
           <BackButton onPress={goBack} />
@@ -118,7 +119,7 @@ export default function BotScreen() {
                 </Text>
               </View>
             ))}
-            {sending && <ActivityIndicator className="self-start" color="#1D4ED8" />}
+            {sending && <ActivityIndicator className="self-start" color={colors.primary} />}
           </View>
         </ScrollView>
 
@@ -132,7 +133,7 @@ export default function BotScreen() {
             // area rather than sitting behind the keyboard.
             onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150)}
             placeholder="Type a message…"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.outline}
             className="flex-1 bg-gray-100 rounded-full px-4 py-3 text-[14px] text-ink"
             onSubmitEditing={handleSend}
             returnKeyType="send"

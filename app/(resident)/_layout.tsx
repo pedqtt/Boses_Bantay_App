@@ -4,6 +4,7 @@ import { View, Text, Pressable, Animated, PanResponder, Dimensions } from "react
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
+import { colors } from "@/lib/theme";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -28,7 +29,7 @@ function TabIcon({
     <View
       className={`w-12 h-8 rounded-full items-center justify-center ${focused ? "bg-brand-50" : ""}`}
     >
-      <Ionicons name={focused ? filled : outline} size={22} color={focused ? "#1D4ED8" : color} />
+      <Ionicons name={focused ? filled : outline} size={22} color={focused ? colors.primary : color} />
     </View>
   );
 }
@@ -72,6 +73,13 @@ function TabLabel({ focused, color, children }: { focused: boolean; color: strin
  * minimalist means restrained, not absent. The label stays beneath it, same
  * as every other tab — a FAB with no text label would break the app's
  * standing rule that icons are always paired with text.
+ *
+ * This IS a deliberate exception to Card.tsx's "flat, no shadow anywhere"
+ * rule, not an oversight to flatten later — it's reserved for floating
+ * chrome that sits outside the normal content flow (this FAB, BotFab, the
+ * tab bar itself below). In-content Cards should never gain a shadow; a
+ * hairline border still does that job. Floating controls are the one place
+ * a shadow is doing real work (signaling "above," not "separate from").
  */
 function ReportFabButton({ onPress, accessibilityState }: BottomTabBarButtonProps) {
   const focused = Boolean(accessibilityState?.selected);
@@ -98,7 +106,7 @@ function ReportFabButton({ onPress, accessibilityState }: BottomTabBarButtonProp
           // BotFab already uses, just slightly stronger since this one's
           // the higher-stakes control (Fitts's Law still applies to
           // depth cues, not just size).
-          shadowColor: "#1D4ED8",
+          shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.14,
           shadowRadius: 5,
@@ -112,7 +120,7 @@ function ReportFabButton({ onPress, accessibilityState }: BottomTabBarButtonProp
           marginTop: 4,
           // Same `ink-faint` (#4B5563) inactive color as the rest of the
           // bar — see the tabBarInactiveTintColor comment below for why.
-          color: focused ? "#1D4ED8" : "#4B5563",
+          color: focused ? colors.primary : colors.onSurfaceFaint,
           fontSize: focused ? 11 : 10.5,
           fontWeight: focused ? "700" : "500",
         }}
@@ -276,7 +284,7 @@ function BotFab({
           borderRadius: FAB_SIZE / 2,
           borderWidth: 4,
           borderColor: "white",
-          shadowColor: "#1D4ED8",
+          shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 1 },
           shadowOpacity: 0.08,
           shadowRadius: 4,
@@ -319,7 +327,7 @@ export default function ResidentLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#1D4ED8",
+        tabBarActiveTintColor: colors.primary,
         // This is the app's `ink-faint` token (#4B5563), not an arbitrary
         // gray — reused here rather than a fresh hex value so the tab
         // labels meet the same WCAG AA contrast floor already established
@@ -328,7 +336,7 @@ export default function ResidentLayout() {
         // borderline-AA than genuinely safe at this label's small size —
         // "legible under stress" (skill constraint 6) means erring toward
         // more contrast, not the minimum that technically passes.
-        tabBarInactiveTintColor: "#4B5563",
+        tabBarInactiveTintColor: colors.onSurfaceFaint,
         tabBarStyle: {
           height: 64 + insets.bottom,
           paddingBottom: insets.bottom + 6,
@@ -339,7 +347,10 @@ export default function ResidentLayout() {
           // the two FABs above it, rather than a drawn rule. Subtle on
           // purpose (low opacity, small radius): minimalism here means one
           // quiet depth signal for the whole bar, not a heavy card-style
-          // shadow competing with the FABs for attention.
+          // shadow competing with the FABs for attention. This, the two
+          // FABs above, and no other surface in the app are the deliberate
+          // exception to Card.tsx's flat/no-shadow rule — see the
+          // ReportFabButton comment above for the full reasoning.
           shadowColor: "#000000",
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.06,

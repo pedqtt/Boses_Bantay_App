@@ -36,15 +36,29 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // without a server — each one is a plausible answer to that specific
 // question, not a generic blob, which makes the review screen actually
 // useful to design and test against.
+// Only "voice" questions ever actually reach this function (choice/checkbox
+// questions are answered by tapping a chip, not recording — see
+// components/report/ChoiceStep.tsx), but the type stays exhaustive over
+// every ReportFieldKey so adding a field to reportQuestions.ts without
+// updating this file is a compile error, not a silent runtime gap.
 const MOCK_ANSWERS: Record<ReportFieldKey, string> = {
-  reporter: "Ako po si Maria Santos, taga-Purok 3, Blok 7 Lote 12, dito po sa barangay.",
+  complainantName: "Maria Santos",
+  complainantAddress: "Purok 3, Blok 7 Lote 12, dito po sa barangay.",
+  complainantAge: "34 anyos po.",
+  complainantContact: "09171234567",
+  complainantGender: "",
+  filedByGuardian: "",
+  guardianName: "",
   incidentAt: "Kagabi po, mga alas-onse ng gabi hanggang madaling araw.",
   location: "Sa tapat po ng bahay namin sa Purok 3, malapit sa sari-sari store ni Aling Nena.",
-  otherParties: "Si Mang Rudy po, yung kapitbahay namin sa katabing bahay.",
+  respondentName: "Si Mang Rudy po, yung kapitbahay namin sa katabing bahay.",
   description:
     "Sobrang lakas po ng videoke nila kagabi, hindi po kami makatulog. Pangatlong beses na po ito ngayong buwan. Nakiusap na po ako noong isang linggo pero hindi po nila pinansin. Yung mga bata po namin, may klase pa kinabukasan at hindi po nakatulog nang maayos.",
   witnesses: "Meron po, si Aling Nena at yung pamilya po sa kabilang bahay, nakarinig din po sila.",
   evidence: "May video po ako sa cellphone ko na kinunan ko kagabi, madadala ko po.",
+  blotterType: "",
+  incidentCategory: "",
+  requestCctv: "",
 };
 
 const GENERIC_MOCK =

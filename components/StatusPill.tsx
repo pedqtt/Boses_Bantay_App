@@ -21,7 +21,9 @@ import type { ReportSummary } from "@/lib/api/mockData";
 // platform default (black) no matter what the wrapping View says.
 const STATUS_META: Record<ReportSummary["status"], { bg: string; text: string; dot: string }> = {
   "Under Review": { bg: "bg-amber-700", text: "text-white", dot: "bg-white" },
+  Forwarded: { bg: "bg-brand", text: "text-white", dot: "bg-white" },
   Investigating: { bg: "bg-alert", text: "text-white", dot: "bg-white" },
+  "CFA Issued": { bg: "bg-purple-700", text: "text-white", dot: "bg-white" },
   Resolved: { bg: "bg-green-700", text: "text-white", dot: "bg-white" },
 };
 

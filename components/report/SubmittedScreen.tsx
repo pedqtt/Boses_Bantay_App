@@ -3,6 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { CLOSING_COPY } from "@/lib/reportQuestions";
+import { DraftBadge } from "./DraftBadge";
 
 type SubmittedScreenProps = {
   referenceNo: string;
@@ -27,11 +28,14 @@ export function SubmittedScreen({ referenceNo, onViewReports, onFileAnother }: S
         {/* A separate thought from the reference number above it (an
             explanation, not a continuation) — real gap above it rather than
             the tight rhythm used for the title/subtitle pair. */}
-        <Text className={`${REPORT_TYPE.hint} text-center max-w-[290px] mb-8`}>{CLOSING_COPY.body}</Text>
+        <Text className={`${REPORT_TYPE.hint} text-center max-w-[290px] mb-4`}>{CLOSING_COPY.body}</Text>
+        <View className="mb-8">
+          <DraftBadge />
+        </View>
 
         <Pressable
           onPress={onViewReports}
-          className="bg-brand rounded-2xl py-4 px-8 items-center active:opacity-85 mb-3 w-full"
+          className="bg-brand rounded-2xl py-4 px-8 items-center overflow-hidden active:opacity-85 mb-3 w-full"
         >
           <Text className={REPORT_TYPE.buttonPrimary}>Tingnan ang aking reports</Text>
         </Pressable>

@@ -124,6 +124,17 @@ export default function ReportScreen() {
     setAnswers((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
   }, []);
 
+  /** Choice/checkbox questions don't record — selecting an option is the
+   *  whole answer. `label` becomes `.text` (so review/validation logic that
+   *  already checks `.text.trim()` doesn't need a second code path), and
+   *  `value` is the stable machine value the DB actually stores. */
+  const selectChoice = useCallback(
+    (key: ReportFieldKey, value: string, label: string) => {
+      setAnswer(key, { text: label, value, status: "done" });
+    },
+    [setAnswer]
+  );
+
   /** Fire-and-forget transcription. Deliberately not awaited by the caller
    *  so the resident can advance to the next question while this runs — by
    *  the time they finish the interview most answers are already back,
@@ -214,25 +225,59 @@ export default function ReportScreen() {
     if (answer.uri) transcribeInBackground(question.key, answer.uri);
   }
 
+  // guardianName only makes sense when filing on a minor's behalf — for
+  // every other resident it's dead weight in the middle of the flow, so it
+  // gets skipped automatically in both directions instead of relying on
+  // "Laktawan," which exists for genuinely optional fields, not ones that
+  // don't apply at all.
+  function isStepApplicable(index: number): boolean {
+    const key = REPORT_QUESTIONS[index]?.key;
+    if (key !== "guardianName") return true;
+    return answers.filedByGuardian?.value === "guardian";
+  }
+
   function goNext() {
     if (isLastStep) {
       setStage("review");
+      return;
+    }
+    let next = stepIndex + 1;
+    while (next < TOTAL_STEPS && !isStepApplicable(next)) next += 1;
+    if (next >= TOTAL_STEPS) {
+      setStage("review");
     } else {
-      setStepIndex((i) => i + 1);
+      setStepIndex(next);
     }
   }
 
   function goBack() {
     if (stepIndex === 0) {
       setStage("intro");
+      return;
+    }
+    let prev = stepIndex - 1;
+    while (prev > 0 && !isStepApplicable(prev)) prev -= 1;
+    if (prev === 0 && !isStepApplicable(0)) {
+      setStage("intro");
     } else {
-      setStepIndex((i) => i - 1);
+      setStepIndex(prev);
     }
   }
 
   function startFlow() {
     flowId.current += 1;
-    setAnswers(makeEmptyAnswers());
+    const initial = makeEmptyAnswers();
+    // The app already knows these from signup — re-asking is real friction
+    // for no reason (the "keep the flow short" accessibility guidance this
+    // question set is built from). Both stay fully editable; this is a
+    // starting point, not a lock.
+    if (profile?.fullName) {
+      initial.complainantName = { ...EMPTY_ANSWER, text: profile.fullName, status: "done" };
+    }
+    if (profile?.phone) {
+      initial.complainantContact = { ...EMPTY_ANSWER, text: profile.phone, status: "done" };
+    }
+    setAnswers(initial);
     setStepIndex(0);
     setStage("step");
   }
@@ -256,13 +301,20 @@ export default function ReportScreen() {
       Alert.alert("Kulang pa ang detalye", `Kailangan pa pong sagutin: ${missingRequired.map((q) => q.label).join(", ")}.`);
       return;
     }
+    // guardianName isn't in the static `required` set (its requiredness is
+    // conditional, which that flag can't express — see reportQuestions.ts)
+    // so it needs its own check here instead.
+    if (answers.filedByGuardian?.value === "guardian" && !answers.guardianName?.text.trim()) {
+      Alert.alert("Kulang pa ang detalye", "Kailangan pa pong sagutin: Pangalan ng magulang/tagapag-alaga.");
+      return;
+    }
     setSubmitting(true);
-    
+
     try {
-      // 1. Gather the answers
+      // 1. Gather every answer as the full narrative record.
       const draft = REPORT_QUESTIONS.reduce(
         (acc, q) => ({ ...acc, [q.key]: answers[q.key].text.trim() }),
-        {} as Record<string, string> // Explicit typing added here to satisfy TypeScript
+        {} as Record<string, string>
       );
 
       // 2. Generate a random Reference Number (e.g., BGY-123456)
@@ -270,21 +322,34 @@ export default function ReportScreen() {
 
       // 3. Get the current logged-in user
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         throw new Error("You must be logged in to submit a report.");
       }
 
-      // 4. Insert into Supabase
+      // 4. Insert into Supabase. Fields the barangay interview flagged as
+      // needing to be independently searchable/filterable (respondent name,
+      // incident category, etc.) are promoted to real columns, not just
+      // buried in full_details — full_details still keeps the complete
+      // question/answer map as the narrative record of what was asked.
       const { error } = await supabase
-        .from("reports") // Ensure this matches your Supabase table name
+        .from("reports")
         .insert({
           reference_no: refNo,
           user_id: user.id,
-          status: "Under Review", // Default status per your scope
-          category: draft.category || "General", // Adjust based on your question keys
-          summary: draft.what_happened || "Details provided in full report", // Adjust based on keys
-          full_details: draft // Saves all the question/answer pairs as JSON
+          status: "Under Review",
+          category: draft.incidentCategory || "General",
+          summary: draft.description || "Details provided in full report",
+          full_details: draft,
+          complainant_age: draft.complainantAge ? Number(draft.complainantAge) || null : null,
+          complainant_contact: draft.complainantContact || null,
+          complainant_gender: answers.complainantGender?.value ?? null,
+          filed_by_guardian: answers.filedByGuardian?.value === "guardian",
+          guardian_name: draft.guardianName || null,
+          respondent_name: draft.respondentName || null,
+          blotter_type: answers.blotterType?.value ?? null,
+          incident_category: answers.incidentCategory?.value ?? null,
+          request_cctv_review: answers.requestCctv?.value === "true",
         });
 
       if (error) throw error;
@@ -292,7 +357,7 @@ export default function ReportScreen() {
       // 5. Success! Move to the next screen
       setReferenceNo(refNo);
       setStage("submitted");
-      
+
     } catch (err: any) {
       Alert.alert("Hindi naipasa ang report", err?.message ?? "Subukan po muli.");
     } finally {
@@ -349,6 +414,11 @@ export default function ReportScreen() {
         submitting={submitting}
         stillTranscribing={stillTranscribing}
         onChangeAnswerText={(key, text) => setAnswer(key, { text, status: "done" })}
+        onJumpToStep={(key) => {
+          const index = REPORT_QUESTIONS.findIndex((q) => q.key === key);
+          if (index >= 0) setStepIndex(index);
+          setStage("step");
+        }}
         onSubmit={handleSubmit}
         onBackToQuestions={() => {
           setStepIndex(0);
@@ -376,6 +446,7 @@ export default function ReportScreen() {
         metering={recorderState.metering}
         isPlaying={playerStatus.playing}
         onChangeText={(text) => setAnswer(question.key, { text, status: "done" })}
+        onSelectChoice={(value, label) => selectChoice(question.key, value, label)}
         onStartRecording={startRecording}
         onStopRecording={stopRecording}
         onPauseRecording={pauseRecording}

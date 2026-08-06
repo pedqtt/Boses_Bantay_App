@@ -1,5 +1,6 @@
 import { Pressable, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "@/lib/theme";
 
 /**
  * The one back-navigation control used at the top-left of every header in
@@ -31,8 +32,8 @@ export function BackButton({ onPress }: { onPress: () => void }) {
       className="flex-row items-center active:opacity-60"
       style={{ marginLeft: -4, paddingVertical: 4 }}
     >
-      <Ionicons name="chevron-back" size={24} color="#374151" />
-      <Text className="text-[15px] font-medium text-ink-soft ml-0.5">Bumalik</Text>
+      <Ionicons name="chevron-back" size={24} color={colors.onSurfaceVariant} />
+      <Text className="text-[17px] font-medium text-ink-soft ml-0.5">Bumalik</Text>
     </Pressable>
   );
 }

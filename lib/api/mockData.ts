@@ -6,7 +6,7 @@ export type ReportSummary = {
   id: string;
   referenceNo: string;
   category: "Dispute" | "Incident" | "Service Complaint";
-  status: "Under Review" | "Investigating" | "Resolved";
+  status: "Under Review" | "Forwarded" | "Investigating" | "Resolved" | "CFA Issued";
   createdAt: string;
   summary: string;
 };
@@ -72,7 +72,9 @@ const MOCK_CONTACTS: EmergencyContact[] = [
 const STATUS_PRIORITY: Record<ReportSummary["status"], number> = {
   Investigating: 0,
   "Under Review": 1,
-  Resolved: 2,
+  Forwarded: 2,
+  "CFA Issued": 3,
+  Resolved: 4,
 };
 
 export async function getMyReports(): Promise<ReportSummary[]> {

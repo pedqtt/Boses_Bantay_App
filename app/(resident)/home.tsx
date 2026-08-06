@@ -10,6 +10,8 @@ import { Card } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
 import { SectionLabel } from "@/components/SectionLabel";
 import { PressableScale } from "@/components/PressableScale";
+import { ScreenBackground } from "@/components/ScreenBackground";
+import { colors } from "@/lib/theme";
 
 export type HomeReportSummary = {
   id: string;
@@ -87,7 +89,8 @@ export default function ResidentHome() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView className="flex-1" edges={["top"]}>
+      <ScreenBackground>
       <ScrollView
         className="flex-1 px-5 pt-3"
         showsVerticalScrollIndicator={false}
@@ -96,8 +99,8 @@ export default function ResidentHome() {
         {/* Greeting Header */}
         <View className="mb-6">
           <Text className="text-[13px] text-ink-faint">Magandang araw,</Text>
-          <Text className="text-[22px] font-semibold text-ink tracking-tight">
-            <Text className="text-[22px] font-semibold text-ink tracking-tight">
+          <Text className="text-[28px] font-semibold text-ink tracking-tight">
+            <Text className="text-[28px] font-semibold text-ink tracking-tight">
               {profile
                 ? `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim() || "Resident"
                 : "Resident"}
@@ -109,7 +112,7 @@ export default function ResidentHome() {
         <PressableScale onPress={() => router.push("/(resident)/report")}>
           <View className="bg-brand rounded-2xl pl-4 pr-4 py-5 mb-8 flex-row items-center">
             <View className="w-11 h-11 rounded-full bg-white items-center justify-center">
-              <Ionicons name="mic" size={19} color="#1D4ED8" />
+              <Ionicons name="mic" size={20} color={colors.primary} />
             </View>
             <View className="flex-1 ml-3.5">
               <Text className="text-white font-semibold text-[16px] tracking-tight">
@@ -190,12 +193,15 @@ export default function ResidentHome() {
         {/* Live Recent Reports Section */}
         {loading ? (
           <Card className="p-8 items-center mb-8">
-            <ActivityIndicator color="#1D4ED8" />
+            <ActivityIndicator color={colors.primary} />
+            <Text className="text-[13px] text-ink-faint mt-3">Naglo-load...</Text>
           </Card>
         ) : reports.length === 0 ? (
-          <Card className="p-5 items-center mb-8">
-            <Text className="text-[14px] text-ink-faint text-center">
-              No reports yet. Anything you file will show up here.
+          <Card className="p-8 items-center mb-8">
+            <Ionicons name="document-text-outline" size={32} color={colors.outlineFaint} />
+            <Text className="text-[15px] font-semibold text-ink mt-2">Wala pang ulat</Text>
+            <Text className="text-[12px] text-ink-faint text-center mt-1">
+              Ang mga ulat na inyong isasampa ay lalabas dito.
             </Text>
           </Card>
         ) : (
@@ -218,6 +224,7 @@ export default function ResidentHome() {
           </View>
         )}
       </ScrollView>
+    </ScreenBackground>
     </SafeAreaView>
   );
 }

@@ -4,9 +4,8 @@ import {
   Text,
   ActivityIndicator,
   Pressable,
-  ScrollView,
-  KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -15,6 +14,8 @@ import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 import { getPhoneError, PHONE_FORMAT_HINT } from "@/lib/validation";
 import { PhoneInput } from "@/components/PhoneInput";
 import { BackButton } from "@/components/BackButton";
+import { ScreenBackground } from "@/components/ScreenBackground";
+import { AuthActionGroup } from "@/components/AuthActionGroup";
 
 /**
  * Step 1 of "forgot password": confirm the number actually has an account
@@ -29,7 +30,8 @@ export default function ForgotPasswordScreen() {
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
-  const { scrollRef, handleFocus, handleContainerLayout } = useKeyboardFocusScroll();
+  const { scrollRef, handleFocus, handleContainerLayout, handleScroll, keyboardSpacer } =
+    useKeyboardFocusScroll();
 
   async function handleSendCode() {
     const formatError = getPhoneError(phone);
@@ -59,29 +61,40 @@ export default function ForgotPasswordScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+      <ScreenBackground>
+      <View style={{ flex: 1 }}>
+        {/* Footer lives outside this ScrollView - see login.tsx for why. */}
         <ScrollView
           ref={scrollRef}
           onLayout={handleContainerLayout}
-          contentContainerStyle={{ flexGrow: 1 }}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: keyboardSpacer }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View className="flex-1 px-8 pt-6">
+          {/* Nav + heading act as the header at top, the field group is
+              centered in the space below it - the action cluster is now
+              the fixed footer below the ScrollView. */}
+          {/* 24 top - the back button supplies its own visual offset from
+              the edge. */}
+          <View className="flex-1 px-8" style={{ paddingTop: 24 }}>
             <View className="mb-8 self-start">
               <BackButton onPress={() => router.back()} />
             </View>
 
-            <Text className="text-[26px] font-semibold text-ink tracking-tight mb-2">
-              Nakalimutan ang Password
-            </Text>
-            <Text className="text-[13px] text-ink-soft mb-8 leading-5">
-              Ilagay ang numero ng mobile na ginamit ninyo noong nagparehistro. Magpapadala
-              kami ng verification code para makapag-set ng bagong password.
-            </Text>
+            <View>
+              <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
+                Nakalimutan ang Password
+              </Text>
+              <Text className="text-[15px] text-ink-soft leading-7">
+                Ilagay ang numero ng mobile na ginamit ninyo noong nagparehistro. Magpapadala
+                kami ng verification code para makapag-set ng bagong password.
+              </Text>
+            </View>
 
-            <View className="mb-8">
+            <View className="flex-1 justify-center py-8">
               <PhoneInput
                 label="Numero ng Mobile"
                 digits={phone}
@@ -92,28 +105,40 @@ export default function ForgotPasswordScreen() {
                 onFocus={handleFocus}
                 onBlur={() => setPhoneError(getPhoneError(phone))}
                 error={phoneError}
+                returnKeyType="send"
+                onSubmitEditing={handleSendCode}
               />
-              <Text className="text-[12px] text-ink-faint mt-1.5">{PHONE_FORMAT_HINT}</Text>
+              <Text className="text-[13px] text-ink-faint mt-1.5">{PHONE_FORMAT_HINT}</Text>
             </View>
+          </View>
+        </ScrollView>
 
+        <View
+          className="px-8"
+          style={{ paddingBottom: 56 + (Platform.OS === "ios" ? keyboardSpacer : 0) }}
+        >
+          <AuthActionGroup
+            secondary={
+              <Pressable onPress={() => router.replace("/(auth)/login")} hitSlop={8}>
+                <Text className="text-brand text-[16px] font-medium">Bumalik sa Login</Text>
+              </Pressable>
+            }
+          >
             <Pressable
               onPress={handleSendCode}
               disabled={checking}
-              className="bg-brand rounded-2xl py-4 items-center mb-4 active:opacity-85"
+              className={`rounded-2xl py-4 items-center overflow-hidden ${checking ? "bg-gray-300" : "bg-brand active:opacity-85"}`}
             >
               {checking ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-white font-semibold text-[16px]">Magpadala ng Code</Text>
+                <Text className="text-white font-semibold text-[18px]">Magpadala ng Code</Text>
               )}
             </Pressable>
-
-            <Pressable onPress={() => router.replace("/(auth)/login")} className="items-center py-2">
-              <Text className="text-brand text-[14px] font-medium">Bumalik sa Login</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </AuthActionGroup>
+        </View>
+      </View>
+      </ScreenBackground>
     </SafeAreaView>
   );
 }

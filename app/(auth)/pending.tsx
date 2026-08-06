@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { ScreenBackground } from "@/components/ScreenBackground";
 
 export default function PendingScreen() {
   const { profile, signOut } = useAuth();
@@ -28,21 +29,21 @@ export default function PendingScreen() {
 
         if (data?.barangay_id_status === "secretary_verified") {
           Alert.alert(
-            "Almost there!",
-            "The Secretary has verified your ID. We are just waiting for final authorization from the Punong Barangay."
+            "Malapit na po!",
+            "Na-verify na po ng Secretary ang inyong ID. Hinihintay na lang po ang huling pag-apruba ng Punong Barangay."
           );
           return;
         }
 
         Alert.alert(
-          "Still pending",
-          "Your account is still in the review queue. Please check back a little later."
+          "Pending pa po",
+          "Nasa review queue pa po ang inyong account. Paki-check po muli mamaya."
         );
       } else {
         Alert.alert("Mock Mode", "In mock mode, update the status in Supabase to test approval.");
       }
     } catch (err: any) {
-      Alert.alert("Error checking status", err.message);
+      Alert.alert("May problema sa pag-check", err.message);
     } finally {
       setLoading(false);
     }
@@ -54,44 +55,47 @@ export default function PendingScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+      <ScreenBackground>
       <View className="flex-1 px-8 justify-center items-center">
         <View className="w-20 h-20 rounded-full bg-orange-100 items-center justify-center mb-8">
-          <Text className="text-[32px]">⏳</Text>
+          <Text className="text-[34px]">⏳</Text>
         </View>
 
-        <Text className="text-[24px] font-semibold text-ink tracking-tight mb-3 text-center">
-          Account Under Review
+        <Text className="text-[28px] font-semibold text-ink tracking-tight mb-3 text-center">
+          Sinusuri pa ang Account
         </Text>
-        
-        <Text className="text-[15px] text-ink-soft mb-2 text-center leading-6">
-          Thank you for uploading your Barangay ID, {profile?.firstName || "Resident"}.
+
+        <Text className="text-[15px] text-ink-soft mb-2 text-center leading-7">
+          Salamat po sa pag-upload ng inyong Barangay ID, {profile?.firstName || "Residente"}.
         </Text>
-        
-        <Text className="text-[15px] text-ink-soft mb-10 text-center leading-6">
-          Your account is currently pending review by the Barangay Secretary and final authorization by the Punong Barangay.
+
+        <Text className="text-[15px] text-ink-soft mb-10 text-center leading-7">
+          Kasalukuyang sinusuri po ang inyong account ng Barangay Secretary, at hinihintay ang
+          huling pag-apruba ng Punong Barangay.
         </Text>
 
         <Pressable
           onPress={handleCheckStatus}
           disabled={loading}
-          className="bg-brand w-full rounded-2xl py-4 items-center mb-4 active:opacity-85"
+          className={`w-full rounded-2xl py-4 items-center mb-4 overflow-hidden ${loading ? "bg-gray-300" : "bg-brand active:opacity-85"}`}
         >
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-white font-semibold text-[16px]">
-              Check Approval Status
+            <Text className="text-white font-semibold text-[18px]">
+              I-check ang Status
             </Text>
           )}
         </Pressable>
 
-        <Pressable onPress={handleSignOut} className="py-4">
-          <Text className="text-ink-soft font-medium text-[15px]">
-            Log out for now
+        <Pressable onPress={handleSignOut} className="py-4" hitSlop={8}>
+          <Text className="text-ink-soft font-medium text-[17px]">
+            Mag-log out muna
           </Text>
         </Pressable>
       </View>
+      </ScreenBackground>
     </SafeAreaView>
   );
 }

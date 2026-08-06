@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { View, Text, TextInput } from "react-native";
+import { forwardRef, useState } from "react";
+import { View, Text, TextInput, type ReturnKeyTypeOptions } from "react-native";
 import { normalizePhoneDigits, formatPhoneDisplay } from "@/lib/validation";
+import { colors, fieldBorderColor } from "@/lib/theme";
 
 // "0917 123 4567" - the longest the formatted display can ever be (11
 // digits + 2 grouping spaces). Passed to TextInput's own maxLength as a
@@ -18,6 +19,15 @@ type PhoneInputProps = {
   onBlur?: () => void;
   error?: string | null;
   autoFocus?: boolean;
+  // Keyboard-return-key chaining, same idea as web's Tab/Enter between
+  // fields: "next" moves to whatever field is passed via onSubmitEditing,
+  // the last field in a form instead gets "done"/"go"/"send" from the
+  // caller and submits. blurOnSubmit defaults to false whenever
+  // onSubmitEditing is provided, so advancing to the next field doesn't
+  // also flash the keyboard closed and reopen it a frame later.
+  returnKeyType?: ReturnKeyTypeOptions;
+  onSubmitEditing?: () => void;
+  blurOnSubmit?: boolean;
 };
 
 /**
@@ -53,17 +63,29 @@ type PhoneInputProps = {
  * (there's no real use case for editing digits in the middle of a phone
  * number instead of clearing and retyping).
  */
-export function PhoneInput({
-  label,
-  digits,
-  onChangeDigits,
-  onFocus,
-  onBlur,
-  error,
-  autoFocus,
-}: PhoneInputProps) {
+export const PhoneInput = forwardRef<TextInput, PhoneInputProps>(function PhoneInput(
+  {
+    label,
+    digits,
+    onChangeDigits,
+    onFocus,
+    onBlur,
+    error,
+    autoFocus,
+    returnKeyType,
+    onSubmitEditing,
+    blurOnSubmit,
+  },
+  ref
+) {
   const formatted = formatPhoneDisplay(digits);
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>(undefined);
+  // Tracks focus purely for the border color - a focused-but-not-yet-wrong
+  // field should look distinct from both its resting state and an error,
+  // so a resident scanning a long form (register.tsx) always knows which
+  // field the keyboard is about to affect, the same way a web form
+  // highlights the active input.
+  const [focused, setFocused] = useState(false);
 
   function handleChangeText(t: string) {
     const nextDigits = normalizePhoneDigits(t);
@@ -77,37 +99,56 @@ export function PhoneInput({
 
   return (
     <View>
-      <Text className="text-[13px] font-medium text-ink-soft mb-2 uppercase tracking-wide">
+      <Text className="text-[12px] font-semibold text-ink-faint mb-2 uppercase tracking-wider">
         {label}
       </Text>
       <View
         className="flex-row items-center border-b pb-3"
-        style={{ borderColor: error ? "#DC2626" : "#E5E7EB" }}
+        style={{ borderColor: fieldBorderColor({ error: !!error, focused }) }}
       >
-        <Text className="text-[17px] text-gray-400">+63</Text>
+        <Text className="text-[19px] text-gray-400">+63</Text>
         <View className="w-px h-4 bg-gray-300 mx-2.5" />
-        <TextInput
-          value={formatted}
-          onChangeText={handleChangeText}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          selection={selection}
-          onSelectionChange={() => {
-            // Once RN reports the cursor is where we told it to be, stop
-            // forcing it - lets a resident still tap into the middle of
-            // the field (e.g. to select-all and retype) without the next
-            // render yanking the cursor back to our pinned position.
-            setSelection(undefined);
-          }}
-          placeholder="0917 123 4567"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="number-pad"
-          maxLength={MAX_FORMATTED_LENGTH}
-          autoFocus={autoFocus}
-          className="flex-1 text-[17px] text-ink"
-        />
+        {/* Wrapped in its own flex-1 View - see the same fix in
+            register.tsx's Field component for why flex-1 shouldn't sit
+            directly on the TextInput. */}
+        <View style={{ flex: 1 }}>
+          <TextInput
+            ref={ref}
+            value={formatted}
+            onChangeText={handleChangeText}
+            onFocus={(e) => {
+              setFocused(true);
+              onFocus?.(e);
+            }}
+            onBlur={() => {
+              setFocused(false);
+              onBlur?.();
+            }}
+            selection={selection}
+            onSelectionChange={() => {
+              // Once RN reports the cursor is where we told it to be, stop
+              // forcing it - lets a resident still tap into the middle of
+              // the field (e.g. to select-all and retype) without the next
+              // render yanking the cursor back to our pinned position.
+              setSelection(undefined);
+            }}
+            placeholder="0917 123 4567"
+            placeholderTextColor={colors.outline}
+            keyboardType="number-pad"
+            maxLength={MAX_FORMATTED_LENGTH}
+            autoFocus={autoFocus}
+            returnKeyType={returnKeyType}
+            onSubmitEditing={onSubmitEditing}
+            blurOnSubmit={blurOnSubmit ?? !onSubmitEditing}
+            // Explicit so the grouped number ("0917 123 4567") always
+            // renders at normal spacing, matching every other input in
+            // the auth screens rather than inheriting anything.
+            style={{ letterSpacing: 0 }}
+            className="text-[19px] text-ink"
+          />
+        </View>
       </View>
-      {error && <Text className="text-[12px] text-alert mt-1.5">{error}</Text>}
+      {error && <Text className="text-[13px] text-alert mt-1.5">{error}</Text>}
     </View>
   );
-}
+});

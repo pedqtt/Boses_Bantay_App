@@ -6,10 +6,10 @@ import { BackButton } from "@/components/BackButton";
 import { REPORT_QUESTIONS, CHAPTERS, INTRO_COPY } from "@/lib/reportQuestions";
 
 /**
- * Landing screen for the guided flow. Previews all 7 questions grouped into
+ * Landing screen for the guided flow. Previews every question grouped into
  * 3 chapters — nobody should be surprised mid-flow by what's being asked,
  * but the framing sets expectations at the size the task actually feels
- * like ("3 bahagi"), not the size a flat 7-item list would suggest.
+ * like ("3 bahagi"), not the size a long flat list would suggest.
  */
 export function IntroScreen({ onStart, onBack }: { onStart: () => void; onBack: () => void }) {
   return (
@@ -67,7 +67,7 @@ export function IntroScreen({ onStart, onBack }: { onStart: () => void; onBack: 
         </View>
 
         <View className="mt-10">
-          <Pressable onPress={onStart} className="bg-brand rounded-2xl py-4 items-center active:opacity-85 mb-3">
+          <Pressable onPress={onStart} className="bg-brand rounded-2xl py-4 items-center overflow-hidden active:opacity-85 mb-3">
             <Text className={REPORT_TYPE.buttonPrimary}>Simulan</Text>
           </Pressable>
           <Text className={`${REPORT_TYPE.hint} text-center`}>

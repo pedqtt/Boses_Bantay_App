@@ -6,6 +6,7 @@ import { ChapterProgressHeader } from "./ChapterProgressHeader";
 import { QuestionPrompt } from "./QuestionPrompt";
 import { RecordControls } from "./RecordControls";
 import { AnswerEditor } from "./AnswerEditor";
+import { ChoiceStep } from "./ChoiceStep";
 import type { AnswerState } from "./types";
 
 type StepScreenProps = {
@@ -20,6 +21,7 @@ type StepScreenProps = {
   metering: number | undefined;
   isPlaying: boolean;
   onChangeText: (text: string) => void;
+  onSelectChoice: (value: string, label: string) => void;
   onStartRecording: () => void;
   onStopRecording: () => void;
   onPauseRecording: () => void;
@@ -50,6 +52,7 @@ export function StepScreen({
   metering,
   isPlaying,
   onChangeText,
+  onSelectChoice,
   onStartRecording,
   onStopRecording,
   onPauseRecording,
@@ -90,38 +93,47 @@ export function StepScreen({
           <View style={{ flexGrow: 1 }}>
             <QuestionPrompt question={question} />
 
-            <View className="flex-1 items-center justify-center" style={{ minHeight: 180 }}>
-              <RecordControls
-                isRecording={isRecording}
-                isPaused={isPaused}
-                durationMillis={durationMillis}
-                metering={metering}
-                answerStatus={answer.status}
-                hasRecording={Boolean(answer.uri)}
-                isPlaying={isPlaying}
-                onStart={onStartRecording}
-                onStop={onStopRecording}
-                onPause={onPauseRecording}
-                onResume={onResumeRecording}
-                onTogglePlayback={onTogglePlayback}
-              />
-            </View>
+            {question.inputType === "voice" ? (
+              <>
+                <View className="flex-1 items-center justify-center" style={{ minHeight: 180 }}>
+                  <RecordControls
+                    isRecording={isRecording}
+                    isPaused={isPaused}
+                    durationMillis={durationMillis}
+                    metering={metering}
+                    answerStatus={answer.status}
+                    hasRecording={Boolean(answer.uri)}
+                    isPlaying={isPlaying}
+                    onStart={onStartRecording}
+                    onStop={onStopRecording}
+                    onPause={onPauseRecording}
+                    onResume={onResumeRecording}
+                    onTogglePlayback={onTogglePlayback}
+                  />
+                </View>
 
-            {/* Always editable — the fastest fix for a small transcription
-                error is typing over it, not re-recording the whole answer. */}
-            <View>
-              <Text className={`${REPORT_TYPE.fieldLabel} mb-2`}>Inyong sagot</Text>
-              <AnswerEditor
-                value={answer.text}
-                onChangeText={onChangeText}
-                placeholder={`${question.placeholder} — o i-type na lang`}
-                isTranscribing={answer.status === "transcribing"}
-                transcribingLabel="Ginagawa pa ang sagot..."
-                tall={question.key === "description"}
-                errorMessage={answer.status === "error" ? answer.error : undefined}
-                onRetry={answer.uri ? onRetryTranscription : undefined}
-              />
-            </View>
+                {/* Always editable — the fastest fix for a small
+                    transcription error is typing over it, not re-recording
+                    the whole answer. */}
+                <View>
+                  <Text className={`${REPORT_TYPE.fieldLabel} mb-2`}>Inyong sagot</Text>
+                  <AnswerEditor
+                    value={answer.text}
+                    onChangeText={onChangeText}
+                    placeholder={`${question.placeholder} — o i-type na lang`}
+                    isTranscribing={answer.status === "transcribing"}
+                    transcribingLabel="Ginagawa pa ang sagot..."
+                    tall={question.key === "description"}
+                    errorMessage={answer.status === "error" ? answer.error : undefined}
+                    onRetry={answer.uri ? onRetryTranscription : undefined}
+                  />
+                </View>
+              </>
+            ) : (
+              <View className="flex-1 justify-center" style={{ minHeight: 180 }}>
+                <ChoiceStep question={question} value={answer.value} onSelect={onSelectChoice} />
+              </View>
+            )}
           </View>
         </ScrollView>
 
@@ -140,7 +152,7 @@ export function StepScreen({
             <Pressable
               onPress={onNext}
               disabled={isRecording || !canAdvance}
-              className={`rounded-2xl py-4 items-center active:opacity-85 ${
+              className={`rounded-2xl py-4 items-center overflow-hidden active:opacity-85 ${
                 isRecording || !canAdvance ? "bg-gray-300" : "bg-brand"
               }`}
             >

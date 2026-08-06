@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { supabase } from "@/lib/supabase";
 import { Session } from "@supabase/supabase-js";
 import { AuthProvider } from "@/lib/auth-context";
+import { colors } from "@/lib/theme";
 // @ts-ignore
 import "../global.css";
 
@@ -45,7 +46,7 @@ function InitialLayout() {
   if (!initialized) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
-        <ActivityIndicator size="large" color="#1D4ED8" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }

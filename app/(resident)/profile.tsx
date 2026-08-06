@@ -6,6 +6,8 @@ import { useAuth } from "@/lib/auth-context";
 import { signOut } from "@/lib/api/auth";
 import { Card } from "@/components/Card";
 import { SectionLabel } from "@/components/SectionLabel";
+import { ScreenBackground } from "@/components/ScreenBackground";
+import { colors } from "@/lib/theme";
 
 // Keys must match ResidentProfile["barangayIdStatus"] exactly (lib/api/auth.ts)
 // — this previously used "pending"/"verified", which don't exist in that
@@ -35,10 +37,10 @@ function Row({
   return (
     <Pressable onPress={onPress} disabled={!onPress} className="active:opacity-60">
       <View className={`flex-row items-center py-4 ${isLast ? "" : "border-b border-gray-100"}`}>
-        <Ionicons name={icon} size={18} color="#6B7280" style={{ width: 26 }} />
+        <Ionicons name={icon} size={18} color={colors.outline} style={{ width: 26 }} />
         <Text className="flex-1 text-[15px] text-ink">{label}</Text>
         {value && <Text className="text-[13px] text-ink-faint mr-1">{value}</Text>}
-        {onPress && <Ionicons name="chevron-forward" size={16} color="#D1D5DB" />}
+        {onPress && <Ionicons name="chevron-forward" size={18} color={colors.outlineFaint} />}
       </View>
     </Pressable>
   );
@@ -54,13 +56,14 @@ export default function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView className="flex-1" edges={["top"]}>
+      <ScreenBackground>
       <View className="px-5 pt-3 pb-6">
         <Text className="text-[24px] font-semibold text-ink tracking-tight">Profile</Text>
       </View>
 
       <View className="px-5">
-        <View className="items-center mb-9">
+        <View className="items-center mb-8">
           <View className="w-16 h-16 rounded-full bg-brand items-center justify-center mb-3">
             <Text className="text-white text-[22px] font-semibold">
               {(profile?.fullName ?? "R").charAt(0)}
@@ -91,6 +94,7 @@ export default function ProfileScreen() {
           <Text className="text-[14px] text-red-500 font-medium">Log out</Text>
         </Pressable>
       </View>
+    </ScreenBackground>
     </SafeAreaView>
   );
 }

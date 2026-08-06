@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,8 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
+  type ReturnKeyTypeOptions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -27,22 +26,11 @@ import {
 } from "@/lib/validation";
 import { PhoneInput } from "@/components/PhoneInput";
 import { BackButton } from "@/components/BackButton";
+import { ScreenBackground } from "@/components/ScreenBackground";
+import { AuthActionGroup } from "@/components/AuthActionGroup";
+import { colors, fieldBorderColor } from "@/lib/theme";
 
-function Field({
-  label,
-  value,
-  onChangeText,
-  onFocus,
-  onBlur,
-  placeholder,
-  keyboardType,
-  autoFocus,
-  isPassword,
-  autoCapitalize,
-  error,
-  hint,
-  wrapperClassName,
-}: {
+const Field = forwardRef<TextInput, {
   label: string;
   value: string;
   onChangeText: (t: string) => void;
@@ -69,51 +57,110 @@ function Field({
   // Pangalan/Apelyido sit side by side as flex-1 halves of one row instead
   // of each taking the full row on its own.
   wrapperClassName?: string;
-}) {
+  // Keyboard-return-key chaining between fields, mirroring PhoneInput's
+  // version of the same props - see that component for the fuller
+  // rationale. blurOnSubmit defaults to false whenever onSubmitEditing is
+  // given, so moving to the next field doesn't also dismiss and reopen
+  // the keyboard.
+  returnKeyType?: ReturnKeyTypeOptions;
+  onSubmitEditing?: () => void;
+  blurOnSubmit?: boolean;
+}>(function Field(
+  {
+    label,
+    value,
+    onChangeText,
+    onFocus,
+    onBlur,
+    placeholder,
+    keyboardType,
+    autoFocus,
+    isPassword,
+    autoCapitalize,
+    error,
+    hint,
+    wrapperClassName,
+    returnKeyType,
+    onSubmitEditing,
+    blurOnSubmit,
+  },
+  ref
+) {
   // Starts masked (the safer default for a password field); the toggle
   // only reveals it on request, it never defaults to visible.
   const [visible, setVisible] = useState(false);
+  // Same focus-highlight rationale as PhoneInput: a distinct border color
+  // while a field is focused (but not yet in error) tells a resident
+  // moving through this long form which field the keyboard is about to
+  // affect next, especially once "Next" starts jumping between fields
+  // without a tap.
+  const [focused, setFocused] = useState(false);
 
   return (
     <View className={wrapperClassName ?? "mb-7"}>
-      <Text className="text-[13px] font-medium text-ink-soft mb-2 uppercase tracking-wide">
+      <Text className="text-[12px] font-semibold text-ink-faint mb-2 uppercase tracking-wider">
         {label}
       </Text>
       <View
         className="flex-row items-center border-b"
-        style={{ borderColor: error ? "#DC2626" : "#E5E7EB" }}
+        style={{ borderColor: fieldBorderColor({ error: !!error, focused }) }}
       >
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
-          keyboardType={keyboardType ?? "default"}
-          autoFocus={autoFocus}
-          secureTextEntry={isPassword && !visible}
-          autoCapitalize={autoCapitalize}
-          // Password fields disable autocorrect/spellcheck regardless of
-          // what the caller passes for autoCapitalize - masked text has no
-          // business being spell-checked or corrected, and doing it here
-          // (not left to each call site) means this can't be forgotten the
-          // next time a password field gets added.
-          autoCorrect={isPassword ? false : undefined}
-          spellCheck={isPassword ? false : undefined}
-          className="flex-1 text-[17px] text-ink pb-3"
-        />
+        {/* TextInput wrapped in its own flex-1 View instead of putting
+            flex-1 on the TextInput directly - an ambiguous-width text
+            node inside a flex-row can trigger Android's native text
+            justification (visibly stretched letter/word gaps), the same
+            issue the button labels elsewhere had. Wrapping first gives
+            Yoga a definite width to hand down, so this can't happen
+            regardless of autoFocus timing or which field it is. */}
+        <View style={{ flex: 1 }}>
+          <TextInput
+            ref={ref}
+            value={value}
+            onChangeText={onChangeText}
+            onFocus={(e) => {
+              setFocused(true);
+              onFocus?.(e);
+            }}
+            onBlur={() => {
+              setFocused(false);
+              onBlur?.();
+            }}
+            placeholder={placeholder}
+            placeholderTextColor={colors.outline}
+            keyboardType={keyboardType ?? "default"}
+            autoFocus={autoFocus}
+            secureTextEntry={isPassword && !visible}
+            autoCapitalize={autoCapitalize}
+            returnKeyType={returnKeyType}
+            onSubmitEditing={onSubmitEditing}
+            blurOnSubmit={blurOnSubmit ?? !onSubmitEditing}
+            // Password fields disable autocorrect/spellcheck regardless of
+            // what the caller passes for autoCapitalize - masked text has
+            // no business being spell-checked or corrected, and doing it
+            // here (not left to each call site) means this can't be
+            // forgotten the next time a password field gets added.
+            autoCorrect={isPassword ? false : undefined}
+            spellCheck={isPassword ? false : undefined}
+            // Applied to every field, not just password ones, so there's
+            // one consistent spacing rule: on Android, secureTextEntry
+            // otherwise applies the password font's wide character
+            // spacing to the placeholder as well as the masked dots,
+            // stretching it out past the field edge.
+            style={{ letterSpacing: 0 }}
+            className="text-[19px] text-ink pb-3"
+          />
+        </View>
         {isPassword && (
-          <Pressable onPress={() => setVisible((v) => !v)} hitSlop={10} className="pb-3 pl-2">
-            <Ionicons name={visible ? "eye-off-outline" : "eye-outline"} size={20} color="#6B7280" />
+          <Pressable onPress={() => setVisible((v) => !v)} hitSlop={14} className="pb-3 pl-2">
+            <Ionicons name={visible ? "eye-off-outline" : "eye-outline"} size={20} color={colors.outline} />
           </Pressable>
         )}
       </View>
-      {hint && <Text className="text-[12px] text-ink-faint mt-1.5">{hint}</Text>}
-      {error && <Text className="text-[12px] text-alert mt-1">{error}</Text>}
+      {hint && <Text className="text-[13px] text-ink-faint mt-1.5">{hint}</Text>}
+      {error && <Text className="text-[13px] text-alert mt-1">{error}</Text>}
     </View>
   );
-}
+});
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState("");
@@ -208,7 +255,17 @@ export default function RegisterScreen() {
     };
   }, [phone]);
 
-  const { scrollRef, handleFocus, handleContainerLayout } = useKeyboardFocusScroll();
+  const { scrollRef, handleFocus, handleContainerLayout, handleScroll, keyboardSpacer } =
+    useKeyboardFocusScroll();
+
+  // "Next" on the keyboard walks straight down the form in the same order
+  // a resident would fill it in by tapping - Pangalan, Apelyido, Address,
+  // phone, then Password, which submits. Each ref is only used to call
+  // .focus() on the next field; it never reads state.
+  const lastNameRef = useRef<TextInput>(null);
+  const addressRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   // Recomputed straight from the current values on every render, same as
   // phoneError above - not a separate piece of state that could drift out
@@ -298,34 +355,52 @@ export default function RegisterScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+      <ScreenBackground>
+      <View style={{ flex: 1 }}>
+        {/* One whole scrollable page again - consent, submit, and the
+            "already have an account" link are back inside the ScrollView
+            as its last items, not split into a separate fixed footer
+            below it. That footer split was to stop the button drifting
+            when a field scrolled into view, but the fix for the actual
+            complaint (register/upload-id reading as "a page plus a
+            separate stuck-on bottom bar" instead of one page) is to
+            merge it back - the button still won't jump around, because
+            useKeyboardFocusScroll only moves the scroll offset for the
+            field being focused, not this cluster on its own. */}
         <ScrollView
           ref={scrollRef}
           onLayout={handleContainerLayout}
-          className="flex-1 px-8 pt-6"
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          style={{ flex: 1 }}
+          className="px-8"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingTop: 24, paddingBottom: 56 + keyboardSpacer }}
         >
           <View className="mb-8 self-start">
             <BackButton onPress={() => router.back()} />
           </View>
 
-          <Text className="text-[26px] font-semibold text-ink tracking-tight mb-2">
-            Gumawa ng Account
-          </Text>
-          {/* Sets the expectation once, up top, instead of only implying it
-              through the per-field format hints below - those catch
-              obviously-wrong input, but a resident should also know
-              up front that what they enter here has to be their real,
-              accurate information, not just correctly-shaped text. */}
-          <Text className="text-[13px] text-ink-soft mb-8 leading-5">
-            Siguraduhing totoo at tama ang impormasyong ilalagay dito - ito ang
-            gagamitin ng Barangay upang kumpirmahin ang inyong pagkakakilanlan.
-          </Text>
+          {/* Heading cluster: title + the "this must be truthful" note
+              belong together as one block, separated from the fields
+              below by a single larger gap rather than each carrying its
+              own margin. */}
+          <View className="mb-10">
+            <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
+              Gumawa ng Account
+            </Text>
+            {/* Sets the expectation once, up top, instead of only implying it
+                through the per-field format hints below - those catch
+                obviously-wrong input, but a resident should also know
+                up front that what they enter here has to be their real,
+                accurate information, not just correctly-shaped text. */}
+            <Text className="text-[15px] text-ink-soft leading-7">
+              Siguraduhing totoo at tama ang impormasyong ilalagay dito - ito ang
+              gagamitin ng Barangay upang kumpirmahin ang inyong pagkakakilanlan.
+            </Text>
+          </View>
 
           {/* Errors are live and persistent, not cleared just because the
               resident started typing again: once a field has been checked
@@ -349,8 +424,11 @@ export default function RegisterScreen() {
               autoFocus
               error={firstNameError}
               wrapperClassName="flex-1 mb-1.5"
+              returnKeyType="next"
+              onSubmitEditing={() => lastNameRef.current?.focus()}
             />
             <Field
+              ref={lastNameRef}
               label="Apelyido"
               value={lastName}
               onChangeText={(t) => {
@@ -362,10 +440,13 @@ export default function RegisterScreen() {
               placeholder="Dela Cruz"
               error={lastNameError}
               wrapperClassName="flex-1 mb-1.5"
+              returnKeyType="next"
+              onSubmitEditing={() => addressRef.current?.focus()}
             />
           </View>
-          <Text className="text-[12px] text-ink-faint mb-7">{NAME_REQUIREMENTS_HINT}</Text>
+          <Text className="text-[13px] text-ink-faint mb-7">{NAME_REQUIREMENTS_HINT}</Text>
           <Field
+            ref={addressRef}
             label="Address"
             value={purok}
             onChangeText={(t) => {
@@ -377,21 +458,27 @@ export default function RegisterScreen() {
             placeholder="Purok 3, Kalye Mabini"
             error={addressError}
             hint={ADDRESS_REQUIREMENTS_HINT}
+            returnKeyType="next"
+            onSubmitEditing={() => phoneRef.current?.focus()}
           />
-          <View className="mb-7">
+          <View className="mb-8">
             <PhoneInput
+              ref={phoneRef}
               label="Numero ng Mobile"
               digits={phone}
               onChangeDigits={setPhone}
               onFocus={handleFocus}
               onBlur={() => setPhoneTouched(true)}
               error={phoneError}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
             />
-            <Text className="text-[12px] text-ink-faint mt-1.5">
+            <Text className="text-[13px] text-ink-faint mt-1.5">
               {checkingPhone && !phoneError ? "Sinusuri ang numero..." : PHONE_REQUIREMENTS_HINT}
             </Text>
           </View>
           <Field
+            ref={passwordRef}
             label="Password"
             value={password}
             onChangeText={(t) => {
@@ -411,46 +498,78 @@ export default function RegisterScreen() {
             autoCapitalize="none"
             error={passwordError}
             hint={PASSWORD_REQUIREMENTS_HINT}
+            // Last field in the form: "done" instead of "next", and
+            // submitting from the keyboard runs the same handler as
+            // tapping Magpatuloy - it's still gated by canSubmit inside
+            // handleRegister, so an incomplete form can't be submitted
+            // just by pressing the keyboard's return key.
+            returnKeyType="done"
+            onSubmitEditing={handleRegister}
           />
+
+          {/* Consent + submit form one cluster, set apart from the input
+              fields above by a hairline rule: everything above is "enter
+              your details," everything below is "agree and continue."
+              Still the wider mt-6/mb-8 spacing from the "too high" fix -
+              that part of the feedback still applies now that this is
+              back inside the scroll body. */}
+          <View className="h-px bg-gray-200 mt-6 mb-8" />
 
           {/* Same pattern as verify-id.tsx: only the checkbox icon is the tap
               target, the label text is a plain sibling, Tagalog-only. */}
-          <View className="flex-row items-start mt-2 mb-6">
+          <View className="flex-row items-start mb-8">
             <Pressable
               onPress={() => setConsentGiven((v) => !v)}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: consentGiven }}
-              hitSlop={10}
+              // 13, not 10 - reaches the 48dp touch-target minimum for a
+              // 22px checkbox icon (android-expo-ui skill).
+              hitSlop={13}
               className="active:opacity-70"
               style={{ marginRight: 10, marginTop: 1 }}
             >
               <Ionicons
                 name={consentGiven ? "checkbox" : "square-outline"}
                 size={22}
-                color={consentGiven ? "#1D4ED8" : "#9CA3AF"}
+                color={consentGiven ? colors.primary : colors.outline}
               />
             </Pressable>
-            <Text className="flex-1 text-[13px] text-ink-soft leading-5">
+            <Text className="flex-1 text-[15px] text-ink-soft leading-7">
               Sumasang-ayon ako na gamitin ng Barangay ang aking impormasyon para sa
               layunin ng pagpaparehistro at pag-verify lamang.
             </Text>
           </View>
 
-          <Pressable
-            onPress={handleRegister}
-            disabled={loading || !canSubmit}
-            className={`rounded-2xl py-4 items-center mb-10 ${
-              !canSubmit || loading ? "bg-gray-300" : "bg-brand active:opacity-85"
-            }`}
+          {/* Mirrors login's cluster exactly - same component, so the
+              rule weight and the 24px gaps around it can't drift between
+              the two screens a resident bounces between most. */}
+          <AuthActionGroup
+            secondary={
+              <View className="flex-row flex-wrap justify-center items-center">
+                <Text className="text-ink-soft text-[16px]">Meron nang account? </Text>
+                <Pressable onPress={() => router.replace("/(auth)/login")}>
+                  <Text className="text-brand font-semibold text-[16px]">Mag-login</Text>
+                </Pressable>
+              </View>
+            }
           >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text className="text-white font-semibold text-[16px]">Magpatuloy</Text>
-            )}
-          </Pressable>
+            <Pressable
+              onPress={handleRegister}
+              disabled={loading || !canSubmit}
+              className={`rounded-2xl py-4 items-center overflow-hidden ${
+                !canSubmit || loading ? "bg-gray-300" : "bg-brand active:opacity-85"
+              }`}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white font-semibold text-[18px]">Magpatuloy</Text>
+              )}
+            </Pressable>
+          </AuthActionGroup>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
+      </ScreenBackground>
     </SafeAreaView>
   );
 }

@@ -59,7 +59,7 @@ export function AnswerEditor({
           multiline
           textAlignVertical="top"
           placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor="#6B7280"
           className={`${REPORT_TYPE.body} border rounded-2xl p-4 ${
             tall ? "min-h-[124px]" : "min-h-[64px]"
           } ${hasError ? "border-alert" : "border-gray-200"}`}

@@ -5,6 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase"; // ⚠️ Adjust this import path if needed
 import { Card } from "@/components/Card";
 import { SectionLabel } from "@/components/SectionLabel";
+import { ScreenBackground } from "@/components/ScreenBackground";
+import { colors } from "@/lib/theme";
 
 interface EmergencyContact {
   id: string;
@@ -82,7 +84,8 @@ export default function DirectoryScreen() {
   const routine = contacts.filter((c) => !c.urgent);
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView className="flex-1" edges={["top"]}>
+      <ScreenBackground>
       <View className="px-5 pt-3 pb-5">
         <Text className="text-[24px] font-semibold text-ink tracking-tight">
           Emergency Directory
@@ -99,12 +102,12 @@ export default function DirectoryScreen() {
       >
         {loading ? (
           <Card className="p-8 items-center justify-center">
-            <ActivityIndicator color="#1D4ED8" size="large" />
+            <ActivityIndicator color={colors.primary} size="large" />
             <Text className="text-[13px] text-ink-faint mt-3">Loading directory...</Text>
           </Card>
         ) : contacts.length === 0 ? (
           <Card className="p-8 items-center justify-center">
-            <Ionicons name="call-outline" size={32} color="#9CA3AF" />
+            <Ionicons name="call-outline" size={32} color={colors.outlineFaint} />
             <Text className="text-[15px] font-semibold text-ink mt-2">
               No contacts found
             </Text>
@@ -138,6 +141,7 @@ export default function DirectoryScreen() {
           </>
         )}
       </ScrollView>
+    </ScreenBackground>
     </SafeAreaView>
   );
 }

@@ -19,6 +19,9 @@ import { useAuth } from "@/lib/auth-context";
 import { Card } from "@/components/Card";
 import { SectionLabel } from "@/components/SectionLabel";
 import { BackButton } from "@/components/BackButton";
+import { ScreenBackground } from "@/components/ScreenBackground";
+import { PhotoSourceButtons } from "@/components/PhotoSourceButtons";
+import { colors } from "@/lib/theme";
 
 /**
  * Resident-side Barangay ID submission. This is a deliberate duplicate of
@@ -171,7 +174,8 @@ export default function VerifyIdScreen() {
   const canSubmit = Boolean(imageUri) && Boolean(idNumber.trim()) && consentGiven;
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+      <ScreenBackground>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
           className="flex-1 px-5 pt-3"
@@ -182,11 +186,11 @@ export default function VerifyIdScreen() {
           // regardless of how much content is above it.
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
         >
-          <View className="mb-6 self-start">
+          <View className="mb-8 self-start">
             <BackButton onPress={() => router.back()} />
           </View>
 
-          <Text className="text-[24px] font-semibold text-ink tracking-tight mb-1.5">
+          <Text className="text-[28px] font-semibold text-ink tracking-tight mb-1.5">
             I-verify ang Barangay ID
           </Text>
           {/* Expanded back out from a one-liner - "why do you need this"
@@ -195,7 +199,7 @@ export default function VerifyIdScreen() {
               wonder: why it's asked for, who checks it, and what it isn't
               (a new-ID application). Still capped at a few short
               sentences, not a wall of text. */}
-          <Text className="text-[14px] text-ink-soft mb-8 leading-5">
+          <Text className="text-[16px] text-ink-soft mb-8 leading-7">
             Bago po kayo makapag-file ng blotter report o reklamo, kailangan muna naming
             i-verify na tunay kayong residente na may Barangay ID. Susuriin ito ng aming
             staff bago aprubahan ang inyong account. Hindi po ito paghingi ng bagong ID,
@@ -205,52 +209,36 @@ export default function VerifyIdScreen() {
           <SectionLabel>Larawan ng Barangay ID</SectionLabel>
           <Card className="p-4 mb-8">
             <View
-              className="w-full bg-gray-50 rounded-xl items-center justify-center overflow-hidden mb-4"
+              className="w-full bg-gray-50 rounded-2xl items-center justify-center overflow-hidden mb-4"
               style={{
                 aspectRatio: 8 / 5,
                 borderWidth: imageUri ? 1 : 2,
-                borderColor: imageUri ? "#E5E7EB" : "#D1D5DB",
+                borderColor: imageUri ? colors.outlineVariant : colors.outlineFaint,
                 borderStyle: imageUri ? "solid" : "dashed",
               }}
             >
               {imageUri ? (
                 <Image source={{ uri: imageUri }} className="w-full h-full resize-contain" />
               ) : (
-                <Ionicons name="card-outline" size={32} color="#D1D5DB" />
+                <Ionicons name="card-outline" size={32} color={colors.outlineFaint} />
               )}
             </View>
 
-            <View className="flex-row gap-3">
-              <Pressable
-                onPress={handleTakePhoto}
-                className="flex-1 flex-row bg-brand py-3.5 rounded-xl items-center justify-center active:opacity-85"
-              >
-                <Ionicons name="camera" size={18} color="white" style={{ marginRight: 6 }} />
-                <Text className="text-white font-semibold text-[14px]">Kumuha ng Larawan</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handlePickImage}
-                className="flex-1 flex-row bg-white border border-brand py-3.5 rounded-xl items-center justify-center active:opacity-70"
-              >
-                <Ionicons name="image-outline" size={18} color="#1D4ED8" style={{ marginRight: 6 }} />
-                <Text className="text-brand font-semibold text-[14px]">Piliin sa Gallery</Text>
-              </Pressable>
-            </View>
+            <PhotoSourceButtons onTakePhoto={handleTakePhoto} onPickImage={handlePickImage} />
           </Card>
 
           <SectionLabel>Detalye ng ID</SectionLabel>
           <Card className="p-4 mb-10">
-            <Text className="text-[12px] font-medium text-ink-soft mb-2 uppercase tracking-wide">
+            <Text className="text-[14px] font-medium text-ink-soft mb-2 uppercase tracking-wide">
               Numero ng Barangay ID
             </Text>
             <TextInput
               value={idNumber}
               onChangeText={setIdNumber}
               placeholder="hal. BGY-2026-00123"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.outline}
               autoCapitalize="characters"
-              className="text-[17px] text-ink border-b border-gray-200 pb-3"
+              className="text-[19px] text-ink border-b border-gray-200 pb-3"
             />
           </Card>
 
@@ -266,17 +254,17 @@ export default function VerifyIdScreen() {
                 onPress={() => setConsentGiven((v) => !v)}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: consentGiven }}
-                hitSlop={10}
+                hitSlop={13}
                 className="active:opacity-70"
                 style={{ marginRight: 10, marginTop: 1 }}
               >
                 <Ionicons
                   name={consentGiven ? "checkbox" : "square-outline"}
                   size={22}
-                  color={consentGiven ? "#1D4ED8" : "#9CA3AF"}
+                  color={consentGiven ? colors.primary : colors.outline}
                 />
               </Pressable>
-              <Text className="flex-1 text-[13px] text-ink-soft leading-5">
+              <Text className="flex-1 text-[15px] text-ink-soft leading-7">
                 Sumasang-ayon ako na gamitin ng Barangay ang larawan at numero ng aking ID
                 para sa layunin ng pag-verify lamang.
               </Text>
@@ -285,19 +273,20 @@ export default function VerifyIdScreen() {
             <Pressable
               onPress={handleSubmit}
               disabled={loading || !canSubmit}
-              className={`rounded-2xl py-4 items-center ${
+              className={`rounded-2xl py-4 items-center overflow-hidden ${
                 !canSubmit || loading ? "bg-gray-300" : "bg-brand active:opacity-85"
               }`}
             >
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-white font-semibold text-[16px]">Isumite para Aprubahan</Text>
+                <Text className="text-white font-semibold text-[18px]">Isumite para Aprubahan</Text>
               )}
             </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+    </ScreenBackground>
     </SafeAreaView>
   );
 }
