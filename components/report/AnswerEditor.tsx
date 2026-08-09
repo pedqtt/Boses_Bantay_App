@@ -7,6 +7,12 @@ type AnswerEditorProps = {
   placeholder: string;
   isTranscribing: boolean;
   transcribingLabel?: string;
+  /** Wired to useKeyboardFocusScroll's handleFocus by callers on a
+   *  ScrollView-based screen, so the field scrolls clear of the keyboard
+   *  instead of being typed into blind behind it. Optional because not
+   *  every screen this renders on needs it (e.g. a screen with no other
+   *  scrollable content above the field). */
+  onFocus?: (e: any) => void;
   /** Taller box for the one long-form narrative field (description). */
   tall?: boolean;
   errorMessage?: string;
@@ -42,6 +48,7 @@ export function AnswerEditor({
   errorMessage,
   onRetry,
   missingMessage,
+  onFocus,
 }: AnswerEditorProps) {
   const hasError = Boolean(errorMessage) || Boolean(missingMessage);
 
@@ -56,6 +63,7 @@ export function AnswerEditor({
         <TextInput
           value={value}
           onChangeText={onChangeText}
+          onFocus={onFocus}
           multiline
           textAlignVertical="top"
           placeholder={placeholder}

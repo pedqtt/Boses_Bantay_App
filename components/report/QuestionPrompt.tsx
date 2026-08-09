@@ -4,10 +4,9 @@ import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import type { ReportQuestion } from "@/lib/reportQuestions";
 
 /**
- * The question block for each step: the Tagalog question (primary), its
- * English translation (secondary, paired tightly as a same-sentence aside),
- * and an optional hint (a genuinely separate thought — an example, not a
- * translation — so it gets its own callout).
+ * The question block for each step: the Tagalog question, Tagalog-only
+ * (no English translation), and an optional hint (a genuinely separate
+ * thought — an example, not a translation — so it gets its own callout).
  *
  * This used to open with a standalone topic icon in its own circle, floating
  * above the question with nothing else around it. That icon moved into
@@ -20,7 +19,6 @@ export function QuestionPrompt({ question }: { question: ReportQuestion }) {
     <View>
       <View className="mb-4">
         <Text className={REPORT_TYPE.question}>{question.question}</Text>
-        <Text className={`${REPORT_TYPE.subtitle} italic mt-1.5`}>{question.questionEn}</Text>
       </View>
 
       {question.hint && (

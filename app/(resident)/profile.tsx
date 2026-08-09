@@ -50,7 +50,7 @@ export default function ProfileScreen() {
   const { profile, signOut: clearSession } = useAuth();
 
   async function handleLogout() {
-    await signOut();
+    await signOut(profile?.id);
     clearSession();
     router.replace("/(auth)/login");
   }

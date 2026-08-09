@@ -1,5 +1,7 @@
-import { View, Text } from "react-native";
+import { useEffect, useRef } from "react";
+import { View, Text, Animated, Easing } from "react-native";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
+import { colors } from "@/lib/theme";
 import { LiveWaveform } from "./LiveWaveform";
 import { CircleControl, CIRCLE_CONTROL_FRAME_SIZE } from "./CircleControl";
 import type { AnswerStatus } from "./types";
@@ -68,24 +70,71 @@ export function RecordControls({
   onResume,
   onTogglePlayback,
 }: RecordControlsProps) {
+  // Drives the "Nakikinig" dot's blink - a slow opacity pulse rather than a
+  // hard on/off flash, so it reads as "actively listening" without being
+  // distracting next to the timer. Stops and snaps back to fully opaque the
+  // moment recording pauses or ends, so a static dot never looks like it's
+  // mid-animation.
+  const dotPulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!isRecording || isPaused) {
+      dotPulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(dotPulse, {
+          toValue: 0.35,
+          duration: 650,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(dotPulse, {
+          toValue: 1,
+          duration: 650,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [isRecording, isPaused, dotPulse]);
+
   if (isRecording) {
     return (
       <View className="items-center py-2">
-        {/* STATUS group — pulled back from the "card inside a card" layered
-            version: a pill chip, a hard divider rule, and a nested white
-            panel were three separate boundary devices doing one job
-            (separating status from waveform), which is more machinery than
-            a minimalist surface needs. One flat surface now, with generous
-            whitespace doing the separating instead of drawn lines — Gestalt
-            proximity still groups the timer with its dot/label (tight,
-            mb-3) and separates it from the waveform (a real gap, mt-6)
-            without needing a visible boundary to prove it. Bars are also
-            fully pill-capped (radius = half their width) for a softer,
-            smoother waveform silhouette than the previous slightly-squared
-            ends. */}
-        <View className="items-center bg-gray-50 rounded-3xl px-6 py-7 mb-6 w-full">
+        {/* STATUS group — no card at all now: no fill, no border, no
+            rounded panel. Plain, sitting directly on the screen's own
+            white background so recording doesn't visually change the
+            page into "a different surface" — just the timer, dot/label,
+            and waveform, floating on the same white as everything else.
+            Gestalt proximity still groups the timer with its dot/label
+            (tight, mb-3) and separates it from the waveform (a real gap,
+            mt-6) purely through whitespace, no boundary needed to prove
+            it. Bars are also fully pill-capped (radius = half their
+            width) for a softer, smoother waveform silhouette than the
+            previous slightly-squared ends. */}
+        <View className="items-center px-6 py-7 mb-6 w-full">
           <View className="flex-row items-center mb-3">
-            <View className={`w-2 h-2 rounded-full mr-2 ${isPaused ? "bg-gray-400" : "bg-alert"}`} />
+            <Animated.View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                marginRight: 8,
+                backgroundColor: isPaused ? "#9CA3AF" : colors.error,
+                opacity: dotPulse,
+                // Subtle glow, not a spotlight - low opacity, small radius,
+                // so it reads as "this dot is alive" without competing with
+                // the timer directly above it. Off entirely while paused.
+                shadowColor: colors.error,
+                shadowOpacity: isPaused ? 0 : 0.55,
+                shadowRadius: 4,
+                shadowOffset: { width: 0, height: 0 },
+              }}
+            />
             <Text className={`text-[13px] font-medium ${isPaused ? "text-ink-faint" : "text-ink-soft"}`}>
               {isPaused ? "Naka-pause" : "Nakikinig"}
             </Text>
@@ -98,7 +147,7 @@ export function RecordControls({
             {formatDuration(durationMillis)}
           </Text>
 
-          <View className="mt-6">
+          <View className="mt-6 w-full">
             <LiveWaveform metering={metering} isActive={isRecording && !isPaused} />
           </View>
         </View>

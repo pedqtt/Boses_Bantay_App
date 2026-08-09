@@ -1,0 +1,198 @@
+import { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+
+// ✅ Import our custom bypass function and Auth Context
+import { logInUser } from "@/lib/api/auth";
+import { useAuth } from "@/lib/auth-context";
+import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
+import {
+  getPhoneError,
+  getLoginPasswordError,
+  PHONE_FORMAT_HINT,
+  LOGIN_PASSWORD_HINT,
+} from "@/lib/validation";
+import { PhoneInput } from "@/components/PhoneInput";
+
+export default function LoginScreen() {
+  // 11 raw digits, leading "0" included (e.g. "09171234567"). See components/PhoneInput.tsx.
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  // null = no error to show. Same inline-under-the-field pattern as
+  // register.tsx, instead of one generic "invalid phone number or
+  // password" alert that doesn't say which one was wrong.
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const { scrollRef, handleFocus, handleContainerLayout } = useKeyboardFocusScroll();
+
+  // ✅ Get signIn from our context so the app knows we are logged in
+  const { signIn } = useAuth();
+
+  async function handleLogin() {
+    const nextPhoneError = getPhoneError(phone);
+    const nextPasswordError = getLoginPasswordError(password);
+    setPhoneError(nextPhoneError);
+    setPasswordError(nextPasswordError);
+    if (nextPhoneError || nextPasswordError) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // ✅ Call OUR bypass wrapper instead of supabase directly!
+      // phone is already the full local format ("09171234567")  - 
+      // logInUser's normalizePhone converts the leading 0 to +63 itself.
+      const response = await logInUser(phone, password.trim());
+
+      if (response.ok) {
+        if (signIn) {
+          await signIn(response.profile);
+        }
+        router.replace("/(resident)/home");
+      }
+    } catch (err: any) {
+      Alert.alert("Hindi Nakapag-login", err.message ?? "Mali ang numero o password.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-white">
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          ref={scrollRef}
+          onLayout={handleContainerLayout}
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex-1 px-8 justify-center">
+            <Text className="text-[28px] font-bold text-ink tracking-tight mb-2">
+              Mag-login
+            </Text>
+            <Text className="text-[15px] text-ink-soft mb-8">
+              Mag-login po para ma-access ang inyong barangay account.
+            </Text>
+
+            {/* Same persistence rule as register.tsx: once an error is
+                showing, every keystroke re-validates instead of blanking
+                it out, so it only clears when what's typed actually fixes
+                it - not just because the resident started typing again. */}
+            <View className="mb-6">
+              <PhoneInput
+                label="Numero ng Mobile"
+                digits={phone}
+                onChangeDigits={(d) => {
+                  setPhone(d);
+                  if (phoneError) setPhoneError(getPhoneError(d));
+                }}
+                onFocus={handleFocus}
+                onBlur={() => setPhoneError(getPhoneError(phone))}
+                error={phoneError}
+              />
+              <Text className="text-[12px] text-ink-faint mt-1.5">{PHONE_FORMAT_HINT}</Text>
+            </View>
+
+            <View className="mb-8">
+              <Text className="text-[13px] font-medium text-ink-soft mb-2 uppercase tracking-wide">
+                Password
+              </Text>
+              <View
+                className="flex-row items-center border-b"
+                style={{ borderColor: passwordError ? "#DC2626" : "#E5E7EB" }}
+              >
+                {/* Wrapped in its own flex-1 View - flex-1 directly on a
+                    TextInput inside a flex-row leaves its width ambiguous,
+                    which can trigger Android's native text justification
+                    and visibly spread out letter/word spacing. */}
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    value={password}
+                    onChangeText={(t) => {
+                      setPassword(t);
+                      if (passwordError) setPasswordError(getLoginPasswordError(t));
+                    }}
+                    onFocus={handleFocus}
+                    onBlur={() => setPasswordError(getLoginPasswordError(password))}
+                    placeholder="Ilagay ang password"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!showPassword}
+                    // Same fix as register.tsx and reset-password.tsx:
+                    // without this, the keyboard's default
+                    // autoCapitalize="sentences" silently uppercases the
+                    // first character typed here, invisible behind the
+                    // masked dots - a resident whose password actually
+                    // starts lowercase could fail login with what looks
+                    // like the exact password they typed.
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    className="text-[17px] text-ink pb-3"
+                  />
+                </View>
+                <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={10} className="pb-3 pl-2">
+                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#6B7280" />
+                </Pressable>
+              </View>
+              {passwordError ? (
+                <Text className="text-[12px] text-alert mt-1.5">{passwordError}</Text>
+              ) : (
+                <Text className="text-[12px] text-ink-faint mt-1.5">{LOGIN_PASSWORD_HINT}</Text>
+              )}
+              <Pressable
+                onPress={() => router.push("/(auth)/forgot-password")}
+                hitSlop={8}
+                className="self-end mt-3"
+              >
+                <Text className="text-brand text-[13px] font-medium">Nakalimutan ang password?</Text>
+              </Pressable>
+            </View>
+
+            <Pressable
+              onPress={handleLogin}
+              disabled={loading}
+              className="bg-brand rounded-2xl py-4 items-center mb-6 active:opacity-85"
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white font-semibold text-[16px]">Mag-login</Text>
+              )}
+            </Pressable>
+
+            {/* flex-wrap on the row itself (not flexShrink on the Text
+                nodes - that combination can trigger Android's native text
+                justification and visibly spread out letter/word spacing)
+                lets this row break onto a second line at larger system
+                font sizes instead of pushing wider than the screen. */}
+            <View className="flex-row flex-wrap justify-center items-center">
+              <Text className="text-ink-soft text-[14px]">Wala pang account? </Text>
+              <Pressable onPress={() => router.push("/(auth)/register")}>
+                <Text className="text-brand font-semibold text-[14px]">Magrehistro</Text>
+              </Pressable>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}

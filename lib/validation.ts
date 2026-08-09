@@ -52,6 +52,24 @@ export const PHONE_FORMAT_HINT =
  *  friendly pointer back to what the password actually is. */
 export const LOGIN_PASSWORD_HINT = "Ang password po na ginamit ninyo noong nagparehistro.";
 
+/**
+ * Converts a phone value from any format this app has stored it in into
+ * the plain 11-digit local form PhoneInput expects ("09171234567"). Two
+ * cases: profile.phone comes back from the DB already normalized to E.164
+ * ("+639171234567", see normalizePhone in lib/api/auth.ts) and needs its
+ * country code swapped back for the leading "0" it replaced; anything
+ * already local ("0917 123 4567", "09171234567") just needs non-digits
+ * stripped, which digits-only extraction handles on its own.
+ */
+export function toLocalPhoneDigits(raw: string | undefined | null): string {
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (digits.startsWith("63") && digits.length === 12) {
+    return "0" + digits.slice(2);
+  }
+  return digits.slice(0, 11);
+}
+
 export function getPhoneError(digits: string): string | null {
   if (!digits) return "Kailangan ang mobile number.";
   if (digits.length < 11) {
@@ -136,6 +154,50 @@ export function getNameError(value: string, fieldLabel: string): string | null {
   if (!trimmed) return `Kailangan ang ${fieldLabel}.`;
   if (trimmed.length < 2) return "Masyadong maikli.";
   if (!NAME_PATTERN.test(trimmed)) return "Titik lang, walang numero o simbolo.";
+  return null;
+}
+
+// Age validation range, researched against how other production forms
+// bound a plain-integer age field (government intake forms, insurance
+// applications, HL7/FHIR-style age constraints all converge on roughly the
+// same window):
+//   - Upper bound 120 - one year past the oldest fully verified human
+//     lifespan on record (Jeanne Calment, 122). Wide enough to never
+//     reject a real complainant's actual age, tight enough to catch a
+//     stray extra digit typed by mistake ("150", "999") before it reaches
+//     a legal document.
+//   - Lower bound 1 - "0" reads as an untouched/placeholder value rather
+//     than a real answer here (unlike a birthdate-derived age, which can
+//     legitimately compute to 0 for a newborn, this field is always
+//     someone consciously typing a number). A minor complainant is still
+//     fully supported down to age 1 - filedByGuardian is the field that
+//     actually gates whether a guardian must be filing on their behalf,
+//     not this one.
+//   - 3-digit cap (AGE_MAX_DIGITS) enforced at the input itself
+//     (FormField's `maxLength`) so a fourth digit can't even be typed -
+//     the range check below is what catches everything a digit cap alone
+//     can't (a 3-digit number that's still out of range, like "150").
+const MIN_AGE = 1;
+const MAX_AGE = 120;
+export const AGE_MAX_DIGITS = 3;
+
+/** Strips anything that isn't a digit and caps at AGE_MAX_DIGITS - same
+ *  "enforce the shape as they type, not just after" approach as
+ *  normalizePhoneDigits above, so a resident can never see a 4th digit or
+ *  a stray letter appear even for a moment before it's corrected away. */
+export function normalizeAgeDigits(input: string): string {
+  return input.replace(/\D/g, "").slice(0, AGE_MAX_DIGITS);
+}
+
+export const AGE_REQUIREMENTS_HINT = `Edad sa taon, ${MIN_AGE}-${MAX_AGE}.`;
+
+export function getAgeError(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return "Kailangan ang edad.";
+  const age = Number(trimmed);
+  if (!Number.isInteger(age) || age < MIN_AGE || age > MAX_AGE) {
+    return `Ilagay po ang tunay na edad (${MIN_AGE}-${MAX_AGE}).`;
+  }
   return null;
 }
 

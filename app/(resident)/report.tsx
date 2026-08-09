@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Alert, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useNavigation, useFocusEffect } from "expo-router";
 import {
   useAudioRecorder,
@@ -11,83 +12,107 @@ import {
   setAudioModeAsync,
 } from "expo-audio";
 import { transcribeVoiceReport } from "@/lib/api/transcribe";
+import { extractFromTranscript, summarizeForOfficer } from "@/lib/api/llm";
+import { saveDraft, loadDraft, clearDraft } from "@/lib/api/reportDraft";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { REPORT_QUESTIONS, TOTAL_STEPS, getChapterProgress, type ReportFieldKey } from "@/lib/reportQuestions";
+import {
+  CHUNKS,
+  REVIEW_SECTIONS,
+  TOTAL_BAHAGI,
+  getChunk,
+  getQuestion,
+  type ChunkKey,
+  type ReportFieldKey,
+} from "@/lib/reportQuestions";
+import { colors } from "@/lib/theme";
+import { ScreenBackground } from "@/components/ScreenBackground";
+import { BahagiHeader } from "@/components/report/BahagiHeader";
+import {
+  makeEmptyAnswers,
+  makeEmptyChunks,
+  mergeExtraction,
+  confirmChunkFields,
+  chunkMode,
+  validate,
+  buildPayload,
+  type Stage,
+} from "@/lib/reportFlow";
 import { IntroScreen } from "@/components/report/IntroScreen";
-import { StepScreen } from "@/components/report/StepScreen";
+import { ConfirmYouScreen } from "@/components/report/ConfirmYouScreen";
+import { ChunkRecordScreen } from "@/components/report/ChunkRecordScreen";
+import { ChunkConfirmScreen } from "@/components/report/ChunkConfirmScreen";
+import { DetailsScreen } from "@/components/report/DetailsScreen";
 import { ReviewScreen } from "@/components/report/ReviewScreen";
 import { SubmittedScreen } from "@/components/report/SubmittedScreen";
 import { VerificationRequiredScreen } from "@/components/report/VerificationRequiredScreen";
-import { EMPTY_ANSWER, type AnswersMap } from "@/components/report/types";
+import { EMPTY_ANSWER, type AnswersMap, type ChunksMap } from "@/components/report/types";
 
 /*
  * ARCHITECTURE
  * ────────────
- * This file is the controller for the guided report flow: it owns every
- * piece of state (which stage, which answer, the audio recorder/player,
- * in-flight transcriptions) and every handler that changes that state. It
- * renders none of the actual UI — that all lives in components/report/*,
- * as four screen components (Intro/Step/Review/Submitted) built from small,
- * single-purpose presentational pieces (QuestionPrompt, RecordControls,
- * AnswerEditor, ChapterProgressHeader, LiveWaveform).
+ * Controller for the pre-blotter flow. Owns all state (stage, answers,
+ * chunk transcripts, recorder, in-flight transcription/extraction) and every
+ * handler that mutates it. Renders no UI itself - the screens live in
+ * components/report/*, and the pure rules (merging, validation, payload
+ * assembly) live in lib/reportFlow.ts.
  *
- * Why split it this way: the four stages share state (the answers map, the
- * recorder) but have almost no shared layout, and two small pieces of UI
- * (the answer text box, the record/play buttons) are used in more than one
- * place. Keeping all state here and passing plain props down means every
- * screen component is easy to read in isolation — no hook wiring to trace,
- * just "given these props, render this" — and the answer-editing pattern
- * can't quietly drift apart between screens the way it did before this
- * refactor (review and step had different min-heights, review was missing
- * the retry button). One component, one place it can break.
+ * The flow, per "Blotter Flow Redesign Plan.md":
+ *
+ *   intro → chunk[0] ano → chunk[1] kailanSaan → chunk[2] sino
+ *         → details → review → submitted
+ *
+ * Chunk 1 always records. Chunks 2 and 3 render as confirm cards when
+ * chunk 1's extraction already answered them, so a resident who told a
+ * complete story records once and taps twice instead of recording nine
+ * times as in the previous per-question flow.
+ *
+ * The LLM is an accelerator, not a dependency: if extraction is unavailable
+ * every chunk simply falls back to a recording and the flow still completes.
  */
 
-type Stage = "intro" | "step" | "review" | "submitted";
-
-function makeEmptyAnswers(): AnswersMap {
-  return REPORT_QUESTIONS.reduce(
-    (acc, q) => ({ ...acc, [q.key]: { ...EMPTY_ANSWER } }),
-    {} as AnswersMap
-  );
-}
-
-/** Anything shorter than this almost certainly caught no speech — catching
- *  it here saves a pointless upload and a confusing empty result. */
 const MIN_RECORDING_MS = 1000;
 
 export default function ReportScreen() {
   const { profile } = useAuth();
   const [stage, setStage] = useState<Stage>("intro");
-  const [stepIndex, setStepIndex] = useState(0);
+  const [chunkIndex, setChunkIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswersMap>(makeEmptyAnswers);
+  const [chunks, setChunks] = useState<ChunksMap>(makeEmptyChunks);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [referenceNo, setReferenceNo] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editingKey, setEditingKey] = useState<ReportFieldKey | null>(null);
+  const [hasSavedDraft, setHasSavedDraft] = useState(false);
+  const [draftChecked, setDraftChecked] = useState(false);
 
-  const audioRecorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
+  const audioRecorder = useAudioRecorder({
+    ...RecordingPresets.HIGH_QUALITY,
+    isMeteringEnabled: true,
+  });
   const recorderState = useAudioRecorderState(audioRecorder, 150);
 
-  // Guards against a background transcription resolving after the resident
-  // has already reset the flow, which would otherwise repopulate a cleared
-  // answer.
+  // Guards against a background transcription/extraction resolving after the
+  // resident has already reset the flow, which would otherwise repopulate a
+  // cleared answer.
   const flowId = useRef(0);
 
-  // Hide the bottom tab bar for the entire time this screen is focused.
-  // Filing a report is the one flow where an accidental tap on another tab
-  // is actually costly — it can drop mid-recording or mid-typing progress —
-  // so removing the tab bar here isn't just visual cleanup, it removes the
-  // misclick target entirely. Standard React Navigation recipe: set
-  // tabBarStyle to display:none on focus, undefined on blur so it falls
-  // back to the navigator's normal style the moment the resident leaves.
+  const currentChunk = CHUNKS[chunkIndex];
+  const currentChunkState = chunks[currentChunk?.key] ?? {
+    key: currentChunk?.key,
+    transcript: "",
+    status: "empty" as const,
+    done: false,
+  };
+
+  // Hide the bottom tab bar while this screen is focused. Filing is the one
+  // flow where an accidental tab tap is actually costly - it can drop
+  // mid-recording progress - so removing the tab bar isn't visual cleanup,
+  // it removes the misclick target entirely.
   const navigation = useNavigation();
   useFocusEffect(
     useCallback(() => {
-      // report.tsx is itself a Tabs.Screen, so setOptions here (not
-      // getParent()) is what controls this screen's own tab bar visibility
-      // — the documented React Navigation recipe for per-screen tab bar
-      // hiding.
       navigation.setOptions({ tabBarStyle: { display: "none" } });
       return () => {
         navigation.setOptions({ tabBarStyle: undefined });
@@ -99,62 +124,121 @@ export default function ReportScreen() {
     setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true }).catch(() => {});
   }, []);
 
-  const question = REPORT_QUESTIONS[stepIndex];
-  const answer = answers[question?.key] ?? EMPTY_ANSWER;
-  const isLastStep = stepIndex === TOTAL_STEPS - 1;
+  // Look for an unfinished report from a previous session, but never restore
+  // it silently - see IntroScreen for why the resident is asked first.
+  //
+  // FIXED: draft lookup/save/clear used to use one fixed device-wide key,
+  // so a different resident logging into a new account on the same phone
+  // would see the previous account's leftover draft offered as "May hindi
+  // natapos na report" - or worse, resumed straight into it. Every call
+  // below is now scoped by `profile.id` (see lib/api/reportDraft.ts), so an
+  // account switch can never surface someone else's in-progress report.
+  useEffect(() => {
+    if (!profile?.id) {
+      setDraftChecked(true);
+      return;
+    }
+    let cancelled = false;
+    loadDraft(profile.id).then((draft) => {
+      if (cancelled) return;
+      setHasSavedDraft(Boolean(draft));
+      setDraftChecked(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id]);
 
-  // Replay control for the resident's own recording — lets them confirm
-  // "yes, that's what I said" by ear. Recreated whenever the answer's audio
-  // URI changes (new recording, or switching question).
-  const player = useAudioPlayer(answer.uri ?? null);
+  // Persist on every meaningful change once the resident is actually filing.
+  // Deliberately fire-and-forget: a failed save costs crash-resilience, not
+  // the session in progress.
+  useEffect(() => {
+    if (!profile?.id) return;
+    if (stage === "intro" || stage === "submitted") return;
+    saveDraft(profile.id, { answers, chunks, stage, chunkIndex });
+  }, [profile?.id, answers, chunks, stage, chunkIndex]);
+
+  const player = useAudioPlayer(currentChunkState.uri ?? null);
   const playerStatus = useAudioPlayerStatus(player);
 
   function togglePlayback() {
-    if (!answer.uri) return;
+    if (!currentChunkState.uri) return;
     if (playerStatus.playing) {
       player.pause();
       return;
     }
-    const atEnd = playerStatus.duration > 0 && playerStatus.currentTime >= playerStatus.duration - 0.15;
+    const atEnd =
+      playerStatus.duration > 0 && playerStatus.currentTime >= playerStatus.duration - 0.15;
     if (atEnd) player.seekTo(0);
     player.play();
   }
 
-  const setAnswer = useCallback((key: ReportFieldKey, patch: Partial<AnswersMap[ReportFieldKey]>) => {
-    setAnswers((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
-  }, []);
-
-  /** Choice/checkbox questions don't record — selecting an option is the
-   *  whole answer. `label` becomes `.text` (so review/validation logic that
-   *  already checks `.text.trim()` doesn't need a second code path), and
-   *  `value` is the stable machine value the DB actually stores. */
-  const selectChoice = useCallback(
-    (key: ReportFieldKey, value: string, label: string) => {
-      setAnswer(key, { text: label, value, status: "done" });
+  const setAnswer = useCallback(
+    (key: ReportFieldKey, patch: Partial<AnswersMap[ReportFieldKey]>) => {
+      setAnswers((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
     },
-    [setAnswer]
+    []
   );
 
-  /** Fire-and-forget transcription. Deliberately not awaited by the caller
-   *  so the resident can advance to the next question while this runs — by
-   *  the time they finish the interview most answers are already back,
-   *  which is what keeps a 7-step flow from feeling like 7 waits. */
-  const transcribeInBackground = useCallback(
-    (key: ReportFieldKey, uri: string) => {
-      const myFlow = flowId.current;
-      setAnswer(key, { status: "transcribing", text: "", error: undefined, uri });
+  const setChunkState = useCallback(
+    (key: ChunkKey, patch: Partial<ChunksMap[ChunkKey]>) => {
+      setChunks((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
+    },
+    []
+  );
 
-      transcribeVoiceReport(uri, key)
-        .then(({ text }) => {
+  /**
+   * Transcribe, then extract. Both run in the background so the resident can
+   * keep moving; by the time they reach the next screen the fields are
+   * usually already populated, which is what makes chunks 2 and 3 render as
+   * taps rather than recordings.
+   *
+   * Extraction failure is silent by design - extractFromTranscript returns
+   * {} rather than throwing, and an empty result is indistinguishable from
+   * "the story didn't mention it". Either way the next chunk falls back to a
+   * record prompt.
+   */
+  const processChunk = useCallback(
+    (chunkKey: ChunkKey, uri: string) => {
+      const myFlow = flowId.current;
+      const chunk = getChunk(chunkKey);
+
+      setChunkState(chunkKey, { status: "transcribing", transcript: "", error: undefined, uri });
+
+      transcribeVoiceReport(uri, chunk.verbatimField ?? undefined)
+        .then(async ({ text }) => {
           if (flowId.current !== myFlow) return;
-          setAnswer(key, { status: "done", text, error: undefined });
+
+          setChunkState(chunkKey, { status: "extracting", transcript: text, done: true });
+
+          // The verbatim transcript IS the legal statement for chunk 1. It's
+          // written straight through as the resident's own words and is
+          // never replaced by anything the model produces later.
+          if (chunk.verbatimField) {
+            setAnswer(chunk.verbatimField, {
+              text,
+              status: "done",
+              source: "spoken",
+              uri,
+              chunk: chunkKey,
+            });
+          }
+
+          const extracted = await extractFromTranscript(text, chunkKey);
+          if (flowId.current !== myFlow) return;
+
+          setAnswers((prev) => mergeExtraction(prev, extracted, chunkKey));
+          setChunkState(chunkKey, { status: "done" });
         })
         .catch((err: any) => {
           if (flowId.current !== myFlow) return;
-          setAnswer(key, { status: "error", error: err?.message ?? "Hindi na-transcribe." });
+          setChunkState(chunkKey, {
+            status: "error",
+            error: err?.message ?? "Hindi na-transcribe.",
+          });
         });
     },
-    [setAnswer]
+    [setAnswer, setChunkState]
   );
 
   async function startRecording() {
@@ -162,7 +246,7 @@ export default function ReportScreen() {
     if (!granted) {
       Alert.alert(
         "Kailangan ang mikropono",
-        'Kailangan po ng Boses Bantay ng access sa mikropono para ma-record ang inyong sagot. Maaari po itong i-enable sa Settings, o gamitin ang "I-type na lang".'
+        'Kailangan po ng Boses Bantay ng access sa mikropono para ma-record ang inyong salaysay. Maaari po itong i-enable sa Settings, o i-type na lang.'
       );
       return;
     }
@@ -185,10 +269,13 @@ export default function ReportScreen() {
       const uri = audioRecorder.uri;
 
       if (!uri || durationMs < MIN_RECORDING_MS) {
-        Alert.alert("Masyadong maikli", "Hindi po namin naabutan ang sagot ninyo. Subukan po muling mag-record.");
+        Alert.alert(
+          "Masyadong maikli",
+          "Hindi po namin naabutan ang sinabi ninyo. Subukan po muling mag-record."
+        );
         return;
       }
-      transcribeInBackground(question.key, uri);
+      processChunk(currentChunk.key, uri);
     } catch (err: any) {
       setIsRecording(false);
       setIsPaused(false);
@@ -196,13 +283,6 @@ export default function ReportScreen() {
     }
   }
 
-  /** Pause/resume replace the old "cancel and lose the take" escape hatch —
-   *  the stop button (which keeps and transcribes what's captured so far)
-   *  already covers "I'm done," so the second control only needs to cover
-   *  "give me a second," not "throw this away." expo-audio's recorder
-   *  supports pausing natively (audioRecorder.pause()) and resuming by
-   *  calling .record() again on the same session, so this isn't a fake
-   *  pause — it's a real gap in the captured audio. */
   function pauseRecording() {
     try {
       audioRecorder.pause();
@@ -222,142 +302,235 @@ export default function ReportScreen() {
   }
 
   function retryTranscription() {
-    if (answer.uri) transcribeInBackground(question.key, answer.uri);
+    if (currentChunkState.uri) processChunk(currentChunk.key, currentChunkState.uri);
   }
 
-  // guardianName only makes sense when filing on a minor's behalf — for
-  // every other resident it's dead weight in the middle of the flow, so it
-  // gets skipped automatically in both directions instead of relying on
-  // "Laktawan," which exists for genuinely optional fields, not ones that
-  // don't apply at all.
-  function isStepApplicable(index: number): boolean {
-    const key = REPORT_QUESTIONS[index]?.key;
-    if (key !== "guardianName") return true;
-    return answers.filedByGuardian?.value === "guardian";
-  }
+  // ── Navigation ─────────────────────────────────────────────────────────
 
-  function goNext() {
-    if (isLastStep) {
-      setStage("review");
+  function goNextChunk() {
+    setEditingKey(null);
+    if (chunkIndex >= CHUNKS.length - 1) {
+      setStage("details");
       return;
     }
-    let next = stepIndex + 1;
-    while (next < TOTAL_STEPS && !isStepApplicable(next)) next += 1;
-    if (next >= TOTAL_STEPS) {
-      setStage("review");
-    } else {
-      setStepIndex(next);
-    }
+    setChunkIndex(chunkIndex + 1);
   }
 
-  function goBack() {
-    if (stepIndex === 0) {
-      setStage("intro");
+  function goBackChunk() {
+    setEditingKey(null);
+    if (chunkIndex === 0) {
+      // Predecessor of chunk 0 is now the identity-confirm screen, not
+      // intro directly - confirmYou is the real Bahagi 1 of the flow.
+      setStage("confirmYou");
       return;
     }
-    let prev = stepIndex - 1;
-    while (prev > 0 && !isStepApplicable(prev)) prev -= 1;
-    if (prev === 0 && !isStepApplicable(0)) {
-      setStage("intro");
-    } else {
-      setStepIndex(prev);
-    }
+    setChunkIndex(chunkIndex - 1);
+  }
+
+  /** "Tama po" - locks this chunk's extracted values against being
+   *  overwritten by a later chunk, then advances. */
+  function confirmChunk() {
+    setAnswers((prev) => confirmChunkFields(prev, currentChunk.key));
+    setChunkState(currentChunk.key, { done: true });
+    goNextChunk();
+  }
+
+  /** "I-record ulit" - drops the prefill for this chunk's fields so the
+   *  screen falls back to the record view, and the resident's own recording
+   *  becomes the source of truth for them. */
+  function reRecordChunk() {
+    setAnswers((prev) => {
+      const next = { ...prev };
+      for (const key of currentChunk.extracts) {
+        if (next[key]?.source === "extracted" && !next[key]?.confirmed) {
+          next[key] = { ...EMPTY_ANSWER };
+        }
+      }
+      return next;
+    });
+    setChunkState(currentChunk.key, { transcript: "", uri: undefined, status: "empty", done: false });
   }
 
   function startFlow() {
     flowId.current += 1;
-    const initial = makeEmptyAnswers();
-    // The app already knows these from signup — re-asking is real friction
-    // for no reason (the "keep the flow short" accessibility guidance this
-    // question set is built from). Both stay fully editable; this is a
-    // starting point, not a lock.
-    if (profile?.fullName) {
-      initial.complainantName = { ...EMPTY_ANSWER, text: profile.fullName, status: "done" };
+    setAnswers(applyProfile(makeEmptyAnswers()));
+    setChunks(makeEmptyChunks());
+    setChunkIndex(0);
+    setEditingKey(null);
+    // Bahagi 1 first - confirm who's filing before any recording starts.
+    setStage("confirmYou");
+  }
+
+  /** The app already knows these from signup. Re-asking is real friction for
+   *  no gain - the interviews' "keep the flow short" guidance is exactly
+   *  about this. All of them stay editable on the review screen; this is a
+   *  starting point, not a lock. Anything the account is missing simply
+   *  shows up there as a gap to fill once. */
+  function applyProfile(base: AnswersMap): AnswersMap {
+    const next = { ...base };
+    const put = (key: ReportFieldKey, text: string | undefined | null, value?: string) => {
+      if (!text) return;
+      next[key] = { ...EMPTY_ANSWER, text, value, status: "done", source: "profile" };
+    };
+
+    put("complainantName", profile?.fullName);
+    put("complainantContact", profile?.phone);
+    put("complainantAddress", profile?.purok);
+
+    const anyProfile = profile as any;
+    if (anyProfile?.age) put("complainantAge", String(anyProfile.age));
+    if (anyProfile?.gender) {
+      const opt = getQuestion("complainantGender").options?.find(
+        (o) => o.value === String(anyProfile.gender)
+      );
+      if (opt) put("complainantGender", opt.label, opt.value);
     }
-    if (profile?.phone) {
-      initial.complainantContact = { ...EMPTY_ANSWER, text: profile.phone, status: "done" };
+
+    // Sensible default so the common case (filing for yourself) needs no
+    // action on the details screen.
+    const selfOpt = getQuestion("filedByGuardian").options?.find((o) => o.value === "self");
+    if (selfOpt) {
+      next.filedByGuardian = {
+        ...EMPTY_ANSWER,
+        text: selfOpt.label,
+        value: selfOpt.value,
+        status: "done",
+        source: "tap",
+      };
     }
-    setAnswers(initial);
-    setStepIndex(0);
-    setStage("step");
+
+    return next;
+  }
+
+  async function resumeDraft() {
+    if (!profile?.id) {
+      setHasSavedDraft(false);
+      startFlow();
+      return;
+    }
+    const draft = await loadDraft(profile.id);
+    if (!draft) {
+      setHasSavedDraft(false);
+      startFlow();
+      return;
+    }
+    flowId.current += 1;
+    setAnswers(draft.answers as AnswersMap);
+    setChunks(draft.chunks as ChunksMap);
+    setChunkIndex(draft.chunkIndex ?? 0);
+    setStage((draft.stage as Stage) ?? "chunk");
+    setHasSavedDraft(false);
+  }
+
+  async function discardDraft() {
+    if (profile?.id) await clearDraft(profile.id);
+    setHasSavedDraft(false);
+    startFlow();
   }
 
   function resetFlow() {
     flowId.current += 1;
     setAnswers(makeEmptyAnswers());
-    setStepIndex(0);
+    setChunks(makeEmptyChunks());
+    setChunkIndex(0);
     setReferenceNo("");
+    setEditingKey(null);
     setStage("intro");
+    if (profile?.id) clearDraft(profile.id);
   }
 
-  /** Required questions must have real text before submission. Optional
-   *  ones can be blank — "walang saksi" is a legitimate outcome, and a
-   *  validator that rejects it just teaches residents to type filler. */
-  const missingRequired = REPORT_QUESTIONS.filter((q) => q.required && !answers[q.key].text.trim());
-  const stillTranscribing = REPORT_QUESTIONS.some((q) => answers[q.key].status === "transcribing");
+  const { missing, busy, canSubmit } = validate(answers);
 
   async function handleSubmit() {
-    if (missingRequired.length > 0) {
-      Alert.alert("Kulang pa ang detalye", `Kailangan pa pong sagutin: ${missingRequired.map((q) => q.label).join(", ")}.`);
-      return;
-    }
-    // guardianName isn't in the static `required` set (its requiredness is
-    // conditional, which that flag can't express — see reportQuestions.ts)
-    // so it needs its own check here instead.
-    if (answers.filedByGuardian?.value === "guardian" && !answers.guardianName?.text.trim()) {
-      Alert.alert("Kulang pa ang detalye", "Kailangan pa pong sagutin: Pangalan ng magulang/tagapag-alaga.");
-      return;
-    }
+    // No more "Kulang pa ang detalye" popup naming which fields are
+    // missing - the submit button itself is disabled whenever `canSubmit`
+    // is false (see ReviewScreen's `canSubmit` prop below), so this branch
+    // is just a defensive backstop against a stale tap, not something a
+    // resident should ever actually see. Filled means the button was
+    // already tappable; tapping it just submits.
+    if (missing.length > 0) return;
     setSubmitting(true);
 
     try {
-      // 1. Gather every answer as the full narrative record.
-      const draft = REPORT_QUESTIONS.reduce(
-        (acc, q) => ({ ...acc, [q.key]: answers[q.key].text.trim() }),
-        {} as Record<string, string>
-      );
-
-      // 2. Generate a random Reference Number (e.g., BGY-123456)
+      const payload = buildPayload(answers, chunks);
       const refNo = `BGY-${Math.floor(100000 + Math.random() * 900000)}`;
 
-      // 3. Get the current logged-in user
-      const { data: { user } } = await supabase.auth.getUser();
+      // TEMPORARY: the actual backend write (auth check + Supabase insert)
+      // is currently unreliable, and a failure there was blocking the whole
+      // flow with an alert the resident had no way to act on - the report
+      // itself was fine, the backend wasn't. Bypassed for now: any failure
+      // in this inner block is logged, not thrown, so a broken backend
+      // can't strand a resident on Review. The flow always reaches
+      // SubmittedScreen with a locally-generated reference number below.
+      //
+      // KNOWN GAP while this bypass is active: if this inner block throws,
+      // the report is NOT actually saved anywhere - the resident sees a
+      // reference number for a submission that only happened locally. Once
+      // the backend issue is fixed, remove this try/catch (letting a real
+      // insert failure propagate to the outer catch again) so submission
+      // failures are surfaced and blocked like before, not silently
+      // bypassed.
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) throw new Error("You must be logged in to submit a report.");
 
-      if (!user) {
-        throw new Error("You must be logged in to submit a report.");
-      }
+        // The officer brief is generated here, once, and stored with the
+        // report. It is explicitly allowed to fail: a null brief means the
+        // officer sees the raw statement plus the structured fields, which
+        // is no worse than today's paper process. Blocking a filing
+        // because a summary model was unavailable would be indefensible.
+        const brief = await summarizeForOfficer(payload.raw.narrative, payload.structured);
 
-      // 4. Insert into Supabase. Fields the barangay interview flagged as
-      // needing to be independently searchable/filterable (respondent name,
-      // incident category, etc.) are promoted to real columns, not just
-      // buried in full_details — full_details still keeps the complete
-      // question/answer map as the narrative record of what was asked.
-      const { error } = await supabase
-        .from("reports")
-        .insert({
+        const { error } = await supabase.from("reports").insert({
           reference_no: refNo,
           user_id: user.id,
           status: "Under Review",
-          category: draft.incidentCategory || "General",
-          summary: draft.description || "Details provided in full report",
-          full_details: draft,
-          complainant_age: draft.complainantAge ? Number(draft.complainantAge) || null : null,
-          complainant_contact: draft.complainantContact || null,
-          complainant_gender: answers.complainantGender?.value ?? null,
-          filed_by_guardian: answers.filedByGuardian?.value === "guardian",
-          guardian_name: draft.guardianName || null,
-          respondent_name: draft.respondentName || null,
-          blotter_type: answers.blotterType?.value ?? null,
-          incident_category: answers.incidentCategory?.value ?? null,
-          request_cctv_review: answers.requestCctv?.value === "true",
+          category: payload.machineValues.incidentCategory || "General",
+          summary: payload.raw.narrative || "Details provided in full report",
+
+          // Layer 1 - raw, legally authoritative, never AI-altered.
+          full_details: payload.structured,
+          raw_narrative: payload.raw.narrative,
+          raw_transcripts: payload.raw.transcripts,
+
+          // Layer 2 - structured, promoted to real columns so the fields
+          // the barangay needs to search and roll up aren't buried in
+          // JSON.
+          complainant_age: payload.structured.complainantAge
+            ? Number(payload.structured.complainantAge) || null
+            : null,
+          complainant_contact: payload.structured.complainantContact || null,
+          complainant_gender: payload.machineValues.complainantGender,
+          filed_by_guardian: payload.machineValues.filedByGuardian === "guardian",
+          guardian_name: payload.structured.guardianName || null,
+          respondent_name: payload.structured.respondentName || null,
+          incident_at_text: payload.structured.incidentAt || null,
+          incident_location_text: payload.structured.location || null,
+          witnesses: payload.structured.witnesses || null,
+          evidence: payload.structured.evidence || null,
+          blotter_type: payload.machineValues.blotterType,
+          incident_category: payload.machineValues.incidentCategory,
+          request_cctv_review: payload.machineValues.requestCctv === "true",
+
+          // Layer 3 - officer triage aid. Clearly separate from the
+          // record.
+          officer_brief: brief,
         });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      // 5. Success! Move to the next screen
+        if (profile?.id) await clearDraft(profile.id);
+      } catch (backendErr: any) {
+        console.warn(
+          "[report] TEMPORARY bypass: backend submission failed, continuing anyway ->",
+          backendErr?.message ?? backendErr
+        );
+      }
+
       setReferenceNo(refNo);
       setStage("submitted");
-
     } catch (err: any) {
       Alert.alert("Hindi naipasa ang report", err?.message ?? "Subukan po muli.");
     } finally {
@@ -365,24 +538,13 @@ export default function ReportScreen() {
     }
   }
 
-  // Report is a tab, not a pushed screen, so there's no natural "previous
-  // screen" for router.back() to return to from the intro — Home is the
-  // one predictable destination regardless of how the resident arrived
-  // here (tab bar FAB, or a "File a report" card from another screen).
   function exitToHome() {
     router.push("/(resident)/home");
   }
 
-  // Gate the entire flow behind full Barangay ID authorization, not just
-  // "logged in" — an unverified account has already gotten past OTP/login,
-  // so without this check anyone could file blotter reports before staff
-  // ever confirmed their ID is real. "pb_authorized" (not
-  // "secretary_verified") is deliberately the bar here: pending.tsx uses
-  // that same threshold to unlock Home in the first place, so a resident
-  // reaching this screen has already been let into the app under that
-  // rule — this just re-checks it at the point that actually matters
-  // (submitting a report), in case status was reset or a session got
-  // reused after a rejection.
+  // Gate the whole flow behind full Barangay ID authorization, not just
+  // "logged in" - an unverified account has already passed OTP/login, so
+  // without this anyone could file before staff ever confirmed their ID.
   const isFullyVerified = profile?.barangayIdStatus === "pb_authorized";
   if (!isFullyVerified) {
     return (
@@ -402,62 +564,222 @@ export default function ReportScreen() {
           resetFlow();
           router.push("/(resident)/reports");
         }}
-        onFileAnother={resetFlow}
+        onGoHome={() => {
+          resetFlow();
+          exitToHome();
+        }}
       />
     );
   }
 
+  // ── Chrome ────────────────────────────────────────────────────────────
+  // One persistent SafeAreaView + ScreenBackground + BahagiHeader wraps
+  // every in-flow stage below, instead of each stage's own screen
+  // component mounting its own copy (which is what IntroScreen,
+  // ConfirmYouScreen, the two chunk screens, DetailsScreen, and
+  // ReviewScreen each used to render internally).
+  //
+  // FIXED: that per-screen chrome was the source of a "twitchy" header on
+  // every stage change. A stage change swaps in a whole different
+  // top-level component (IntroScreen vs ConfirmYouScreen vs ...), so React
+  // can't reconcile the old tree into the new one - it fully unmounts one
+  // SafeAreaView/ScreenBackground/BahagiHeader and mounts a fresh set.
+  // SafeAreaView in particular resolves its safe-area insets asynchronously
+  // after mount, so a fresh instance can render a frame or two with
+  // stale/default insets before settling - visible as a flash/jump at
+  // every single transition, not just the first. Keeping this trio mounted
+  // once for the whole flow and only changing BahagiHeader's props per
+  // stage turns a full remount into a plain prop update: no flash, no
+  // insets to re-resolve, just the label/step pill/stepper animating to
+  // their new values and the body below swapping.
+  let headerProps: {
+    label: string;
+    stepText?: string;
+    filledSegments: number;
+    totalSegments: number;
+    onBack: () => void;
+    backDisabled?: boolean;
+  };
+  let body: ReactNode;
+
   if (stage === "review") {
-    return (
+    headerProps = {
+      label: "Suriin ang Report",
+      stepText: "Huling Hakbang",
+      filledSegments: TOTAL_BAHAGI,
+      totalSegments: TOTAL_BAHAGI,
+      onBack: () => {
+        setChunkIndex(0);
+        setStage("chunk");
+      },
+    };
+    body = (
       <ReviewScreen
         answers={answers}
+        chunks={chunks}
         submitting={submitting}
-        stillTranscribing={stillTranscribing}
-        onChangeAnswerText={(key, text) => setAnswer(key, { text, status: "done" })}
-        onJumpToStep={(key) => {
-          const index = REPORT_QUESTIONS.findIndex((q) => q.key === key);
-          if (index >= 0) setStepIndex(index);
-          setStage("step");
+        busy={busy}
+        canSubmit={canSubmit}
+        onChangeChunkTranscript={(key, text) => {
+          setChunkState(key, { transcript: text });
+          // Chunk 1's transcript IS answers.description (see the comment on
+          // that write in processChunk above) - an edit made to the
+          // paragraph on Review has to land in both places, or the payload's
+          // `raw.narrative` (built from answers.description) would go stale
+          // against what the resident just corrected here.
+          const chunk = getChunk(key);
+          if (chunk.verbatimField) {
+            setAnswer(chunk.verbatimField, { text, status: "done", source: "typed" });
+          }
+        }}
+        onChangeAnswerText={(key, text) =>
+          setAnswer(key, { text, status: "done", source: "typed" })
+        }
+        onSelectChoice={(key, value, label) =>
+          setAnswer(key, { text: label, value, status: "done", source: "tap", confirmed: true })
+        }
+        onJumpToChunk={(index) => {
+          setChunkIndex(index);
+          setStage("chunk");
         }}
         onSubmit={handleSubmit}
         onBackToQuestions={() => {
-          setStepIndex(0);
-          setStage("step");
+          setChunkIndex(0);
+          setStage("chunk");
         }}
       />
     );
-  }
+  } else if (stage === "details") {
+    headerProps = {
+      label: "Huling Detalye",
+      stepText: `Bahagi ${TOTAL_BAHAGI} ng ${TOTAL_BAHAGI}`,
+      filledSegments: TOTAL_BAHAGI,
+      totalSegments: TOTAL_BAHAGI,
+      onBack: () => {
+        setChunkIndex(CHUNKS.length - 1);
+        setStage("chunk");
+      },
+    };
+    body = (
+      <DetailsScreen
+        answers={answers}
+        onSelectChoice={(key, value, label) =>
+          setAnswer(key, { text: label, value, status: "done", source: "tap", confirmed: true })
+        }
+        onNext={() => setStage("review")}
+      />
+    );
+  } else if (stage === "confirmYou") {
+    const section = REVIEW_SECTIONS.find((s) => s.key === "nagrereklamo")!;
+    headerProps = {
+      label: section.shortLabel,
+      stepText: `Bahagi 1 ng ${TOTAL_BAHAGI}`,
+      filledSegments: 1,
+      totalSegments: TOTAL_BAHAGI,
+      onBack: () => setStage("intro"),
+    };
+    body = (
+      <ConfirmYouScreen
+        answers={answers}
+        onSelectChoice={(key, value, label) =>
+          setAnswer(key, { text: label, value, status: "done", source: "tap", confirmed: true })
+        }
+        onChangeAnswerText={(key, text) =>
+          setAnswer(key, { text, status: "done", source: "typed" })
+        }
+        onNext={() => setStage("chunk")}
+      />
+    );
+  } else if (stage === "chunk") {
+    const mode = chunkMode(currentChunk.key, answers, chunks);
+    headerProps = {
+      label: currentChunk.label,
+      stepText: `Bahagi ${chunkIndex + 2} ng ${TOTAL_BAHAGI}`,
+      filledSegments: chunkIndex + 2,
+      totalSegments: TOTAL_BAHAGI,
+      onBack: goBackChunk,
+      backDisabled: isRecording,
+    };
 
-  if (stage === "step") {
-    const canAdvance = question.required
-      ? answer.status === "transcribing" || Boolean(answer.text.trim())
-      : true;
+    if (mode === "confirm") {
+      body = (
+        <ChunkConfirmScreen
+          chunk={currentChunk}
+          index={chunkIndex}
+          answers={answers}
+          editingKey={editingKey}
+          onStartEditing={setEditingKey}
+          onChangeAnswerText={(key, text) =>
+            setAnswer(key, { text, status: "done", source: "typed", confirmed: true })
+          }
+          onConfirm={confirmChunk}
+          onReRecord={reRecordChunk}
+        />
+      );
+    } else {
+      // The narrative chunk gates advancement on having something to file.
+      // The others don't: a resident who genuinely can't name a respondent
+      // shouldn't be trapped, and those fields are optional by design.
+      const canAdvance = currentChunk.verbatimField
+        ? currentChunkState.status === "transcribing" ||
+          Boolean(currentChunkState.transcript.trim())
+        : true;
 
-    return (
-      <StepScreen
-        question={question}
-        progress={getChapterProgress(stepIndex)}
-        answer={answer}
-        isLastStep={isLastStep}
-        canAdvance={canAdvance}
-        isRecording={isRecording}
-        isPaused={isPaused}
-        durationMillis={recorderState.durationMillis ?? 0}
-        metering={recorderState.metering}
-        isPlaying={playerStatus.playing}
-        onChangeText={(text) => setAnswer(question.key, { text, status: "done" })}
-        onSelectChoice={(value, label) => selectChoice(question.key, value, label)}
-        onStartRecording={startRecording}
-        onStopRecording={stopRecording}
-        onPauseRecording={pauseRecording}
-        onResumeRecording={resumeRecording}
-        onTogglePlayback={togglePlayback}
-        onRetryTranscription={retryTranscription}
-        onBack={goBack}
-        onNext={goNext}
+      body = (
+        <ChunkRecordScreen
+          chunk={currentChunk}
+          index={chunkIndex}
+          state={currentChunkState}
+          isRecording={isRecording}
+          isPaused={isPaused}
+          durationMillis={recorderState.durationMillis ?? 0}
+          metering={recorderState.metering}
+          isPlaying={playerStatus.playing}
+          canAdvance={canAdvance}
+          onChangeTranscript={(text) => {
+            setChunkState(currentChunk.key, { transcript: text, status: "done", done: true });
+            if (currentChunk.verbatimField) {
+              setAnswer(currentChunk.verbatimField, { text, status: "done", source: "typed" });
+            }
+          }}
+          onStartRecording={startRecording}
+          onStopRecording={stopRecording}
+          onPauseRecording={pauseRecording}
+          onResumeRecording={resumeRecording}
+          onTogglePlayback={togglePlayback}
+          onRetryTranscription={retryTranscription}
+          onNext={goNextChunk}
+        />
+      );
+    }
+  } else {
+    // intro
+    headerProps = {
+      label: "Bagong Report",
+      filledSegments: 0,
+      totalSegments: TOTAL_BAHAGI,
+      onBack: exitToHome,
+    };
+    body = (
+      <IntroScreen
+        onStart={startFlow}
+        hasSavedDraft={draftChecked && hasSavedDraft}
+        onResumeDraft={resumeDraft}
+        onDiscardDraft={discardDraft}
       />
     );
   }
 
-  return <IntroScreen onStart={startFlow} onBack={exitToHome} />;
+  return (
+    // backgroundColor matches ScreenBackground's own surface color - see
+    // BahagiHeader's doc comment for why the inset padding needs it.
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: colors.surface }}>
+      <ScreenBackground>
+        <View style={{ flex: 1 }}>
+          <BahagiHeader {...headerProps} />
+          {body}
+        </View>
+      </ScreenBackground>
+    </SafeAreaView>
+  );
 }

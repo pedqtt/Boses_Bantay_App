@@ -65,21 +65,31 @@ type FocusLike = {
  *     contentContainerStyle={{ flexGrow: 1, paddingBottom: keyboardSpacer }}
  *   >
  *     <TextInput onFocus={handleFocus} />
+ *
+ * `gapAboveKeyboard` is tunable per screen (see DEFAULT_GAP below for why
+ * the default is what it is) - pass a smaller value for a field that
+ * doesn't have a hint+error pair sitting under it, so the field's own
+ * bottom edge lands right above the keyboard instead of floating a fixed
+ * ~96px above it regardless of what's actually below it.
  */
 
-/** Breathing room between the bottom of the field and the top of the
- *  keyboard. This has to cover more than just the input box itself.
- *  register.tsx's Field (and reset-password.tsx) render the hint AND the
- *  error line at the same time once a field has one - "hint always
- *  visible, error appended below it, not swapped in for it" - so what's
- *  actually below a field can be two stacked lines, not one: e.g.
- *  PASSWORD_REQUIREMENTS_HINT followed by a validation error, each
- *  ~20-24px with its own margin. 56 only budgeted for a single line and
- *  was still clipping the second one. 96 covers hint + error + a wrapped
- *  second line on either, with room left over. */
-const GAP_ABOVE_KEYBOARD = 96;
+/** Default breathing room between the bottom of the field and the top of
+ *  the keyboard, when a screen doesn't pass its own `gapAboveKeyboard`.
+ *  Sized for register.tsx's Field (and reset-password.tsx), which render
+ *  the hint AND the error line at the same time once a field has one -
+ *  "hint always visible, error appended below it, not swapped in for it" -
+ *  so what's actually below a field there can be two stacked lines, not
+ *  one: e.g. PASSWORD_REQUIREMENTS_HINT followed by a validation error,
+ *  each ~20-24px with its own margin. 96 covers hint + error + a wrapped
+ *  second line on either, with room left over.
+ *
+ *  Screens whose fields don't carry that much trailing content (the report
+ *  flow's AnswerEditor - at most one short error/missing line) should pass
+ *  a smaller `gapAboveKeyboard` instead of accepting this default, so the
+ *  field doesn't get scrolled further up than it needs to be. */
+const DEFAULT_GAP = 96;
 
-export function useKeyboardFocusScroll() {
+export function useKeyboardFocusScroll(gapAboveKeyboard: number = DEFAULT_GAP) {
   const scrollRef = useRef<ScrollView>(null);
   const containerHeight = useRef(0);
   const keyboardHeight = useRef(0);
@@ -145,16 +155,17 @@ export function useKeyboardFocusScroll() {
       const fieldBottomOnScreen = fieldPageY + fieldHeight;
 
       // How far past the keyboard's top edge the field currently sits,
-      // once GAP_ABOVE_KEYBOARD's breathing room (and hint-text
-      // allowance) is included. 0 or negative means it's already clear -
-      // don't scroll for a field that's already comfortably visible.
-      const overlap = fieldBottomOnScreen + GAP_ABOVE_KEYBOARD - keyboardTopOnScreen;
+      // once gapAboveKeyboard's breathing room (and hint-text allowance,
+      // for screens that pass one) is included. 0 or negative means it's
+      // already clear - don't scroll for a field that's already
+      // comfortably visible.
+      const overlap = fieldBottomOnScreen + gapAboveKeyboard - keyboardTopOnScreen;
       if (overlap <= 0) return;
 
       const targetY = Math.max(0, scrollY.current + overlap);
       scroll.scrollTo({ y: targetY, animated: true });
     });
-  }, []);
+  }, [gapAboveKeyboard]);
 
   useEffect(() => {
     // "will" events on iOS fire BEFORE the keyboard animates in, so the

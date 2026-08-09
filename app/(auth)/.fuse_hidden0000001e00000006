@@ -1,0 +1,194 @@
+import { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { resetPassword } from "@/lib/api/auth";
+import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
+import {
+  getNewPasswordError,
+  getConfirmPasswordError,
+  PASSWORD_REQUIREMENTS_HINT,
+  CONFIRM_PASSWORD_HINT,
+} from "@/lib/validation";
+
+/**
+ * Step 3 of "forgot password" - reached only after forgot-password.tsx
+ * confirmed the number has an account and otp.tsx's "reset" mode checked
+ * the mock code. See resetPassword in lib/api/auth.ts for why this is a
+ * TEMPORARY pass-through: it can't actually change the password
+ * server-side yet without a backend endpoint.
+ */
+// Both password fields below set autoCapitalize="none" / autoCorrect={false}
+// / spellCheck={false} - without it, TextInput defaults to
+// autoCapitalize="sentences", which auto-capitalizes the first letter typed
+// in each field independently. Since these fields are masked
+// (secureTextEntry), that transformation is invisible: two people can type
+// the exact same characters into "Bagong Password" and "Ulitin ang
+// Password" and still get two different stored strings, which is exactly
+// what "Ulitin ang password isn't working even though they match" turned
+// out to be - the mismatch was real, just not visible to whoever typed it.
+export default function ResetPasswordScreen() {
+  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [visible, setVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const { scrollRef, handleFocus, handleContainerLayout } = useKeyboardFocusScroll();
+
+  const canSubmit = !getNewPasswordError(password) && !getConfirmPasswordError(password, confirmPassword);
+
+  async function handleReset() {
+    const nextPasswordError = getNewPasswordError(password);
+    const nextConfirmError = getConfirmPasswordError(password, confirmPassword);
+    setPasswordError(nextPasswordError);
+    setConfirmError(nextConfirmError);
+    if (nextPasswordError || nextConfirmError) return;
+
+    setLoading(true);
+    try {
+      await resetPassword(phone, password);
+      Alert.alert("Tagumpay", "Na-update ang inyong password. Mag-login na po.", [
+        { text: "OK", onPress: () => router.replace("/(auth)/login") },
+      ]);
+    } catch (err: any) {
+      Alert.alert("Hindi Na-update", err.message ?? "Pakisubukan po muli.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-white">
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          ref={scrollRef}
+          onLayout={handleContainerLayout}
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex-1 px-8 justify-center">
+            <Text className="text-[26px] font-semibold text-ink tracking-tight mb-2">
+              Bagong Password
+            </Text>
+            <Text className="text-[13px] text-ink-soft mb-8 leading-5">
+              Maglagay po ng bagong password para sa inyong account.
+            </Text>
+
+            <View className="mb-7">
+              <Text className="text-[13px] font-medium text-ink-soft mb-2 uppercase tracking-wide">
+                Bagong Password
+              </Text>
+              <View
+                className="flex-row items-center border-b"
+                style={{ borderColor: passwordError ? "#DC2626" : "#E5E7EB" }}
+              >
+                {/* Wrapped in its own flex-1 View instead of putting
+                    flex-1 on the TextInput directly. This field is
+                    autoFocus, which meant its very first layout pass
+                    happened at the same moment the keyboard was opening -
+                    the extra timing pressure on an already-ambiguous
+                    width (flex-1 with no explicit basis) is what was
+                    triggering Android's native text justification here
+                    specifically, spreading the masked dots/typed text
+                    apart. Giving Yoga a definite width up front removes
+                    the ambiguity regardless of timing. */}
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    value={password}
+                    onChangeText={(t) => {
+                      setPassword(t);
+                      if (passwordError) setPasswordError(getNewPasswordError(t));
+                      if (confirmError) setConfirmError(getConfirmPasswordError(t, confirmPassword));
+                    }}
+                    onFocus={handleFocus}
+                    onBlur={() => setPasswordError(getNewPasswordError(password))}
+                    placeholder="Password"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!visible}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    autoFocus
+                    className="text-[17px] text-ink pb-3"
+                  />
+                </View>
+                <Pressable onPress={() => setVisible((v) => !v)} hitSlop={10} className="pb-3 pl-2">
+                  <Ionicons name={visible ? "eye-off-outline" : "eye-outline"} size={20} color="#6B7280" />
+                </Pressable>
+              </View>
+              <Text className="text-[12px] text-ink-faint mt-1.5">{PASSWORD_REQUIREMENTS_HINT}</Text>
+              {passwordError && <Text className="text-[12px] text-alert mt-1">{passwordError}</Text>}
+            </View>
+
+            <View className="mb-8">
+              <Text className="text-[13px] font-medium text-ink-soft mb-2 uppercase tracking-wide">
+                Ulitin ang Password
+              </Text>
+              <View
+                className="flex-row items-center border-b"
+                style={{ borderColor: confirmError ? "#DC2626" : "#E5E7EB" }}
+              >
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    value={confirmPassword}
+                    onChangeText={(t) => {
+                      setConfirmPassword(t);
+                      if (confirmError) setConfirmError(getConfirmPasswordError(password, t));
+                    }}
+                    onFocus={handleFocus}
+                    onBlur={() => setConfirmError(getConfirmPasswordError(password, confirmPassword))}
+                    placeholder="Ulitin ang password"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!confirmVisible}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    className="text-[17px] text-ink pb-3"
+                  />
+                </View>
+                <Pressable onPress={() => setConfirmVisible((v) => !v)} hitSlop={10} className="pb-3 pl-2">
+                  <Ionicons
+                    name={confirmVisible ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color="#6B7280"
+                  />
+                </Pressable>
+              </View>
+              <Text className="text-[12px] text-ink-faint mt-1.5">{CONFIRM_PASSWORD_HINT}</Text>
+              {confirmError && <Text className="text-[12px] text-alert mt-1">{confirmError}</Text>}
+            </View>
+
+            <Pressable
+              onPress={handleReset}
+              disabled={loading || !canSubmit}
+              className={`rounded-2xl py-4 items-center ${
+                !canSubmit || loading ? "bg-gray-300" : "bg-brand active:opacity-85"
+              }`}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white font-semibold text-[16px]">I-save ang Password</Text>
+              )}
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}

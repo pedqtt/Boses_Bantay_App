@@ -5,7 +5,6 @@ import { router } from "expo-router";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { signOut } from "@/lib/api/auth";
-import { ScreenBackground } from "@/components/ScreenBackground";
 
 /**
  * Resident-side "waiting on approval" screen — a deliberate duplicate of
@@ -60,48 +59,46 @@ export default function PendingScreen() {
   }
 
   async function handleSignOut() {
-    await signOut(profile?.id);
+    await signOut();
     clearSession();
     router.replace("/(auth)/login");
   }
 
   return (
-    <SafeAreaView className="flex-1">
-      <ScreenBackground>
+    <SafeAreaView className="flex-1 bg-white">
       <View className="flex-1 px-8 justify-center items-center">
         <View className="w-20 h-20 rounded-full bg-orange-100 items-center justify-center mb-8">
-          <Text className="text-[34px]">⏳</Text>
+          <Text className="text-[32px]">⏳</Text>
         </View>
 
-        <Text className="text-[26px] font-semibold text-ink tracking-tight mb-3 text-center">
+        <Text className="text-[24px] font-semibold text-ink tracking-tight mb-3 text-center">
           Account Under Review
         </Text>
 
-        <Text className="text-[17px] text-ink-soft mb-2 text-center leading-7">
+        <Text className="text-[15px] text-ink-soft mb-2 text-center leading-6">
           Thank you for uploading your Barangay ID, {profile?.firstName || "Resident"}.
         </Text>
 
-        <Text className="text-[17px] text-ink-soft mb-10 text-center leading-7">
+        <Text className="text-[15px] text-ink-soft mb-10 text-center leading-6">
           Your account is currently pending review by the Barangay Secretary and final authorization by the Punong Barangay.
         </Text>
 
         <Pressable
           onPress={handleCheckStatus}
           disabled={loading}
-          className="bg-brand w-full rounded-2xl py-4 items-center mb-4 overflow-hidden active:opacity-85"
+          className="bg-brand w-full rounded-2xl py-4 items-center mb-4 active:opacity-85"
         >
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-white font-semibold text-[18px]">Check Approval Status</Text>
+            <Text className="text-white font-semibold text-[16px]">Check Approval Status</Text>
           )}
         </Pressable>
 
         <Pressable onPress={handleSignOut} className="py-4">
-          <Text className="text-ink-soft font-medium text-[17px]">Log out for now</Text>
+          <Text className="text-ink-soft font-medium text-[15px]">Log out for now</Text>
         </Pressable>
       </View>
-    </ScreenBackground>
     </SafeAreaView>
   );
 }

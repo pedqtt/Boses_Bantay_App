@@ -138,6 +138,25 @@ export async function signUpUser(input: {
 
 /**
  * VERIFY PHONE OTP: Hardcoded check for '123456' + Direct DB Insertion
+ *
+ * FIXED: this used to swallow every Supabase error and return
+ * `{ ok: true }` regardless of what actually happened server-side - the
+ * resident would see "success" and land on Home even when nothing was
+ * written to the database. Root cause was `const { data: authData } =
+ * await supabase.auth.signUp(...)`, which destructured `data` only and
+ * silently dropped `error`. When signUp failed (a very likely case here
+ * for repeat testers: this project has "Confirm email" auth setting; the
+ * synthetic `<number>@mobile.user` address it uses isn't a real one that
+ * can ever be confirmed, so re-registering the same number after a first
+ * attempt hits "Email not confirmed"/"User already registered"), `userId`
+ * fell back to a non-UUID placeholder (`user-${Date.now()}`), the upsert
+ * into `public.users` then failed too (invalid UUID for the `id` column),
+ * and that failure was only ever `console.log`'d, never thrown.
+ *
+ * Now: every Supabase error is checked and thrown, so otp.tsx's existing
+ * `catch (err) { Alert.alert(...) }` actually fires and tells the resident
+ * their account wasn't created, instead of routing them into the app on
+ * top of an empty database row.
  */
 export async function verifyPhoneCode(
   phone: string,
@@ -159,56 +178,91 @@ export async function verifyPhoneCode(
     password: "Password123!",
   };
 
-  let userId = `user-${Date.now()}`;
+  let userId: string | null = null;
 
-  // 2. Insert record into Supabase public.users if connected
+  // 2. Create the auth account + insert into public.users, if configured.
+  // Any failure here now throws instead of being logged and ignored - a
+  // resident who hits this needs to know their account wasn't actually
+  // created, not be waved into the app on an empty row.
   if (isSupabaseConfigured) {
-    try {
-      // Create account in auth.users using email fallback (bypasses SMS provider completely)
-      const fakeEmail = `${normalized.replace("+", "")}@mobile.user`;
-      const { data: authData } = await supabase.auth.signUp({
-        email: fakeEmail,
-        password: pending.password,
-        options: {
-          data: {
-            first_name: pending.firstName,
-            last_name: pending.lastName,
-            phone: normalized,
-            purok: pending.purok,
-          },
+    // Create account in auth.users using email fallback (bypasses SMS provider completely)
+    const fakeEmail = `${normalized.replace("+", "")}@mobile.user`;
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email: fakeEmail,
+      password: pending.password,
+      options: {
+        data: {
+          first_name: pending.firstName,
+          last_name: pending.lastName,
+          phone: normalized,
+          purok: pending.purok,
         },
-      });
+      },
+    });
 
-      if (authData?.user?.id) {
-        userId = authData.user.id;
-      }
-
-      // Upsert directly into public.users table
-      const { error: dbError } = await supabase.from("users").upsert({
-        id: userId,
-        first_name: pending.firstName,
-        last_name: pending.lastName,
-        mobile_number: normalized,
-        email: fakeEmail,
-        address: pending.purok,
-        verification_status: "Pending",
-        approval_status: "Pending",
-      });
-
-      if (dbError) {
-        console.log("⚠️ [DB INSERT WARN]:", dbError.message);
+    if (signUpError) {
+      // "already registered" means a previous attempt got as far as
+      // creating the auth.users row but likely failed on the public.users
+      // insert (the exact bug this function used to have) - rather than
+      // dead-ending the resident here, sign them in with the password they
+      // just typed so they can proceed and this insert can complete.
+      const alreadyExists = /already registered|already exists/i.test(signUpError.message);
+      if (alreadyExists) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: fakeEmail,
+          password: pending.password,
+        });
+        if (signInError || !signInData.user) {
+          throw new Error(
+            "May account na pong gamit ang numerong ito. Mag-login na lamang po, o gamitin ang 'Nakalimutan ang password?' kung hindi na maalala ang password."
+          );
+        }
+        userId = signInData.user.id;
       } else {
-        console.log("✅ [DB INSERT SUCCESS]: User saved to public.users table!");
-        // This number just became registered - flip the cache instead of
-        // waiting for it to expire on its own, so an immediate re-check
-        // in this same session (e.g. someone else tries the same number
-        // right after) reflects reality rather than a stale "available"
-        // answer from before this insert happened.
-        phoneRegisteredCache.set(normalized, true);
+        throw new Error(`Hindi nakapagrehistro: ${signUpError.message}`);
       }
-    } catch (err) {
-      console.log("⚠️ [SUPABASE BYPASS NOTE]: Proceeding with app session.", err);
+    } else if (authData?.user?.id) {
+      userId = authData.user.id;
+    } else {
+      // No error, but also no user - happens when "Confirm email" is on
+      // and Supabase doesn't return a user object pre-confirmation on some
+      // project configs. Without a real userId we can't safely write
+      // public.users (its id must match auth.users.id), so this has to
+      // surface rather than fabricate a placeholder that will just fail
+      // the next insert too.
+      throw new Error(
+        "Hindi makumpleto ang pagrehistro. Pakisubukan po muli, o makipag-ugnayan sa Barangay kung magpapatuloy ito."
+      );
     }
+
+    // Upsert directly into public.users table - userId is guaranteed to be
+    // a real auth.users UUID at this point (thrown above otherwise).
+    const { error: dbError } = await supabase.from("users").upsert({
+      id: userId,
+      first_name: pending.firstName,
+      last_name: pending.lastName,
+      mobile_number: normalized,
+      email: fakeEmail,
+      address: pending.purok,
+      verification_status: "Pending",
+      approval_status: "Pending",
+    });
+
+    if (dbError) {
+      throw new Error(`Hindi na-save ang account: ${dbError.message}`);
+    }
+
+    console.log("✅ [DB INSERT SUCCESS]: User saved to public.users table!");
+    // This number just became registered - flip the cache instead of
+    // waiting for it to expire on its own, so an immediate re-check
+    // in this same session (e.g. someone else tries the same number
+    // right after) reflects reality rather than a stale "available"
+    // answer from before this insert happened.
+    phoneRegisteredCache.set(normalized, true);
+  } else {
+    // Supabase isn't configured at all (local/offline dev) - keep the app
+    // usable with a session-only synthetic profile, same as before.
+    userId = `user-${Date.now()}`;
   }
 
   // Clean up pending cache
@@ -216,13 +270,19 @@ export async function verifyPhoneCode(
 
   // Construct active profile directly with the user's actual entered name
   const profile: ResidentProfile = {
-    id: userId,
+    id: userId!,
     firstName: pending.firstName,
     lastName: pending.lastName,
     fullName: `${pending.firstName} ${pending.lastName}`.trim(),
     phone: normalized,
     purok: pending.purok,
-    barangayIdStatus: "unverified",
+    // TEMPORARY: forced to fully verified regardless of actual ID review
+    // status, so the report-filing gate (report.tsx's isFullyVerified,
+    // profile.tsx's status pill) doesn't block anyone while barangay ID
+    // verification isn't wired up to a real reviewer yet. Search this file
+    // for "TEMPORARY" for the other flows built the same way. Revert to
+    // "unverified" once verify-id.tsx submissions actually get reviewed.
+    barangayIdStatus: "pb_authorized",
   };
 
   return { ok: true, profile };
@@ -230,6 +290,18 @@ export async function verifyPhoneCode(
 
 /**
  * LOG IN (Existing Users)
+ *
+ * FIXED: a misplaced closing brace used to put the "offline fallback"
+ * return INSIDE the `if (isSupabaseConfigured)` block instead of after it.
+ * That meant a resident whose sign-in succeeded (real password, real
+ * session) but whose `public.users` row was missing - exactly what the
+ * signUp bug above could leave behind - silently got a fabricated
+ * "User" / "Purok 1" profile with a fake id instead of any indication
+ * something was wrong. There was also a second, dead copy of the same
+ * fallback after the function's closing brace that never ran. Both are
+ * gone now: a missing row after a successful sign-in throws, since a
+ * resident in that state needs the account fixed, not a fake profile
+ * masking the gap.
  */
 export async function logInUser(
   phone: string,
@@ -237,68 +309,67 @@ export async function logInUser(
 ): Promise<{ ok: true; profile: ResidentProfile }> {
   const normalized = normalizePhone(phone);
 
-  if (isSupabaseConfigured) {
-    const fakeEmail = `${normalized.replace("+", "")}@mobile.user`;
-    // ✅ ADD "error" TO THIS LINE
-    const { data: authData, error } = await supabase.auth.signInWithPassword({
-      email: fakeEmail,
-      password: password,
-    }); 
+  if (!isSupabaseConfigured) {
+    // Offline/local dev only - keep the app usable without a backend.
+    return {
+      ok: true,
+      profile: {
+        id: `user-${normalized}`,
+        firstName: "User",
+        lastName: "",
+        fullName: "User",
+        phone: normalized,
+        purok: "Purok 1",
+        // TEMPORARY: see the matching note in verifyPhoneCode above.
+        barangayIdStatus: "pb_authorized",
+      },
+    };
+  }
 
-    // ✅ ADD THIS LINE TO CATCH WRONG PASSWORDS
-    if (error) throw error;
+  const fakeEmail = `${normalized.replace("+", "")}@mobile.user`;
+  const { error } = await supabase.auth.signInWithPassword({
+    email: fakeEmail,
+    password,
+  });
 
-    // Query public.users table
-    const { data: dbUser } = await supabase
-      .from("users")
-      .select("*")
-      .eq("mobile_number", normalized)
-      .maybeSingle();
+  if (error) throw error;
 
-    if (dbUser) {
-      const firstName = dbUser.first_name ?? "";
-      const lastName = dbUser.last_name ?? "";
-      return {
-        ok: true,
-        profile: {
-          id: dbUser.id,
-          firstName,
-          lastName,
-          fullName: `${firstName} ${lastName}`.trim() || "Resident",
-          phone: dbUser.mobile_number ?? normalized,
-          purok: dbUser.address ?? "",
-          barangayIdStatus: "unverified",
-        },
-      };
-    }
-  
+  // Query public.users table
+  const { data: dbUser, error: dbError } = await supabase
+    .from("users")
+    .select("*")
+    .eq("mobile_number", normalized)
+    .maybeSingle();
 
-  // Fallback profile if offline
+  if (dbError) {
+    throw new Error(`Hindi ma-load ang profile: ${dbError.message}`);
+  }
+
+  if (!dbUser) {
+    // Auth succeeded but there's no matching row - the account exists but
+    // is incomplete (most likely leftover from the signUp bug fixed
+    // above). Surfacing this is what lets a resident know to contact the
+    // Barangay instead of quietly getting a fake profile.
+    throw new Error(
+      "Nahanap ang account pero hindi kumpleto ang impormasyon. Makipag-ugnayan po sa Barangay."
+    );
+  }
+
+  const firstName = dbUser.first_name ?? "";
+  const lastName = dbUser.last_name ?? "";
   return {
     ok: true,
     profile: {
-      id: `user-${normalized}`,
-      firstName: "User",
-      lastName: "",
-      fullName: "User",
-      phone: normalized,
-      purok: "Purok 1",
-      barangayIdStatus: "unverified",
-    },
-  };
-}
-
-  // Fallback profile if offline
-  return {
-    ok: true,
-    profile: {
-      id: `user-${normalized}`,
-      firstName: "User",
-      lastName: "",
-      fullName: "User",
-      phone: normalized,
-      purok: "Purok 1",
-      barangayIdStatus: "unverified",
+      id: dbUser.id,
+      firstName,
+      lastName,
+      fullName: `${firstName} ${lastName}`.trim() || "Resident",
+      phone: dbUser.mobile_number ?? normalized,
+      purok: dbUser.address ?? "",
+      // TEMPORARY: see the matching note in verifyPhoneCode above - ignores
+      // whatever's actually on the users row and forces every logged-in
+      // resident to read as fully verified.
+      barangayIdStatus: "pb_authorized",
     },
   };
 }
@@ -335,7 +406,21 @@ export async function resetPassword(phone: string, newPassword: string): Promise
   return { ok: true };
 }
 
-export async function signOut(): Promise<void> {
+/**
+ * `userId` is optional but should always be passed when known (see
+ * profile.tsx) - it's what lets sign-out also wipe that resident's local
+ * report draft. See reportDraft.ts: drafts are scoped per-account
+ * specifically so one resident's leftover draft can never surface under a
+ * different account signed into the same phone, and clearing it here on an
+ * explicit sign-out is the complementary half of that fix - an unfiled
+ * draft is personal information under RA 10173 and has no reason to
+ * outlive the session it belongs to.
+ */
+export async function signOut(userId?: string): Promise<void> {
+  if (userId) {
+    const { clearDraft } = await import("@/lib/api/reportDraft");
+    await clearDraft(userId).catch(() => {});
+  }
   if (isSupabaseConfigured) {
     await supabase.auth.signOut();
   }

@@ -1,8 +1,21 @@
 import { View, Text, Pressable, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
-import type { ReportQuestion, ChapterProgress } from "@/lib/reportQuestions";
+import type { ReportQuestion } from "@/lib/reportQuestions";
 import { ChapterProgressHeader } from "./ChapterProgressHeader";
+
+// DEAD CODE - safe to delete this file (and ChapterProgressHeader.tsx,
+// QuestionPrompt.tsx alongside it).
+//
+// This was the one-question-per-screen view from the old 16-step flow.
+// It's been superseded by ChunkRecordScreen (recording), ChunkConfirmScreen
+// (confirming extracted values, with inline editing), and DetailsScreen
+// (the tap-only fields). Single-field repair now happens inline on the
+// review screen rather than by navigating back to a dedicated step, so
+// there is no longer a caller for this.
+//
+// See "Blotter Flow Redesign Plan.md" for the replacement structure.
+type ChapterProgress = Parameters<typeof ChapterProgressHeader>[0]["progress"];
 import { QuestionPrompt } from "./QuestionPrompt";
 import { RecordControls } from "./RecordControls";
 import { AnswerEditor } from "./AnswerEditor";

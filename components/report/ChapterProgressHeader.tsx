@@ -2,7 +2,27 @@ import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { BackButton } from "@/components/BackButton";
-import type { ChapterProgress } from "@/lib/reportQuestions";
+
+// DEAD CODE - safe to delete this file.
+//
+// This header belonged to the old 16-question flow, where each of three
+// chapters spanned several questions and needed a "part 2 of 4" counter.
+// The flow is now three chunk recordings (see lib/reportQuestions.ts and
+// "Blotter Flow Redesign Plan.md"), and ChunkRecordScreen draws its own
+// segmented progress bar instead. Nothing imports this except the equally
+// dead StepScreen.tsx.
+//
+// The ChapterProgress type it used to import from lib/reportQuestions.ts no
+// longer exists, so it's redeclared locally purely to keep the file
+// compiling until it's removed.
+type ChapterProgress = {
+  chapter: { key: string; label: string; labelEn: string; icon: string };
+  chapterNumber: number;
+  totalChapters: number;
+  stepInChapter: number;
+  stepsInChapter: number;
+  isFirstInChapter: boolean;
+};
 
 /**
  * The header now does two jobs the previous version undersold: it's the
