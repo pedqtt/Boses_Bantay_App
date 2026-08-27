@@ -1,14 +1,5 @@
 import { useRef, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  ScrollView,
-} from "react-native";
+import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,7 +7,6 @@ import { Ionicons } from "@expo/vector-icons";
 // ✅ Import our custom bypass function and Auth Context
 import { logInUser } from "@/lib/api/auth";
 import { useAuth } from "@/lib/auth-context";
-import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 import {
   getPhoneError,
   getLoginPasswordError,
@@ -43,14 +33,18 @@ export default function LoginScreen() {
   // the password field here is a plain TextInput rather than a shared
   // component, so the highlight is tracked locally instead.
   const [passwordFocused, setPasswordFocused] = useState(false);
-  const { scrollRef, handleFocus, handleContainerLayout, handleScroll, keyboardSpacer } =
-    useKeyboardFocusScroll();
   // "Next" on the keyboard moves from phone straight to password; "Done"
   // on password submits, same as tapping Mag-login.
   const passwordRef = useRef<TextInput>(null);
 
   // ✅ Get signIn from our context so the app knows we are logged in
   const { signIn } = useAuth();
+
+  // FIXED - no ScrollView at all now, not even one with a spacer: two
+  // fields fit on screen without it, and any scrolling (even passive,
+  // non-auto-focus scrolling) still read as the layout being unstable.
+  // Fully static View - the only thing that changes on focus is the
+  // field's own border highlight (fieldBorderColor below).
 
   async function handleLogin() {
     const nextPhoneError = getPhoneError(phone);
@@ -86,36 +80,18 @@ export default function LoginScreen() {
     <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
       <ScreenBackground>
       <View style={{ flex: 1 }}>
-        {/* The action cluster (button + link) used to be the last item
-            inside this ScrollView, which meant it moved every time the
-            view scrolled - including the scroll-to-focused-field motion
-            from useKeyboardFocusScroll. A resident tapping the phone
-            field would see the login button drift upward along with
-            everything else, which read as "the whole screen is doing
-            something," not "the field I tapped is coming into view."
-            Splitting it into its own sibling below the ScrollView (a
-            real fixed footer, not scrollable content) means only the
-            header + fields scroll; the button and link stay anchored to
-            the bottom of the screen the entire time, the way a
-            messaging app's send button never moves while the message
-            list above it scrolls. */}
-        <ScrollView
-          ref={scrollRef}
-          onLayout={handleContainerLayout}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: keyboardSpacer }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Two vertical zones now (header, then centered fields) - the
-              third zone (actions) lives outside the ScrollView, below. */}
-          {/* Padding set via `style`, not className: NativeWind utility
-              classes were being applied here but the large vertical
-              values weren't taking effect visually, so these are passed
-              as plain RN style values where there's no compilation step
-              between what's written and what renders. */}
-          <View className="flex-1 px-8" style={{ paddingTop: 72 }}>
+        {/* No ScrollView - fully static. The button lives at the bottom of
+            this same View as its last item (register.tsx's pattern for
+            where the button sits, just without any scrolling container
+            around it). */}
+        {/* Two vertical zones (header, then centered fields), plus the
+            action cluster as a third. */}
+        {/* Padding set via `style`, not className: NativeWind utility
+            classes were being applied here but the large vertical
+            values weren't taking effect visually, so these are passed
+            as plain RN style values where there's no compilation step
+            between what's written and what renders. */}
+        <View className="flex-1 px-8" style={{ paddingTop: 72 }}>
             {/* Zone 1: header - title + one-line description, anchored
                 at the top of the screen. */}
             <View>
@@ -145,7 +121,6 @@ export default function LoginScreen() {
                   setPhone(d);
                   if (phoneError) setPhoneError(getPhoneError(d));
                 }}
-                onFocus={handleFocus}
                 onBlur={() => setPhoneError(getPhoneError(phone))}
                 error={phoneError}
                 returnKeyType="next"
@@ -176,10 +151,7 @@ export default function LoginScreen() {
                       setPassword(t);
                       if (passwordError) setPasswordError(getLoginPasswordError(t));
                     }}
-                    onFocus={(e) => {
-                      setPasswordFocused(true);
-                      handleFocus(e);
-                    }}
+                    onFocus={() => setPasswordFocused(true)}
                     onBlur={() => {
                       setPasswordFocused(false);
                       setPasswordError(getLoginPasswordError(password));
@@ -228,54 +200,37 @@ export default function LoginScreen() {
               </Pressable>
             </View>
             </View>
-          </View>
-        </ScrollView>
 
-        {/* Fixed footer, outside the ScrollView - see the comment above
-            the ScrollView for why. Only this container gets an iOS
-            keyboard offset: Android already resizes the whole window on
-            keyboard open (adjustResize), so this footer rides up for
-            free as a natural side effect of sitting below a ScrollView
-            that just got shorter. iOS doesn't resize the window, so
-            without this it would sit right where it always does - behind
-            the keyboard - the one place a manual offset is still needed. */}
-        <View
-          className="px-8"
-          style={{ paddingBottom: 56 + (Platform.OS === "ios" ? keyboardSpacer : 0) }}
-        >
-          {/* The primary button and the "no account yet" escape hatch
-              belong together as one cluster - both are "leaving this
-              screen" actions, distinct from the fields above - and
-              sitting at the bottom puts the main action in easy thumb
-              reach (Fitts's Law) instead of mid-screen. */}
-          <AuthActionGroup
-            secondary={
-              // flex-wrap on the row itself (not flexShrink on the Text
-              // nodes - that combination can trigger Android's native
-              // text justification and visibly spread out letter/word
-              // spacing) lets this row break onto a second line at
-              // larger system font sizes instead of pushing wider than
-              // the screen.
-              <View className="flex-row flex-wrap justify-center items-center">
-                <Text className="text-ink-soft text-[16px]">Wala pang account? </Text>
-                <Pressable onPress={() => router.push("/(auth)/register")}>
-                  <Text className="text-brand font-semibold text-[16px]">Magrehistro</Text>
+            {/* Back inside the scroll content, as its last item - see the
+                comment above the scroll view for why. Static bottom padding
+                (56, matching the old footer's base value) instead of a
+                keyboard-tracking one - it doesn't need to dodge the
+                keyboard itself; KeyboardAwareScrollView already keeps
+                whichever field is focused clear of it. */}
+            <View className="mt-8" style={{ paddingBottom: 56 }}>
+              <AuthActionGroup
+                secondary={
+                  <View className="flex-row flex-wrap justify-center items-center">
+                    <Text className="text-ink-soft text-[16px]">Wala pang account? </Text>
+                    <Pressable onPress={() => router.push("/(auth)/register")}>
+                      <Text className="text-brand font-semibold text-[16px]">Magrehistro</Text>
+                    </Pressable>
+                  </View>
+                }
+              >
+                <Pressable
+                  onPress={handleLogin}
+                  disabled={loading}
+                  className={`rounded-2xl py-4 items-center overflow-hidden ${loading ? "bg-gray-300" : "bg-brand active:opacity-85"}`}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text className="text-white font-semibold text-[18px]">Mag-login</Text>
+                  )}
                 </Pressable>
-              </View>
-            }
-          >
-            <Pressable
-              onPress={handleLogin}
-              disabled={loading}
-              className={`rounded-2xl py-4 items-center overflow-hidden ${loading ? "bg-gray-300" : "bg-brand active:opacity-85"}`}
-            >
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text className="text-white font-semibold text-[18px]">Mag-login</Text>
-              )}
-            </Pressable>
-          </AuthActionGroup>
+              </AuthActionGroup>
+            </View>
         </View>
       </View>
       </ScreenBackground>

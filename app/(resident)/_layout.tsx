@@ -315,7 +315,11 @@ export default function ResidentLayout() {
   // (same reasoning — keyboard + submit button shouldn't collide with it),
   // so a floating FAB still anchored to where the tab bar used to be would
   // just hang there over a gap instead of over an actual tab bar.
-  const hideBotFab = pathname === "/report" || pathname === "/bot" || pathname === "/verify-id";
+  const hideBotFab =
+    pathname === "/report" ||
+    pathname === "/bot" ||
+    pathname === "/verify-id" ||
+    pathname === "/service-complaint";
   const tabBarHeight = 64 + insets.bottom;
   // Lifted out of BotFab itself — see the comment on BotFab for why: it's
   // conditionally rendered, so state local to it would reset every time
@@ -421,6 +425,13 @@ export default function ResidentLayout() {
           aren't meant to be one of the five visible tabs. */}
       <Tabs.Screen name="verify-id" options={{ href: null }} />
       <Tabs.Screen name="pending" options={{ href: null }} />
+      {/* Service/infrastructure complaint flow - pushed to from the
+          chooseType stage inside report.tsx, not one of the five visible
+          tabs. Same href: null treatment as verify-id/pending above. */}
+      <Tabs.Screen name="service-complaint" options={{ href: null }} />
+      {/* Report detail page - pushed to from a tap on any card in
+          reports.tsx. Same href: null treatment. */}
+      <Tabs.Screen name="report-detail" options={{ href: null }} />
       <Tabs.Screen
         name="directory"
         options={{

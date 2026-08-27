@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Ionicons } from "@expo/vector-icons";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { colors } from "@/lib/theme";
-import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 import {
   toLocalPhoneDigits,
   normalizeAgeDigits,
@@ -190,13 +190,6 @@ export function ReviewScreen({
   const [editingHeader, setEditingHeader] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
 
-  // The longest scroll in the whole flow - every chunk paragraph, plus
-  // either card's inputs when expanded for editing, can be focused here.
-  // Without this, editing one opens a keyboard that covers the field being
-  // typed into.
-  const { scrollRef, handleFocus, handleContainerLayout, handleScroll, keyboardSpacer } =
-    useKeyboardFocusScroll(28);
-
   const HEADER_FIELDS: ReportFieldKey[] = (
     [
       "complainantName",
@@ -222,9 +215,7 @@ export function ReviewScreen({
           key={key}
           label={q.label}
           digits={toLocalPhoneDigits(a?.text)}
-          onChangeDigits={(digits) => onChangeAnswerText(key, digits)}
-          onFocus={handleFocus}
-        />
+          onChangeDigits={(digits) => onChangeAnswerText(key, digits)}        />
       );
     }
 
@@ -256,7 +247,6 @@ export function ReviewScreen({
         onChangeText={(text) =>
           onChangeAnswerText(key, key === "complainantAge" ? normalizeAgeDigits(text) : text)
         }
-        onFocus={handleFocus}
         placeholder={q.placeholder ?? ""}
         keyboardType={key === "complainantAge" ? "number-pad" : "default"}
         maxLength={key === "complainantAge" ? AGE_MAX_DIGITS : undefined}
@@ -272,15 +262,12 @@ export function ReviewScreen({
   const cctvChecked = answers.requestCctv?.value === "true";
 
   return (
-    <ScrollView
-            ref={scrollRef}
-            onLayout={handleContainerLayout}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
+    <KeyboardAwareScrollView
+            bottomOffset={28}
             className="flex-1 px-8"
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: 16, paddingBottom: 56 + keyboardSpacer }}
+            contentContainerStyle={{ paddingTop: 16, paddingBottom: 56 }}
           >
             {/* Distinct from the header row's "Suriin ang Report" label on
                 purpose - that's the structural name of this screen, this is
@@ -351,7 +338,6 @@ export function ReviewScreen({
                         <AnswerEditor
                           value={transcript}
                           onChangeText={(text) => onChangeChunkTranscript(chunk.key, text)}
-                          onFocus={handleFocus}
                           placeholder="Wala pang naitala"
                           isTranscribing={false}
                           tall
@@ -510,6 +496,6 @@ export function ReviewScreen({
                 )}
               </Pressable>
             </AuthActionGroup>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }

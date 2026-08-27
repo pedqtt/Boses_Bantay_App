@@ -1,5 +1,6 @@
 import { View, Text, TextInput, Pressable, ActivityIndicator } from "react-native";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
+import { colors } from "@/lib/theme";
 
 type AnswerEditorProps = {
   value: string;
@@ -7,11 +8,11 @@ type AnswerEditorProps = {
   placeholder: string;
   isTranscribing: boolean;
   transcribingLabel?: string;
-  /** Wired to useKeyboardFocusScroll's handleFocus by callers on a
-   *  ScrollView-based screen, so the field scrolls clear of the keyboard
-   *  instead of being typed into blind behind it. Optional because not
-   *  every screen this renders on needs it (e.g. a screen with no other
-   *  scrollable content above the field). */
+  /** Passthrough for callers that need their own onFocus behavior. Every
+   *  current caller renders this inside a KeyboardAwareScrollView (react-
+   *  native-keyboard-controller), which already scrolls the focused field
+   *  clear of the keyboard on its own - this prop is unused by them and
+   *  kept only as an escape hatch. */
   onFocus?: (e: any) => void;
   /** Taller box for the one long-form narrative field (description). */
   tall?: boolean;
@@ -55,8 +56,8 @@ export function AnswerEditor({
   return (
     <View>
       {isTranscribing ? (
-        <View className="flex-row items-center border border-gray-200 rounded-2xl p-4">
-          <ActivityIndicator size="small" color="#1D4ED8" />
+        <View className="flex-row items-center bg-white border border-gray-200 rounded-2xl p-4">
+          <ActivityIndicator size="small" color={colors.primary} />
           <Text className={`${REPORT_TYPE.helper} ml-3`}>{transcribingLabel}</Text>
         </View>
       ) : (
@@ -67,8 +68,8 @@ export function AnswerEditor({
           multiline
           textAlignVertical="top"
           placeholder={placeholder}
-          placeholderTextColor="#6B7280"
-          className={`${REPORT_TYPE.body} border rounded-2xl p-4 ${
+          placeholderTextColor={colors.outline}
+          className={`${REPORT_TYPE.body} bg-white border rounded-2xl p-4 ${
             tall ? "min-h-[124px]" : "min-h-[64px]"
           } ${hasError ? "border-alert" : "border-gray-200"}`}
         />

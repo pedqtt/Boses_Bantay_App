@@ -124,7 +124,7 @@ export function RecordControls({
                 height: 8,
                 borderRadius: 4,
                 marginRight: 8,
-                backgroundColor: isPaused ? "#9CA3AF" : colors.error,
+                backgroundColor: isPaused ? colors.outline : colors.error,
                 opacity: dotPulse,
                 // Subtle glow, not a spotlight - low opacity, small radius,
                 // so it reads as "this dot is alive" without competing with

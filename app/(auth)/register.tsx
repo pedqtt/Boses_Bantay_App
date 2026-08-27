@@ -1,18 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-} from "react-native";
+import { View, Text, TextInput, Pressable, ActivityIndicator, Alert, ScrollView } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { signUpUser, isPhoneRegistered } from "@/lib/api/auth";
-import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
+import { useKeyboardHeight } from "@/lib/useKeyboardHeight";
 import {
   getPhoneError,
   getNewPasswordError,
@@ -123,9 +116,6 @@ export default function RegisterScreen() {
     };
   }, [phone]);
 
-  const { scrollRef, handleFocus, handleContainerLayout, handleScroll, keyboardSpacer } =
-    useKeyboardFocusScroll();
-
   // "Next" on the keyboard walks straight down the form in the same order
   // a resident would fill it in by tapping - Pangalan, Apelyido, Address,
   // phone, then Password, which submits. Each ref is only used to call
@@ -134,6 +124,16 @@ export default function RegisterScreen() {
   const addressRef = useRef<TextInput>(null);
   const phoneRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
+
+  // FIXED - KeyboardAwareScrollView auto-scrolled on every focus change
+  // down this five-field form, even when the newly focused field was
+  // already visible - each little correction read as the field "moving"
+  // rather than the screen just resizing. Plain ScrollView now; the
+  // trailing spacer reserves the keyboard's real height as scroll range
+  // (frame-synced, lib/useKeyboardHeight.ts) so a field can still be
+  // reached by the resident's own scroll, but nothing scrolls for them.
+  const keyboardHeight = useKeyboardHeight();
+  const spacerStyle = useAnimatedStyle(() => ({ height: keyboardHeight.value }));
 
   // Recomputed straight from the current values on every render, same as
   // phoneError above - not a separate piece of state that could drift out
@@ -226,26 +226,18 @@ export default function RegisterScreen() {
     <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
       <ScreenBackground>
       <View style={{ flex: 1 }}>
-        {/* One whole scrollable page again - consent, submit, and the
-            "already have an account" link are back inside the ScrollView
-            as its last items, not split into a separate fixed footer
-            below it. That footer split was to stop the button drifting
-            when a field scrolled into view, but the fix for the actual
-            complaint (register/upload-id reading as "a page plus a
-            separate stuck-on bottom bar" instead of one page) is to
-            merge it back - the button still won't jump around, because
-            useKeyboardFocusScroll only moves the scroll offset for the
-            field being focused, not this cluster on its own. */}
+        {/* One whole scrollable page - consent, submit, and the "already
+            have an account" link are inside the scroll view as its last
+            items, not split into a separate fixed footer below it, so the
+            page reads as one page rather than "a page plus a stuck-on
+            bottom bar." Plain ScrollView, no auto-scroll-to-field - see the
+            comment above `spacerStyle` for why. */}
         <ScrollView
-          ref={scrollRef}
-          onLayout={handleContainerLayout}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
           style={{ flex: 1 }}
           className="px-8"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingTop: 24, paddingBottom: 56 + keyboardSpacer }}
+          contentContainerStyle={{ paddingTop: 24, paddingBottom: 56 }}
         >
           <View className="mb-8 self-start">
             <BackButton onPress={() => router.back()} />
@@ -286,7 +278,6 @@ export default function RegisterScreen() {
                 setFirstName(t);
                 if (firstNameError) setFirstNameError(getNameError(t, "pangalan"));
               }}
-              onFocus={handleFocus}
               onBlur={() => setFirstNameError(getNameError(firstName, "pangalan"))}
               placeholder="Juan"
               autoFocus
@@ -303,7 +294,6 @@ export default function RegisterScreen() {
                 setLastName(t);
                 if (lastNameError) setLastNameError(getNameError(t, "apelyido"));
               }}
-              onFocus={handleFocus}
               onBlur={() => setLastNameError(getNameError(lastName, "apelyido"))}
               placeholder="Dela Cruz"
               error={lastNameError}
@@ -321,7 +311,6 @@ export default function RegisterScreen() {
               setPurok(t);
               if (addressError) setAddressError(getAddressError(t));
             }}
-            onFocus={handleFocus}
             onBlur={() => setAddressError(getAddressError(purok))}
             placeholder="Purok 3, Kalye Mabini"
             error={addressError}
@@ -335,7 +324,6 @@ export default function RegisterScreen() {
               label="Numero ng Mobile"
               digits={phone}
               onChangeDigits={setPhone}
-              onFocus={handleFocus}
               onBlur={() => setPhoneTouched(true)}
               error={phoneError}
               returnKeyType="next"
@@ -353,7 +341,6 @@ export default function RegisterScreen() {
               setPassword(t);
               if (passwordError) setPasswordError(getNewPasswordError(t));
             }}
-            onFocus={handleFocus}
             onBlur={() => setPasswordError(getNewPasswordError(password))}
             placeholder="Password"
             isPassword
@@ -435,6 +422,7 @@ export default function RegisterScreen() {
               )}
             </Pressable>
           </AuthActionGroup>
+          <Animated.View style={spacerStyle} />
         </ScrollView>
       </View>
       </ScreenBackground>

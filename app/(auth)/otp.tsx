@@ -1,21 +1,11 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  ScrollView,
-} from "react-native";
+import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 
 // ✅ Import our custom bypass function here
 import { verifyPhoneCode, MOCK_OTP } from "@/lib/api/auth";
 import { useAuth } from "@/lib/auth-context";
-import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 import { BackButton } from "@/components/BackButton";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
@@ -26,8 +16,6 @@ export default function OtpScreen() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
-  const { scrollRef, handleFocus, handleContainerLayout, handleScroll, keyboardSpacer } =
-    useKeyboardFocusScroll();
 
   async function handleVerify() {
     if (code.length !== 6) {
@@ -89,23 +77,17 @@ export default function OtpScreen() {
     <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
       <ScreenBackground>
       <View style={{ flex: 1 }}>
-        {/* Footer lives outside this ScrollView - see login.tsx for why. */}
-        <ScrollView
-          ref={scrollRef}
-          onLayout={handleContainerLayout}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: keyboardSpacer }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Same structure as the rest of the auth flow, and switched to
-              Tagalog + the shared BackButton - this screen had been left
-              behind in English with the old "← Back" text link while
-              login/register moved over. */}
-          {/* Same 24 top as forgot-password.tsx - both have a back
-              button, so they share the smaller top value. */}
-          <View className="flex-1 px-8" style={{ paddingTop: 24 }}>
+        {/* No ScrollView here on purpose - this screen has one field and
+            fits without scrolling, so it's a static View. Fields don't
+            move, scroll, or get chased by the keyboard; focus is shown by
+            the field's own border highlight only. */}
+        {/* Same structure as the rest of the auth flow, and switched to
+            Tagalog + the shared BackButton - this screen had been left
+            behind in English with the old "← Back" text link while
+            login/register moved over. */}
+        {/* Same 24 top as forgot-password.tsx - both have a back
+            button, so they share the smaller top value. */}
+        <View className="flex-1 px-8" style={{ paddingTop: 24 }}>
             <View className="mb-8 self-start">
               <BackButton onPress={() => router.back()} />
             </View>
@@ -129,7 +111,6 @@ export default function OtpScreen() {
               <TextInput
                 value={code}
                 onChangeText={(t) => setCode(t.replace(/[^0-9]/g, "").slice(0, 6))}
-                onFocus={handleFocus}
                 keyboardType="number-pad"
                 placeholder="······"
                 placeholderTextColor={colors.outlineFaint}
@@ -140,34 +121,30 @@ export default function OtpScreen() {
                 className="text-[34px] font-semibold text-ink tracking-[12px] text-center border-b border-gray-200 pb-4"
               />
             </View>
-          </View>
-        </ScrollView>
 
-        <View
-          className="px-8"
-          style={{ paddingBottom: 56 + (Platform.OS === "ios" ? keyboardSpacer : 0) }}
-        >
-          <AuthActionGroup
-            secondary={
-              <Pressable onPress={handleResend} hitSlop={8}>
-                <Text className="text-brand text-[16px] font-medium">
-                  Hindi natanggap ang code?
-                </Text>
-              </Pressable>
-            }
-          >
-            <Pressable
-              onPress={handleVerify}
-              disabled={loading}
-              className={`rounded-2xl py-4 items-center overflow-hidden ${loading ? "bg-gray-300" : "bg-brand active:opacity-85"}`}
-            >
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text className="text-white font-semibold text-[18px]">I-verify</Text>
-              )}
-            </Pressable>
-          </AuthActionGroup>
+            <View className="mt-8" style={{ paddingBottom: 56 }}>
+              <AuthActionGroup
+                secondary={
+                  <Pressable onPress={handleResend} hitSlop={8}>
+                    <Text className="text-brand text-[16px] font-medium">
+                      Hindi natanggap ang code?
+                    </Text>
+                  </Pressable>
+                }
+              >
+                <Pressable
+                  onPress={handleVerify}
+                  disabled={loading}
+                  className={`rounded-2xl py-4 items-center overflow-hidden ${loading ? "bg-gray-300" : "bg-brand active:opacity-85"}`}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text className="text-white font-semibold text-[18px]">I-verify</Text>
+                  )}
+                </Pressable>
+              </AuthActionGroup>
+            </View>
         </View>
       </View>
       </ScreenBackground>

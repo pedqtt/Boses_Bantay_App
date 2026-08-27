@@ -1,13 +1,14 @@
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
+import { colors } from "@/lib/theme";
 
 type CircleControlVariant = "primary" | "danger" | "secondary";
 
 const VARIANT_STYLES: Record<CircleControlVariant, { bg: string; iconColor: string }> = {
   primary: { bg: "bg-brand", iconColor: "white" },
   danger: { bg: "bg-alert", iconColor: "white" },
-  secondary: { bg: "bg-gray-50 border border-gray-300", iconColor: "#374151" },
+  secondary: { bg: "bg-gray-50 border border-gray-300", iconColor: colors.onSurfaceVariant },
 };
 
 /** Every circular icon button's "frame" is this size, even when the circle

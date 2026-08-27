@@ -61,13 +61,23 @@ export const typography = {
 // Semantic color roles, values pulled from tailwind.config.js's existing
 // brand/alert/ink palette - see the file header for why, and for the one
 // corrected value (outline).
+//
+// UPDATED: brand/surface rolled over to the resident-provided reference
+// palette (Imperial Blue / White Convolvulus) - see tailwind.config.js's
+// brand block for the full shade ramp derived from #021F94. Started scoped
+// to bot.tsx only, then applied app-wide at the resident's request.
 export const colors = {
-  primary: "#1D4ED8", // brand.DEFAULT
+  primary: "#021F94", // brand.DEFAULT - Imperial Blue
   onPrimary: "#FFFFFF",
-  primaryContainer: "#EBF1FE", // brand.50 / brand.light
-  onPrimaryContainer: "#1638A8", // brand.dark
-
-  surface: "#FCFCFD", // ScreenBackground's base color - app background
+  primaryContainer: "#E3E6F4", // brand.50 / brand.light
+  onPrimaryContainer: "#011760", // brand.dark
+  // A lighter step of primary for filled buttons/surfaces that don't need
+  // (or don't want) the full DEFAULT navy's weight - directory.tsx's call
+  // action was the first place `primary` at full strength read as too
+  // heavy for a button meant to be tapped often, not a one-off emphasis
+  // color. White text still clears WCAG AA on this (~4.85:1).
+  primaryMuted: "#5B6DB9", // brand.400
+  surface: "#F5F2F3", // White Convolvulus - ScreenBackground's base color, app background
   onSurface: "#0B0F19", // ink.DEFAULT - primary text
   onSurfaceVariant: "#374151", // ink.soft - secondary text (never lighter than this)
   onSurfaceFaint: "#4B5563", // ink.faint - tertiary text/icons (tab bar inactive state, etc.)
@@ -84,10 +94,10 @@ export const colors = {
   // now the rule is: is there real content/interaction here, or not.
   outlineFaint: "#D1D5DB",
 
-  error: "#DC2626", // alert.DEFAULT
+  error: "#8B1220", // alert.DEFAULT - deepened to match brand's lightness/weight, see tailwind.config.js
   onError: "#FFFFFF",
-  errorContainer: "#FEE2E2", // alert.100
-  onErrorContainer: "#B91C1C", // alert.dark
+  errorContainer: "#FBDEDE", // alert.100
+  onErrorContainer: "#5C0C15", // alert.dark
 } as const;
 
 // The error/focus/default field-border ternary was independently

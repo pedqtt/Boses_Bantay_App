@@ -1,21 +1,11 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  Image,
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-} from "react-native";
+import { View, Text, TextInput, Pressable, Image, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 import { Card } from "@/components/Card";
 import { SectionLabel } from "@/components/SectionLabel";
 import { ScreenBackground } from "@/components/ScreenBackground";
@@ -32,8 +22,6 @@ export default function UploadIdScreen() {
   const [consentGiven, setConsentGiven] = useState(false);
   const [loading, setLoading] = useState(false);
   const { profile } = useAuth(); // Grab the resident's data from context
-  const { scrollRef, handleFocus, handleContainerLayout, handleScroll, keyboardSpacer } =
-    useKeyboardFocusScroll();
 
   // 1. Open the camera to snap a photo
   async function handleTakePhoto() {
@@ -142,24 +130,18 @@ export default function UploadIdScreen() {
 
   const canSubmit = Boolean(imageUri) && Boolean(idNumber.trim()) && consentGiven;
 
+  // FIXED - no ScrollView, no spacer, same as login.tsx/otp.tsx: fully
+  // static layout, only the focused field's border highlight changes.
+  // NOTE: this screen has more content than the others (image card + ID
+  // field + consent row + button) - on shorter phones with the keyboard
+  // open, the bottom of the form can run past the visible area since
+  // nothing here can scroll to reach it. Flag this to the resident-facing
+  // team if it turns out to be a real problem on small devices.
+
   return (
     <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
       <ScreenBackground>
-      <View style={{ flex: 1 }}>
-        <ScrollView
-          ref={scrollRef}
-          onLayout={handleContainerLayout}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          // flex: 1 via style, not className - see register.tsx for why
-          // (the same NativeWind quirk let this ScrollView shrink to its
-          // content instead of stretching above the fixed footer).
-          style={{ flex: 1 }}
-          className="px-5 pt-6"
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 + keyboardSpacer }}
-        >
+      <View style={{ flex: 1 }} className="px-5 pt-6">
           <Text className="text-[28px] font-semibold text-ink tracking-tight mb-1.5">
             I-verify ang Barangay ID
           </Text>
@@ -199,7 +181,6 @@ export default function UploadIdScreen() {
             <TextInput
               value={idNumber}
               onChangeText={setIdNumber}
-              onFocus={handleFocus}
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
               placeholder="hal. BGY-2026-00123"
@@ -252,7 +233,6 @@ export default function UploadIdScreen() {
               </Text>
             )}
           </Pressable>
-        </ScrollView>
       </View>
       </ScreenBackground>
     </SafeAreaView>

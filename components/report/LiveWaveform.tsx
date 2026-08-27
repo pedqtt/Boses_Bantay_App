@@ -11,6 +11,7 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
+import { colors } from "@/lib/theme";
 
 const WAVEFORM_BARS = 27;
 const WAVEFORM_MIN_H = 5;
@@ -80,7 +81,7 @@ function Bar({ index, phase, level }: { index: number; phase: Phase; level: Leve
       // opacity - visible on Android too, where a colored shadow isn't.
       opacity: BAR_OPACITY[index] + (1 - BAR_OPACITY[index]) * glow,
       // iOS half of the glow: an actual soft blue halo around the bar.
-      shadowColor: "#1D4ED8",
+      shadowColor: colors.primary,
       shadowOpacity: glow * 0.5,
       shadowRadius: 5,
       shadowOffset: { width: 0, height: 0 },
@@ -94,7 +95,7 @@ function Bar({ index, phase, level }: { index: number; phase: Phase; level: Leve
           width: 3.5,
           height: WAVEFORM_MAX_H,
           borderRadius: 1.75,
-          backgroundColor: "#1D4ED8",
+          backgroundColor: colors.primary,
         },
         animatedStyle,
       ]}

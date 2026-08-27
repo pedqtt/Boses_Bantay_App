@@ -28,7 +28,14 @@ import { getAgeError } from "@/lib/validation";
 // Profile fields are prefilled before this stage renders (applyProfile in
 // report.tsx) - this is a confirm-and-correct step, not a re-ask.
 
-export type Stage = "intro" | "confirmYou" | "chunk" | "details" | "review" | "submitted";
+export type Stage =
+  | "chooseType"
+  | "intro"
+  | "confirmYou"
+  | "chunk"
+  | "details"
+  | "review"
+  | "submitted";
 
 export function makeEmptyAnswers(): AnswersMap {
   return REPORT_QUESTIONS.reduce(

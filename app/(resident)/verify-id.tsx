@@ -1,16 +1,6 @@
 import { useCallback, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  Image,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  ScrollView,
-  KeyboardAvoidingView,
-} from "react-native";
+import { View, Text, TextInput, Pressable, Image, ActivityIndicator, Alert } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -176,16 +166,23 @@ export default function VerifyIdScreen() {
   return (
     <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
       <ScreenBackground>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <ScrollView
-          className="flex-1 px-5 pt-3"
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          // Padding on the container, not just a margin on the last
-          // element - guarantees breathing room below the submit button
-          // regardless of how much content is above it.
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
-        >
+      {/* FIXED - was KeyboardAvoidingView + ScrollView, betting on Android's
+          native resize to make "height" behavior work. That bet was wrong
+          often enough elsewhere in this app (see bot.tsx's own history)
+          that every screen with a keyboard is now standardized on
+          KeyboardAwareScrollView (react-native-keyboard-controller)
+          instead - one mechanism, frame-synced to the real keyboard
+          animation, rather than each screen guessing its own. */}
+      <KeyboardAwareScrollView
+        bottomOffset={24}
+        className="flex-1 px-5 pt-3"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        // Padding on the container, not just a margin on the last
+        // element - guarantees breathing room below the submit button
+        // regardless of how much content is above it.
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+      >
           <View className="mb-8 self-start">
             <BackButton onPress={() => router.back()} />
           </View>
@@ -284,8 +281,7 @@ export default function VerifyIdScreen() {
               )}
             </Pressable>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </ScreenBackground>
     </SafeAreaView>
   );

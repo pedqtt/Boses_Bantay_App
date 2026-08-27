@@ -113,31 +113,33 @@ export function BahagiHeader({
   onBack,
   backDisabled,
 }: BahagiHeaderProps) {
+  // No progress to show (the chooseType and service-complaint screens pass
+  // totalSegments 0) - skip the Stepper entirely rather than rendering an
+  // empty row, and use symmetric vertical padding so the title row centers
+  // in the header block instead of sitting top-heavy with leftover space
+  // below it where the stepper used to be.
+  const hasProgress = totalSegments > 0;
+
   return (
     <View
-      className="px-6 pt-5 pb-6"
-      // A flat header sitting directly on ScreenBackground's dot texture had
-      // no edge at all - content below would scroll right up under it with
-      // nothing marking where the header ends. A solid backgroundColor
-      // (matching the page surface exactly, not white, so it doesn't itself
-      // look like a card and doesn't band against ScreenBackground's own
-      // color) plus a barely-there shadow gives it that edge without a hard
-      // border line, which would read as heavier than this chrome needs to
-      // be. Offset is downward-only and small (height 1, no width) and
-      // opacity/radius are both low, so the shadow only reads below the
-      // header, fading out almost immediately - not a halo around the whole
-      // bar. elevation is Android's equivalent of the iOS shadow props -
-      // both are needed since RN doesn't unify them.
+      className={hasProgress ? "px-6 pt-5 pb-6" : "px-6 py-5"}
+      // Same header/body contrast treatment as bot.tsx, profile.tsx,
+      // directory.tsx, and reports.tsx: a genuinely white header
+      // (surfaceContainerLow) with a flat 1px bottom border, not a header
+      // colored to match the page surface. The previous version matched
+      // colors.surface exactly plus a near-invisible shadow (0.04 opacity)
+      // specifically so it wouldn't look like a separate surface - but that
+      // reads as no contrast at all against ScreenBackground's near-white
+      // body, which is exactly the "header blends into the body" complaint
+      // this fixes. A hairline border does the separation job clearly
+      // instead of a shadow doing it subtly.
       style={{
-        backgroundColor: colors.surface,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 2,
-        elevation: 1,
+        backgroundColor: colors.surfaceContainerLow,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.outlineVariant,
       }}
     >
-      <View className="flex-row items-center mb-5">
+      <View className={`flex-row items-center ${hasProgress ? "mb-5" : ""}`}>
         <Pressable
           onPress={onBack}
           disabled={backDisabled}
@@ -165,7 +167,7 @@ export function BahagiHeader({
         )}
       </View>
 
-      <Stepper total={totalSegments} current={filledSegments} />
+      {hasProgress && <Stepper total={totalSegments} current={filledSegments} />}
     </View>
   );
 }

@@ -1,8 +1,8 @@
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Ionicons } from "@expo/vector-icons";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { colors } from "@/lib/theme";
-import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 import { CHUNKS, type Chunk } from "@/lib/reportQuestions";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
 import { RecordControls } from "./RecordControls";
@@ -67,29 +67,22 @@ export function ChunkRecordScreen({
   const isLast = index === CHUNKS.length - 1;
   const hasTranscript = Boolean(state.transcript.trim());
 
-  // The transcript box sits at the bottom of a long scroll (question, Gabay
-  // checklist, record controls, then the box itself) - without this, the
-  // keyboard opens right on top of it and typing happens blind behind it.
-  // Same fix as ConfirmYouScreen/register.tsx: scroll the focused field
-  // clear of the keyboard rather than resizing the layout (see
-  // useKeyboardFocusScroll's doc comment for why not KeyboardAvoidingView).
-  // Smaller gap than the auth screens' default (96px, sized for a
-  // hint+error pair under a single-line field) - AnswerEditor here carries
-  // at most one short "Ginagawa pa..." status line below it, so the box's
-  // own bottom edge should land close to the keyboard, not float ~96px
-  // above it.
-  const { scrollRef, handleFocus, handleContainerLayout, handleScroll, keyboardSpacer } =
-    useKeyboardFocusScroll(20);
-
   return (
     <>
-      <ScrollView
-        ref={scrollRef}
-        onLayout={handleContainerLayout}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
+      {/* The transcript box sits at the bottom of a long scroll (question,
+          Gabay checklist, record controls, then the box itself) -
+          KeyboardAwareScrollView (react-native-keyboard-controller) scrolls
+          it clear of the keyboard on focus, frame-synced to the real
+          keyboard animation rather than the old useKeyboardFocusScroll
+          hook's JS-bridge-event approximation. bottomOffset smaller than
+          the auth screens' default - AnswerEditor here carries at most one
+          short "Ginagawa pa..." status line below it, so the box's own
+          bottom edge should land close to the keyboard, not float far
+          above it. */}
+      <KeyboardAwareScrollView
+        bottomOffset={20}
         className="flex-1 px-8"
-        contentContainerStyle={{ flexGrow: 1, paddingTop: 24, paddingBottom: 56 + keyboardSpacer }}
+        contentContainerStyle={{ flexGrow: 1, paddingTop: 24, paddingBottom: 56 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -172,7 +165,6 @@ export function ChunkRecordScreen({
               <AnswerEditor
                 value={state.transcript}
                 onChangeText={onChangeTranscript}
-                onFocus={handleFocus}
                 placeholder="I-record o i-type po ang inyong salaysay"
                 isTranscribing={state.status === "transcribing"}
                 transcribingLabel="Ginagawa pa ang teksto..."
@@ -190,7 +182,7 @@ export function ChunkRecordScreen({
               )}
             </View>
           </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* Same bottom action treatment as ConfirmYouScreen - px-8,
           AuthActionGroup, no border-t divider (the divider was a

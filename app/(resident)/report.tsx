@@ -38,6 +38,7 @@ import {
   buildPayload,
   type Stage,
 } from "@/lib/reportFlow";
+import { ChooseReportTypeScreen } from "@/components/report/ChooseReportTypeScreen";
 import { IntroScreen } from "@/components/report/IntroScreen";
 import { ConfirmYouScreen } from "@/components/report/ConfirmYouScreen";
 import { ChunkRecordScreen } from "@/components/report/ChunkRecordScreen";
@@ -75,7 +76,7 @@ const MIN_RECORDING_MS = 1000;
 
 export default function ReportScreen() {
   const { profile } = useAuth();
-  const [stage, setStage] = useState<Stage>("intro");
+  const [stage, setStage] = useState<Stage>("chooseType");
   const [chunkIndex, setChunkIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswersMap>(makeEmptyAnswers);
   const [chunks, setChunks] = useState<ChunksMap>(makeEmptyChunks);
@@ -154,7 +155,7 @@ export default function ReportScreen() {
   // the session in progress.
   useEffect(() => {
     if (!profile?.id) return;
-    if (stage === "intro" || stage === "submitted") return;
+    if (stage === "chooseType" || stage === "intro" || stage === "submitted") return;
     saveDraft(profile.id, { answers, chunks, stage, chunkIndex });
   }, [profile?.id, answers, chunks, stage, chunkIndex]);
 
@@ -435,7 +436,7 @@ export default function ReportScreen() {
     setChunkIndex(0);
     setReferenceNo("");
     setEditingKey(null);
-    setStage("intro");
+    setStage("chooseType");
     if (profile?.id) clearDraft(profile.id);
   }
 
@@ -752,13 +753,12 @@ export default function ReportScreen() {
         />
       );
     }
-  } else {
-    // intro
+  } else if (stage === "intro") {
     headerProps = {
       label: "Bagong Report",
       filledSegments: 0,
       totalSegments: TOTAL_BAHAGI,
-      onBack: exitToHome,
+      onBack: () => setStage("chooseType"),
     };
     body = (
       <IntroScreen
@@ -768,13 +768,43 @@ export default function ReportScreen() {
         onDiscardDraft={discardDraft}
       />
     );
+  } else {
+    // chooseType - the entry gate. Two very different reports (blotter vs
+    // service/infrastructure complaint) used to be forced through one
+    // flow - see ChooseReportTypeScreen's doc comment for why they're
+    // split here instead.
+    //
+    // No stepper here (totalSegments 0) - this screen isn't part of
+    // either flow's own step count, it's the fork before one starts, so a
+    // 0-of-N stepper reading as an empty/blank progress bar was actively
+    // misleading rather than just unfinished-looking.
+    headerProps = {
+      label: "Bagong Report",
+      filledSegments: 0,
+      totalSegments: 0,
+      onBack: exitToHome,
+    };
+    body = (
+      <ChooseReportTypeScreen
+        onSelect={(type) => {
+          if (type === "blotter") {
+            setStage("intro");
+          } else {
+            router.push("/(resident)/service-complaint");
+          }
+        }}
+      />
+    );
   }
 
   return (
-    // backgroundColor matches ScreenBackground's own surface color - see
-    // BahagiHeader's doc comment for why the inset padding needs it.
-    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: colors.surface }}>
-      <ScreenBackground>
+    // Header is now genuinely white (BahagiHeader) - the SafeAreaView's top
+    // inset and the body both use the same lightened surface tint the rest
+    // of the app pairs with a white header (profile.tsx/bot.tsx/
+    // directory.tsx/reports.tsx), so the header actually reads as a
+    // distinct, lighter surface instead of matching the page underneath it.
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
+      <ScreenBackground backgroundColor="#FAF8F7">
         <View style={{ flex: 1 }}>
           <BahagiHeader {...headerProps} />
           {body}

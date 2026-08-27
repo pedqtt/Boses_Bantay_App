@@ -1,8 +1,8 @@
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Ionicons } from "@expo/vector-icons";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { colors } from "@/lib/theme";
-import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 import {
   CONFIRM_COPY,
   getQuestion,
@@ -60,24 +60,19 @@ export function ChunkConfirmScreen({
     (key) => getQuestion(key).required && !answers[key]?.text.trim()
   );
 
-  // Same keyboard-covers-the-field problem as ChunkRecordScreen: tapping
-  // "Baguhin" opens an AnswerEditor that can sit low enough in the list to
-  // land right behind the keyboard.
-  // Smaller gap than the auth screens' default - see the same note in
-  // ChunkRecordScreen. This AnswerEditor has no hint/error line under it at
-  // all, so the field's own bottom edge can sit right above the keyboard.
-  const { scrollRef, handleFocus, handleContainerLayout, handleScroll, keyboardSpacer } =
-    useKeyboardFocusScroll(16);
-
   return (
     <>
-      <ScrollView
-        ref={scrollRef}
-        onLayout={handleContainerLayout}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
+      {/* Same keyboard-covers-the-field problem as ChunkRecordScreen:
+          tapping "Baguhin" opens an AnswerEditor that can sit low enough in
+          the list to land right behind the keyboard. KeyboardAwareScrollView
+          scrolls it clear on focus; bottomOffset smaller than the auth
+          screens' default since this AnswerEditor has no hint/error line
+          under it, so its own bottom edge can sit right above the
+          keyboard. */}
+      <KeyboardAwareScrollView
+        bottomOffset={16}
         className="flex-1 px-8"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 56 + keyboardSpacer }}
+        contentContainerStyle={{ paddingTop: 24, paddingBottom: 56 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -106,14 +101,13 @@ export function ChunkConfirmScreen({
                 <AnswerEditor
                   value={a.text}
                   onChangeText={(text) => onChangeAnswerText(key, text)}
-                  onFocus={handleFocus}
                   placeholder={q.placeholder ?? ""}
                   isTranscribing={false}
                 />
               ) : (
                 <Pressable
                   onPress={() => onStartEditing(key)}
-                  className="flex-row items-start justify-between rounded-2xl px-4 py-3.5 bg-gray-50 border border-gray-200 active:opacity-70"
+                  className="flex-row items-start justify-between rounded-2xl px-4 py-3.5 bg-white border border-gray-200 active:opacity-70"
                 >
                   <Text className={`${REPORT_TYPE.body} flex-1`}>{a.text}</Text>
                   <Text className={`${REPORT_TYPE.linkBrand} ml-3`}>{CONFIRM_COPY.edit}</Text>
@@ -124,7 +118,7 @@ export function ChunkConfirmScreen({
         })}
 
         {missingRequired.length > 0 && (
-          <View className="flex-row items-start bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 mb-2">
+          <View className="flex-row items-start bg-white border border-gray-200 rounded-2xl px-4 py-3 mb-2">
             <Ionicons name="information-circle-outline" size={18} color={colors.onSurfaceVariant} />
             <Text className={`${REPORT_TYPE.caption} ml-2 flex-1`}>
               Hindi po namin narinig ang{" "}
@@ -133,7 +127,7 @@ export function ChunkConfirmScreen({
             </Text>
           </View>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* Same bottom action treatment as ConfirmYouScreen - px-8,
           AuthActionGroup, 18px button label. The re-record link now sits

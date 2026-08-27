@@ -1,7 +1,7 @@
 import { useRef } from "react";
-import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
+import { View, Text, TextInput, Pressable } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
-import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 import {
   REVIEW_SECTIONS,
   IDENTITY_CONFIRM_COPY,
@@ -79,9 +79,6 @@ export function ConfirmYouScreen({
 
   const canAdvance = missing.length === 0 && !ageError;
 
-  const { scrollRef, handleFocus, handleContainerLayout, handleScroll, keyboardSpacer } =
-    useKeyboardFocusScroll();
-
   // "Next" on the keyboard walks straight down the voice fields in the
   // order they're rendered, same convention as register.tsx.
   const refs = useRef<Partial<Record<ReportFieldKey, TextInput | null>>>({});
@@ -89,16 +86,13 @@ export function ConfirmYouScreen({
 
   return (
     <>
-      <ScrollView
-        ref={scrollRef}
-        onLayout={handleContainerLayout}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
+      <KeyboardAwareScrollView
+        bottomOffset={24}
         style={{ flex: 1 }}
         className="px-8"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 56 + keyboardSpacer }}
+        contentContainerStyle={{ paddingTop: 24, paddingBottom: 56 }}
       >
         <View className="mb-10">
           <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
@@ -153,7 +147,6 @@ export function ConfirmYouScreen({
                   label={q.label}
                   digits={toLocalPhoneDigits(a?.text)}
                   onChangeDigits={(digits) => onChangeAnswerText(key, digits)}
-                  onFocus={handleFocus}
                   autoFocus={i === 0}
                   error={errorText}
                   returnKeyType={nextVoiceKey ? "next" : "done"}
@@ -179,7 +172,6 @@ export function ConfirmYouScreen({
                   key === "complainantAge" ? normalizeAgeDigits(text) : text
                 )
               }
-              onFocus={handleFocus}
               placeholder={q.placeholder ?? ""}
               keyboardType={key === "complainantAge" ? "number-pad" : "default"}
               maxLength={key === "complainantAge" ? AGE_MAX_DIGITS : undefined}
@@ -193,7 +185,7 @@ export function ConfirmYouScreen({
             />
           );
         })}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <View className="px-8" style={{ paddingBottom: 32 }}>
         <AuthActionGroup>

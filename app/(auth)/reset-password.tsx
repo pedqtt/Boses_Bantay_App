@@ -1,19 +1,9 @@
 import { useRef, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  ScrollView,
-} from "react-native";
+import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { resetPassword } from "@/lib/api/auth";
-import { useKeyboardFocusScroll } from "@/lib/useKeyboardFocusScroll";
 import {
   getNewPasswordError,
   getConfirmPasswordError,
@@ -51,12 +41,12 @@ export default function ResetPasswordScreen() {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [confirmFocused, setConfirmFocused] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { scrollRef, handleFocus, handleContainerLayout, handleScroll, keyboardSpacer } =
-    useKeyboardFocusScroll();
   // "Next" moves from the new password into the confirmation field;
   // "Done" on confirm submits, same as tapping I-save ang Password.
   const confirmRef = useRef<TextInput>(null);
 
+  // FIXED - no ScrollView, no spacer, same as login.tsx/otp.tsx: fully
+  // static layout, only the focused field's border highlight changes.
   const canSubmit = !getNewPasswordError(password) && !getConfirmPasswordError(password, confirmPassword);
 
   async function handleReset() {
@@ -83,24 +73,12 @@ export default function ResetPasswordScreen() {
     <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
       <ScreenBackground>
       <View style={{ flex: 1 }}>
-        {/* Footer lives outside this ScrollView - see login.tsx for the
-            full reasoning (short version: keeps the button from
-            visibly moving every time a field scrolls into view). */}
-        <ScrollView
-          ref={scrollRef}
-          onLayout={handleContainerLayout}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: keyboardSpacer }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Heading as header at top, field group centered in the space
-              below it - the action cluster used to be a third zone here
-              too, now it's the fixed footer below the ScrollView. */}
-          {/* Padding via `style`, matching login.tsx: same 72 value on
-              every auth screen that has no back button at the top. */}
-          <View className="flex-1 px-8" style={{ paddingTop: 72 }}>
+        {/* No ScrollView - fully static, same as login.tsx/otp.tsx. */}
+        {/* Heading as header at top, field group centered in the space
+            below it, action cluster as the last item. */}
+        {/* Padding via `style`, matching login.tsx: same 72 value on
+            every auth screen that has no back button at the top. */}
+        <View className="flex-1 px-8" style={{ paddingTop: 72 }}>
             <View>
               <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
                 Bagong Password
@@ -139,10 +117,7 @@ export default function ResetPasswordScreen() {
                       if (passwordError) setPasswordError(getNewPasswordError(t));
                       if (confirmError) setConfirmError(getConfirmPasswordError(t, confirmPassword));
                     }}
-                    onFocus={(e) => {
-                      setPasswordFocused(true);
-                      handleFocus(e);
-                    }}
+                    onFocus={() => setPasswordFocused(true)}
                     onBlur={() => {
                       setPasswordFocused(false);
                       setPasswordError(getNewPasswordError(password));
@@ -191,10 +166,7 @@ export default function ResetPasswordScreen() {
                       setConfirmPassword(t);
                       if (confirmError) setConfirmError(getConfirmPasswordError(password, t));
                     }}
-                    onFocus={(e) => {
-                      setConfirmFocused(true);
-                      handleFocus(e);
-                    }}
+                    onFocus={() => setConfirmFocused(true)}
                     onBlur={() => {
                       setConfirmFocused(false);
                       setConfirmError(getConfirmPasswordError(password, confirmPassword));
@@ -230,31 +202,27 @@ export default function ResetPasswordScreen() {
               {confirmError && <Text className="text-[13px] text-alert mt-1">{confirmError}</Text>}
             </View>
             </View>
-          </View>
-        </ScrollView>
 
-        <View
-          className="px-8"
-          style={{ paddingBottom: 56 + (Platform.OS === "ios" ? keyboardSpacer : 0) }}
-        >
-          {/* No secondary link here - a resident mid-reset has no
-              sensible alternative action to offer, so this renders the
-              button alone rather than a divider with nothing under it. */}
-          <AuthActionGroup>
-            <Pressable
-              onPress={handleReset}
-              disabled={loading || !canSubmit}
-              className={`rounded-2xl py-4 items-center overflow-hidden ${
-                !canSubmit || loading ? "bg-gray-300" : "bg-brand active:opacity-85"
-              }`}
-            >
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text className="text-white font-semibold text-[18px]">I-save ang Password</Text>
-              )}
-            </Pressable>
-          </AuthActionGroup>
+            <View className="mt-8" style={{ paddingBottom: 56 }}>
+              {/* No secondary link here - a resident mid-reset has no
+                  sensible alternative action to offer, so this renders the
+                  button alone rather than a divider with nothing under it. */}
+              <AuthActionGroup>
+                <Pressable
+                  onPress={handleReset}
+                  disabled={loading || !canSubmit}
+                  className={`rounded-2xl py-4 items-center overflow-hidden ${
+                    !canSubmit || loading ? "bg-gray-300" : "bg-brand active:opacity-85"
+                  }`}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text className="text-white font-semibold text-[18px]">I-save ang Password</Text>
+                  )}
+                </Pressable>
+              </AuthActionGroup>
+            </View>
         </View>
       </View>
       </ScreenBackground>

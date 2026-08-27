@@ -30,7 +30,7 @@ export function ChoiceStep({ question, value, onSelect }: ChoiceStepProps) {
         onPress={() => onSelect(checked ? "false" : "true", checked ? "" : question.checkboxLabel ?? "Oo")}
         accessibilityRole="checkbox"
         accessibilityState={{ checked }}
-        className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 active:opacity-80"
+        className="flex-row items-center bg-white border border-gray-200 rounded-2xl px-4 py-4 active:opacity-80"
       >
         <Ionicons
           name={checked ? "checkbox" : "square-outline"}
@@ -55,7 +55,7 @@ export function ChoiceStep({ question, value, onSelect }: ChoiceStepProps) {
             accessibilityRole="radio"
             accessibilityState={{ selected }}
             className={`flex-row items-center justify-between rounded-2xl px-4 py-4 active:opacity-85 ${
-              selected ? "bg-brand" : "bg-gray-50 border border-gray-200"
+              selected ? "bg-brand" : "bg-white border border-gray-200"
             }`}
           >
             <View>

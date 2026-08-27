@@ -21,13 +21,24 @@ import { colors } from "@/lib/theme";
  *
  * Usage: replace a screen's outer `<SafeAreaView className="flex-1 bg-white">`
  * body wrapper with this, keeping SafeAreaView on the outside for insets.
+ *
+ * `backgroundColor` defaults to the app-wide base (colors.surface) -
+ * overridable per screen for a deliberately different page tint (e.g.
+ * bot.tsx's Imperial Blue / White Convolvulus palette) without every other
+ * screen having to opt back into the default.
  */
 const DOT_TEXTURE_URI =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAE0lEQVR42mPgF9diZxhkYADcBACAfgCvKI9HHwAAAABJRU5ErkJggg==";
 
-export function ScreenBackground({ children }: { children: ReactNode }) {
+export function ScreenBackground({
+  children,
+  backgroundColor = colors.surface,
+}: {
+  children: ReactNode;
+  backgroundColor?: string;
+}) {
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor }}>
       <ImageBackground
         source={{ uri: DOT_TEXTURE_URI }}
         resizeMode="repeat"

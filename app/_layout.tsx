@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { supabase } from "@/lib/supabase";
 import { Session } from "@supabase/supabase-js";
 import { AuthProvider } from "@/lib/auth-context";
@@ -61,9 +62,15 @@ function InitialLayout() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <StatusBar style="dark" />
-      <InitialLayout />
-    </AuthProvider>
+    // Wraps the whole app, not just bot.tsx - every screen with a keyboard
+    // now goes through react-native-keyboard-controller (KeyboardAware
+    // ScrollView, useKeyboardHandler/useKeyboardHeight), which requires
+    // exactly one KeyboardProvider instance at the root.
+    <KeyboardProvider>
+      <AuthProvider>
+        <StatusBar style="dark" />
+        <InitialLayout />
+      </AuthProvider>
+    </KeyboardProvider>
   );
 }

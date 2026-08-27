@@ -1,3 +1,11 @@
+// DEAD CODE - no remaining callers. Every screen that used this
+// (auth screens, the report flow) has been migrated to
+// react-native-keyboard-controller's KeyboardAwareScrollView / lib/
+// useKeyboardHeight.ts instead - frame-synced to the real keyboard
+// animation rather than this hook's JS-bridge "shown/hidden" event
+// approximation. Sandbox tooling couldn't delete this file directly
+// (same filesystem restriction as the stray .fuse_hidden* files elsewhere
+// in this repo) - safe to `git rm lib/useKeyboardFocusScroll.ts` by hand.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
