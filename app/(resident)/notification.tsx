@@ -54,7 +54,7 @@ function cleanTitle(rawTitle: string): string {
 export default function NotificationScreen() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const isInitialLoad = useRef(true);
 
   // Navigate back specifically to the Profile tab
@@ -152,9 +152,12 @@ export default function NotificationScreen() {
 
   async function handleToggleExpand(item: NotificationItem) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    
-    const isOpening = expandedId !== item.id;
-    setExpandedId(isOpening ? item.id : null);
+
+    const isOpening = !expandedIds[item.id];
+    setExpandedIds((prev) => ({
+      ...prev,
+      [item.id]: !prev[item.id],
+    }));
 
     if (isOpening && !item.isRead) {
       setNotifications((prev) =>
@@ -221,7 +224,7 @@ export default function NotificationScreen() {
         ) : (
           <View className="gap-3 pb-8">
             {notifications.map((item) => {
-              const isExpanded = expandedId === item.id;
+              const isExpanded = Boolean(expandedIds[item.id]);
               const alertBadge = getAlertBadge(item.alertLevel);
 
               return (
