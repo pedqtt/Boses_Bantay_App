@@ -265,6 +265,10 @@ export default function ReportScreen() {
       // 2. Generate a random Reference Number (e.g., BGY-123456)
       const refNo = `BGY-${Math.floor(100000 + Math.random() * 900000)}`;
 
+      if (!supabase) {
+        throw new Error("Supabase is not configured. Please check your environment variables.");
+      }
+
       // 3. Get the current logged-in user
       const { data: { user } } = await supabase.auth.getUser();
       

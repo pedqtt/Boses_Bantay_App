@@ -15,6 +15,11 @@ function InitialLayout() {
   const router = useRouter();
 
   useEffect(() => {
+    if (!supabase) {
+      setInitialized(true);
+      return;
+    }
+
     // Listen for real-time auth state changes from Supabase
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, currentSession) => {
@@ -24,7 +29,7 @@ function InitialLayout() {
     );
 
     return () => {
-      authListener.subscription.unsubscribe();
+      authListener?.subscription?.unsubscribe();
     };
   }, []);
 

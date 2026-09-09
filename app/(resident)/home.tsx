@@ -31,9 +31,7 @@ export default function ResidentHome() {
     useCallback(() => {
       async function loadDashboardData() {
         try {
-          if (isInitialLoad.current) {
-            setLoading(true);
-          }
+          setLoading(true);
 
           const {
             data: { user },

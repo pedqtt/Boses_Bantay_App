@@ -56,9 +56,7 @@ export default function ReportsScreen() {
     useCallback(() => {
       async function loadReports() {
         try {
-          if (isInitialLoad.current) {
-            setLoading(true);
-          }
+          setLoading(true);
 
           const {
             data: { user },
@@ -143,8 +141,8 @@ export default function ReportsScreen() {
                 outcome: r.outcome ?? null,
                 status:
                   r.status === "Under Review" ||
-                  r.status === "Investigating" ||
-                  r.status === "Resolved"
+                    r.status === "Investigating" ||
+                    r.status === "Resolved"
                     ? r.status
                     : "Under Review",
                 createdAt: r.created_at,
