@@ -152,7 +152,7 @@ export async function logInUser(
     const { data: authData, error } = await supabase.auth.signInWithPassword({
       email: fakeEmail,
       password: password,
-    }); 
+    });
 
     // ✅ ADD THIS LINE TO CATCH WRONG PASSWORDS
     if (error) throw error;
@@ -180,24 +180,24 @@ export async function logInUser(
         },
       };
     }
-  
 
-  // Fallback profile if offline
-  return {
-    ok: true,
-    profile: {
-      id: `user-${normalized}`,
-      firstName: "User",
-      lastName: "",
-      fullName: "User",
-      phone: normalized,
-      purok: "Purok 1",
-      barangayIdStatus: "unverified",
-    },
-  };
-}
 
-  // Fallback profile if offline
+    // Fallback profile if offline
+    return {
+      ok: true,
+      profile: {
+        id: `user-${normalized}`,
+        firstName: "User",
+        lastName: "",
+        fullName: "User",
+        phone: normalized,
+        purok: "Purok 1",
+        barangayIdStatus: "unverified",
+      },
+    };
+  }
+
+  // Supabase not configured at all — local/offline dev fallback
   return {
     ok: true,
     profile: {
