@@ -38,7 +38,8 @@
             "ndkVersion": "27.1.12297006"
           }
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "router": {

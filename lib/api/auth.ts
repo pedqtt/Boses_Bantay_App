@@ -80,8 +80,8 @@ export async function verifyPhoneCode(
   if (isSupabaseConfigured) {
     try {
       // Create account in auth.users using email fallback (bypasses SMS provider completely)
-      const fakeEmail = `${normalized.replace("+", "")}@mobile.user`;
-      const { data: authData } = await supabase.auth.signUp({
+      const fakeEmail = `${normalized.replace("+", "")}@bosesbantay.app`;
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: fakeEmail,
         password: pending.password,
         options: {
@@ -94,9 +94,22 @@ export async function verifyPhoneCode(
         },
       });
 
-      if (authData?.user?.id) {
-        userId = authData.user.id;
+      if (signUpError) {
+        console.log("⚠️ [AUTH SIGNUP ERROR]:", signUpError.message);
+        throw new Error(signUpError.message);
       }
+
+      // Supabase's anti-enumeration behavior: signUp() on an already-registered
+      // email can return a user object with an empty identities array instead
+      // of a real error. Treat that as "already exists" rather than inserting
+      // a bad/unlinked id into public.users.
+      if (!authData?.user?.id || authData.user.identities?.length === 0) {
+        throw new Error(
+          "This phone number is already registered. Please log in instead."
+        );
+      }
+
+      userId = authData.user.id;
 
       // Upsert directly into public.users table
       const { error: dbError } = await supabase.from("users").upsert({
@@ -112,11 +125,13 @@ export async function verifyPhoneCode(
 
       if (dbError) {
         console.log("⚠️ [DB INSERT WARN]:", dbError.message);
-      } else {
-        console.log("✅ [DB INSERT SUCCESS]: User saved to public.users table!");
+        throw new Error(dbError.message);
       }
+
+      console.log("✅ [DB INSERT SUCCESS]: User saved to public.users table!");
     } catch (err) {
-      console.log("⚠️ [SUPABASE BYPASS NOTE]: Proceeding with app session.", err);
+      console.log("⚠️ [SIGNUP FAILED]:", err);
+      throw err instanceof Error ? err : new Error("Sign up failed. Please try again.");
     }
   }
 
@@ -147,14 +162,14 @@ export async function logInUser(
   const normalized = normalizePhone(phone);
 
   if (isSupabaseConfigured) {
-    const fakeEmail = `${normalized.replace("+", "")}@mobile.user`;
-    // ✅ ADD "error" TO THIS LINE
-    const { data: authData, error } = await supabase.auth.signInWithPassword({
+    const fakeEmail = `${normalized.replace("+", "")}@bosesbantay.app`;
+
+    const { error } = await supabase.auth.signInWithPassword({
       email: fakeEmail,
       password: password,
-    }); 
+    });
 
-    // ✅ ADD THIS LINE TO CATCH WRONG PASSWORDS
+    // Wrong password / unregistered number — surface it, don't fall through
     if (error) throw error;
 
     // Query public.users table
@@ -180,24 +195,15 @@ export async function logInUser(
         },
       };
     }
-  
 
-  // Fallback profile if offline
-  return {
-    ok: true,
-    profile: {
-      id: `user-${normalized}`,
-      firstName: "User",
-      lastName: "",
-      fullName: "User",
-      phone: normalized,
-      purok: "Purok 1",
-      barangayIdStatus: "unverified",
-    },
-  };
-}
+    // Auth succeeded but no matching row in public.users — data is out of sync.
+    // Don't silently fabricate a fake profile; surface it as an error instead.
+    throw new Error(
+      "Signed in, but no profile record was found for this account. Please contact support."
+    );
+  }
 
-  // Fallback profile if offline
+  // Supabase not configured at all — local/offline dev fallback
   return {
     ok: true,
     profile: {

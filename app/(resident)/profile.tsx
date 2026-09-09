@@ -13,9 +13,6 @@ const ID_STATUS_LABEL: Record<string, string> = {
   verified: "Verified",
 };
 
-// No per-row colored icon circle: five identical blue badges in a list read
-// as decoration, not information — the label text already carries the
-// meaning, and the icon alone (no background) is enough to aid scanning.
 function Row({
   icon,
   label,
@@ -76,8 +73,17 @@ export default function ProfileScreen() {
             value={ID_STATUS_LABEL[profile?.barangayIdStatus ?? "unverified"]}
             onPress={() => {}}
           />
-          <Row icon="notifications-outline" label="Notifications" onPress={() => {}} />
-          <Row icon="help-circle-outline" label="Help & support" onPress={() => {}} isLast />
+          <Row 
+            icon="notifications-outline" 
+            label="Notifications" 
+            onPress={() => router.push("/(resident)/notification")} 
+          />
+          <Row 
+            icon="help-circle-outline" 
+            label="Help & support" 
+            onPress={() => router.push("/(resident)/help")} 
+            isLast 
+          />
         </Card>
 
         <Pressable onPress={handleLogout} className="items-center py-3 active:opacity-70">

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
@@ -25,15 +25,16 @@ export default function ResidentHome() {
   const [reports, setReports] = useState<HomeReportSummary[]>([]);
   const [stats, setStats] = useState({ activeReports: 0, resolvedReports: 0 });
   const [loading, setLoading] = useState(true);
+  const isInitialLoad = useRef(true);
 
-  // useFocusEffect automatically fetches the latest data every time the screen comes into focus
   useFocusEffect(
     useCallback(() => {
       async function loadDashboardData() {
         try {
-          setLoading(true);
+          if (isInitialLoad.current) {
+            setLoading(true);
+          }
 
-          // 1. Get current logged-in user
           const {
             data: { user },
           } = await supabase.auth.getUser();
@@ -44,7 +45,6 @@ export default function ResidentHome() {
             return;
           }
 
-          // 2. Fetch all user reports to compute stats & recent items
           const { data, error } = await supabase
             .from("reports")
             .select("*")
@@ -54,7 +54,6 @@ export default function ResidentHome() {
           if (error) throw error;
 
           if (data) {
-            // Compute stats dynamically from Supabase records
             const resolvedCount = data.filter((r) => r.status === "Nareselba" || r.status === "Resolved").length;
             const activeCount = data.length - resolvedCount;
 
@@ -63,7 +62,6 @@ export default function ResidentHome() {
               resolvedReports: resolvedCount,
             });
 
-            // Map and get the 3 most recent reports
             const mapped: HomeReportSummary[] = data.slice(0, 3).map((r) => ({
               id: String(r.id),
               referenceNo: r.reference_no,
@@ -79,6 +77,7 @@ export default function ResidentHome() {
           console.error("Error fetching home dashboard data from Supabase:", err);
         } finally {
           setLoading(false);
+          isInitialLoad.current = false;
         }
       }
 
@@ -93,19 +92,15 @@ export default function ResidentHome() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 110 }}
       >
-        {/* Greeting Header */}
         <View className="mb-6">
           <Text className="text-[13px] text-ink-faint">Magandang araw,</Text>
           <Text className="text-[22px] font-semibold text-ink tracking-tight">
-            <Text className="text-[22px] font-semibold text-ink tracking-tight">
-              {profile
-                ? `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim() || "Resident"
-                : "Resident"}
-            </Text>
+            {profile
+              ? `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim() || "Resident"
+              : "Resident"}
           </Text>
         </View>
 
-        {/* Action Button: File a report */}
         <PressableScale onPress={() => router.push("/(resident)/report")}>
           <View className="bg-brand rounded-2xl pl-4 pr-4 py-5 mb-8 flex-row items-center">
             <View className="w-11 h-11 rounded-full bg-white items-center justify-center">
@@ -121,7 +116,6 @@ export default function ResidentHome() {
           </View>
         </PressableScale>
 
-        {/* Quick Access Shortcuts */}
         <SectionLabel>Quick access</SectionLabel>
         <View className="flex-row gap-3 mb-8">
           <View className="flex-1">
@@ -156,7 +150,6 @@ export default function ResidentHome() {
           </View>
         </View>
 
-        {/* Real-time Dashboard Stats Card */}
         <Card className="flex-row p-5 mb-8">
           <View className="flex-1">
             <Text
@@ -179,7 +172,6 @@ export default function ResidentHome() {
           </View>
         </Card>
 
-        {/* Recent Reports Header */}
         <View className="flex-row items-center justify-between mb-3">
           <SectionLabel>Recent reports</SectionLabel>
           <Pressable onPress={() => router.push("/(resident)/reports")} className="pb-3">
@@ -187,7 +179,6 @@ export default function ResidentHome() {
           </Pressable>
         </View>
 
-        {/* Live Recent Reports Section */}
         {loading ? (
           <Card className="p-8 items-center mb-8">
             <ActivityIndicator color="#1D4ED8" />
@@ -204,12 +195,10 @@ export default function ResidentHome() {
               <Card key={r.id} className="p-4">
                 <View className="flex-row justify-between items-center mb-1.5">
                   <Text className="font-semibold text-ink text-[15px]">{r.referenceNo}</Text>
-                  {/* FIX 1: Type cast status */}
                   <StatusPill status={r.status as any} />
                 </View>
                 <View className="flex-row items-center justify-between mb-1">
                   <Text className="text-[11px] text-ink-faint uppercase tracking-wide">{r.category}</Text>
-                  {/* FIX 2: Convert date string to Date object */}
                   <Text className="text-[11px] text-ink-faint">{relativeTime(r.createdAt)}</Text>
                 </View>
                 <Text className="text-[13px] text-ink-soft leading-5">{r.summary}</Text>

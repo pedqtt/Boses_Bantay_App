@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator } from "react-native";
+import { useEffect, useState, useCallback } from "react";
+import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase"; // ⚠️ Adjust this import path if needed
+import { useFocusEffect } from "expo-router";
+import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/Card";
 import { SectionLabel } from "@/components/SectionLabel";
 
@@ -16,7 +17,6 @@ interface EmergencyContact {
 
 function ContactCard({ contact }: { contact: EmergencyContact }) {
   const handleCall = () => {
-    // Sanitize phone number and format tel URL correctly
     const cleanPhone = contact.phone.replace(/[^0-9+]/g, "");
     Linking.openURL(`tel:${cleanPhone}`);
   };
@@ -44,39 +44,72 @@ function ContactCard({ contact }: { contact: EmergencyContact }) {
 export default function DirectoryScreen() {
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    async function fetchContacts() {
-      try {
-        setLoading(true);
-        // Query live 'emergency_contacts' where is_active = true
-        const { data, error } = await supabase
-          .from("emergency_contacts")
-          .select("*")
-          .eq("is_active", true)
-          .order("contact_id", { ascending: true });
+  const fetchContacts = useCallback(async (isInitial = false) => {
+    try {
+      if (isInitial) setLoading(true);
+      const { data, error } = await supabase
+        .from("emergency_contacts")
+        .select("*")
+        .eq("is_active", true)
+        .order("contact_id", { ascending: true });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        if (data) {
-          const mapped: EmergencyContact[] = data.map((c) => ({
-            id: String(c.contact_id),
-            name: c.agency_name || c.name || "Emergency Contact",
-            role: c.contact_person || c.role || "",
-            phone: c.phone_number || c.phone || "",
-            urgent: c.category === "Emergency" || c.urgent === true,
-          }));
-          setContacts(mapped);
-        }
-      } catch (err) {
-        console.error("Error loading emergency contacts from Supabase:", err);
-      } finally {
-        setLoading(false);
+      if (data) {
+        const mapped: EmergencyContact[] = data.map((c) => ({
+          id: String(c.contact_id),
+          name: c.agency_name || c.name || "Emergency Contact",
+          role: c.contact_person || c.role || "",
+          phone: c.phone_number || c.phone || "",
+          urgent: c.category === "Emergency" || c.urgent === true,
+        }));
+        setContacts(mapped);
       }
+    } catch (err) {
+      console.error("Error loading emergency contacts from Supabase:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    fetchContacts();
   }, []);
+
+  // Re-fetch whenever the user tab switches back to Directory
+  useFocusEffect(
+    useCallback(() => {
+      fetchContacts(false);
+    }, [fetchContacts])
+  );
+
+  // Subscribe to real-time changes from Supabase (Insert, Update, Delete)
+  useEffect(() => {
+    fetchContacts(true);
+
+    const channel = supabase
+      .channel("emergency_contacts_realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "emergency_contacts",
+        },
+        () => {
+          fetchContacts(false);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchContacts]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchContacts(false);
+  };
 
   const urgent = contacts.filter((c) => c.urgent);
   const routine = contacts.filter((c) => !c.urgent);
@@ -96,6 +129,9 @@ export default function DirectoryScreen() {
         className="flex-1 px-5"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 110 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#1D4ED8"]} />
+        }
       >
         {loading ? (
           <Card className="p-8 items-center justify-center">
