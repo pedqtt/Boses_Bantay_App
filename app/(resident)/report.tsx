@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, View, Text, Pressable } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useNavigation, useFocusEffect } from "expo-router";
 import {
   useAudioRecorder,
@@ -19,29 +21,7 @@ import { ReviewScreen } from "@/components/report/ReviewScreen";
 import { SubmittedScreen } from "@/components/report/SubmittedScreen";
 import { EMPTY_ANSWER, type AnswersMap } from "@/components/report/types";
 
-/*
- * ARCHITECTURE
- * ────────────
- * This file is the controller for the guided report flow: it owns every
- * piece of state (which stage, which answer, the audio recorder/player,
- * in-flight transcriptions) and every handler that changes that state. It
- * renders none of the actual UI — that all lives in components/report/*,
- * as four screen components (Intro/Step/Review/Submitted) built from small,
- * single-purpose presentational pieces (QuestionPrompt, RecordControls,
- * AnswerEditor, ChapterProgressHeader, LiveWaveform).
- *
- * Why split it this way: the four stages share state (the answers map, the
- * recorder) but have almost no shared layout, and two small pieces of UI
- * (the answer text box, the record/play buttons) are used in more than one
- * place. Keeping all state here and passing plain props down means every
- * screen component is easy to read in isolation — no hook wiring to trace,
- * just "given these props, render this" — and the answer-editing pattern
- * can't quietly drift apart between screens the way it did before this
- * refactor (review and step had different min-heights, review was missing
- * the retry button). One component, one place it can break.
- */
-
-type Stage = "intro" | "step" | "review" | "submitted";
+type Stage = "select" | "intro" | "step" | "review" | "submitted";
 
 function makeEmptyAnswers(): AnswersMap {
   return REPORT_QUESTIONS.reduce(
@@ -50,12 +30,94 @@ function makeEmptyAnswers(): AnswersMap {
   );
 }
 
-/** Anything shorter than this almost certainly caught no speech — catching
- *  it here saves a pointless upload and a confusing empty result. */
 const MIN_RECORDING_MS = 1000;
 
+function SelectTypeScreen({
+  onSelectBlotter,
+  onSelectServiceComplaint,
+  onBack,
+}: {
+  onSelectBlotter: () => void;
+  onSelectServiceComplaint: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+      {/* Header */}
+      <View className="px-5 pt-3 pb-4 flex-row items-center border-b border-gray-100">
+        <Pressable
+          onPress={onBack}
+          className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center active:opacity-70 mr-3"
+        >
+          <Ionicons name="close" size={20} color="#1F2937" />
+        </Pressable>
+        <Text className="text-[20px] font-semibold text-gray-900 tracking-tight">
+          File a Report
+        </Text>
+      </View>
+
+      <View className="flex-1 px-5 pt-6 justify-center">
+        <Text className="text-[22px] font-bold text-gray-900 mb-1">
+          What type of report is this?
+        </Text>
+        <Text className="text-[14px] text-gray-500 mb-8">
+          Select the option that best matches your situation.
+        </Text>
+
+        {/* Option 1: Voice Incident Blotter */}
+        <Pressable
+          onPress={onSelectBlotter}
+          className="p-5 bg-blue-50/60 rounded-2xl border border-blue-100 mb-4 active:opacity-80"
+        >
+          <View className="flex-row items-center mb-2">
+            <View className="w-10 h-10 rounded-xl bg-blue-600 items-center justify-center mr-3">
+              <Ionicons name="mic-outline" size={20} color="white" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-[16px] font-bold text-gray-900">
+                Voice Incident Blotter
+              </Text>
+              <Text className="text-[11px] font-semibold text-blue-700 uppercase tracking-wider">
+                Formal Dispute / Person-to-Person
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#3B82F6" />
+          </View>
+          <Text className="text-[13px] text-gray-600 leading-5 mt-1">
+            For personal disputes, theft, property damage, or incidents involving specific individuals (4-stage voice pipeline).
+          </Text>
+        </Pressable>
+
+        {/* Option 2: Service & Community Complaint */}
+        <Pressable
+          onPress={onSelectServiceComplaint}
+          className="p-5 bg-amber-50/60 rounded-2xl border border-amber-100 active:opacity-80"
+        >
+          <View className="flex-row items-center mb-2">
+            <View className="w-10 h-10 rounded-xl bg-amber-500 items-center justify-center mr-3">
+              <Ionicons name="construct-outline" size={20} color="white" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-[16px] font-bold text-gray-900">
+                Service & Community Hazard
+              </Text>
+              <Text className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">
+                Public Works / Non-Dispute
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#F59E0B" />
+          </View>
+          <Text className="text-[13px] text-gray-600 leading-5 mt-1">
+            For public issues with no specific respondent: flooding, garbage, clogged drainage, road damage, or broken streetlights.
+          </Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
+  );
+}
+
 export default function ReportScreen() {
-  const [stage, setStage] = useState<Stage>("intro");
+  const [stage, setStage] = useState<Stage>("select");
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswersMap>(makeEmptyAnswers);
   const [isRecording, setIsRecording] = useState(false);
@@ -66,25 +128,11 @@ export default function ReportScreen() {
   const audioRecorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
   const recorderState = useAudioRecorderState(audioRecorder, 150);
 
-  // Guards against a background transcription resolving after the resident
-  // has already reset the flow, which would otherwise repopulate a cleared
-  // answer.
   const flowId = useRef(0);
 
-  // Hide the bottom tab bar for the entire time this screen is focused.
-  // Filing a report is the one flow where an accidental tap on another tab
-  // is actually costly — it can drop mid-recording or mid-typing progress —
-  // so removing the tab bar here isn't just visual cleanup, it removes the
-  // misclick target entirely. Standard React Navigation recipe: set
-  // tabBarStyle to display:none on focus, undefined on blur so it falls
-  // back to the navigator's normal style the moment the resident leaves.
   const navigation = useNavigation();
   useFocusEffect(
     useCallback(() => {
-      // report.tsx is itself a Tabs.Screen, so setOptions here (not
-      // getParent()) is what controls this screen's own tab bar visibility
-      // — the documented React Navigation recipe for per-screen tab bar
-      // hiding.
       navigation.setOptions({ tabBarStyle: { display: "none" } });
       return () => {
         navigation.setOptions({ tabBarStyle: undefined });
@@ -100,9 +148,6 @@ export default function ReportScreen() {
   const answer = answers[question?.key] ?? EMPTY_ANSWER;
   const isLastStep = stepIndex === TOTAL_STEPS - 1;
 
-  // Replay control for the resident's own recording — lets them confirm
-  // "yes, that's what I said" by ear. Recreated whenever the answer's audio
-  // URI changes (new recording, or switching question).
   const player = useAudioPlayer(answer.uri ?? null);
   const playerStatus = useAudioPlayerStatus(player);
 
@@ -121,10 +166,6 @@ export default function ReportScreen() {
     setAnswers((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
   }, []);
 
-  /** Fire-and-forget transcription. Deliberately not awaited by the caller
-   *  so the resident can advance to the next question while this runs — by
-   *  the time they finish the interview most answers are already back,
-   *  which is what keeps a 7-step flow from feeling like 7 waits. */
   const transcribeInBackground = useCallback(
     (key: ReportFieldKey, uri: string) => {
       const myFlow = flowId.current;
@@ -182,13 +223,6 @@ export default function ReportScreen() {
     }
   }
 
-  /** Pause/resume replace the old "cancel and lose the take" escape hatch —
-   *  the stop button (which keeps and transcribes what's captured so far)
-   *  already covers "I'm done," so the second control only needs to cover
-   *  "give me a second," not "throw this away." expo-audio's recorder
-   *  supports pausing natively (audioRecorder.pause()) and resuming by
-   *  calling .record() again on the same session, so this isn't a fake
-   *  pause — it's a real gap in the captured audio. */
   function pauseRecording() {
     try {
       audioRecorder.pause();
@@ -239,12 +273,9 @@ export default function ReportScreen() {
     setAnswers(makeEmptyAnswers());
     setStepIndex(0);
     setReferenceNo("");
-    setStage("intro");
+    setStage("select");
   }
 
-  /** Required questions must have real text before submission. Optional
-   *  ones can be blank — "walang saksi" is a legitimate outcome, and a
-   *  validator that rejects it just teaches residents to type filler. */
   const missingRequired = REPORT_QUESTIONS.filter((q) => q.required && !answers[q.key].text.trim());
   const stillTranscribing = REPORT_QUESTIONS.some((q) => answers[q.key].status === "transcribing");
 
@@ -254,46 +285,77 @@ export default function ReportScreen() {
       return;
     }
     setSubmitting(true);
-    
+
     try {
-      // 1. Gather the answers
       const draft = REPORT_QUESTIONS.reduce(
         (acc, q) => ({ ...acc, [q.key]: answers[q.key].text.trim() }),
-        {} as Record<string, string> // Explicit typing added here to satisfy TypeScript
+        {} as Record<string, string>
       );
 
-      // 2. Generate a random Reference Number (e.g., BGY-123456)
       const refNo = `BGY-${Math.floor(100000 + Math.random() * 900000)}`;
-
-      if (!supabase) {
-        throw new Error("Supabase is not configured. Please check your environment variables.");
-      }
-
-      // 3. Get the current logged-in user
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         throw new Error("You must be logged in to submit a report.");
       }
 
-      // 4. Insert into Supabase
+      // Fetch resident profile details for backend alignment
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const complainantName =
+        profile?.full_name || user.user_metadata?.full_name || user.email || "Resident";
+      const complainantPhone =
+        profile?.phone_number || profile?.phone || user.user_metadata?.phone || "N/A";
+      const complainantAddress =
+        profile?.address || profile?.purok || draft.where_happened || draft.where || "N/A";
+
+      const formattedDate = new Date().toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const whatValue = draft.what_happened || draft.what || "Voice Incident Report";
+      const whoValue = draft.who_involved || draft.who || "N/A";
+      const whereValue = draft.where_happened || draft.where || "N/A";
+      const whenValue = draft.when_happened || draft.when || formattedDate;
+      const whyValue = draft.why_happened || draft.why || "N/A";
+      const howValue = draft.how_happened || draft.how || "N/A";
+
       const { error } = await supabase
-        .from("reports") // Ensure this matches your Supabase table name
+        .from("reports")
         .insert({
           reference_no: refNo,
           user_id: user.id,
-          status: "Under Review", // Default status per your scope
-          category: draft.category || "General", // Adjust based on your question keys
-          summary: draft.what_happened || "Details provided in full report", // Adjust based on keys
-          full_details: draft // Saves all the question/answer pairs as JSON
+          status: "Sinuri",
+          category: draft.category || "Incident Blotter",
+          summary: whatValue,
+          description: whatValue,
+          location: whereValue,
+          full_details: {
+            what: whatValue,
+            who: whoValue,
+            where: whereValue,
+            when: whenValue,
+            why: whyValue,
+            how: howValue,
+            complainant_name: complainantName,
+            complainant_phone: complainantPhone,
+            complainant_address: complainantAddress,
+            ...draft,
+          },
         });
 
       if (error) throw error;
 
-      // 5. Success! Move to the next screen
       setReferenceNo(refNo);
       setStage("submitted");
-      
     } catch (err: any) {
       Alert.alert("Hindi naipasa ang report", err?.message ?? "Subukan po muli.");
     } finally {
@@ -301,12 +363,18 @@ export default function ReportScreen() {
     }
   }
 
-  // Report is a tab, not a pushed screen, so there's no natural "previous
-  // screen" for router.back() to return to from the intro — Home is the
-  // one predictable destination regardless of how the resident arrived
-  // here (tab bar FAB, or a "File a report" card from another screen).
   function exitToHome() {
     router.push("/(resident)/home");
+  }
+
+  if (stage === "select") {
+    return (
+      <SelectTypeScreen
+        onSelectBlotter={() => setStage("intro")}
+        onSelectServiceComplaint={() => router.push("/(resident)/service-complaint")}
+        onBack={exitToHome}
+      />
+    );
   }
 
   if (stage === "submitted") {
@@ -368,5 +436,5 @@ export default function ReportScreen() {
     );
   }
 
-  return <IntroScreen onStart={startFlow} onBack={exitToHome} />;
+  return <IntroScreen onStart={startFlow} onBack={() => setStage("select")} />;
 }

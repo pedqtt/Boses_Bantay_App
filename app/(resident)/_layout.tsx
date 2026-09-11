@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
 import { colors } from "@/lib/theme";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -37,8 +38,6 @@ function TabIcon({
   );
 }
 
-// Always visible on every tab — but the active one is a touch bolder and
-// larger, so hierarchy still reads even with all six labels present.
 function TabLabel({ focused, color, children }: { focused: boolean; color: ColorValue; children: string }) {
   return (
     <Text
@@ -54,36 +53,10 @@ function TabLabel({ focused, color, children }: { focused: boolean; color: Color
   );
 }
 
-/**
- * Report-filing rendered as a raised center FAB instead of a regular tab.
- *
- * Two things changed to make room for this: Bot dropped out of the tab bar
- * entirely (it's still one tap away from Home's "Ask the Bot" quick-access
- * card — the app used to duplicate that access in both places, which is
- * exactly the kind of redundant navigation the earlier design pass flagged
- * as a problem, not a feature), and Report — the single highest-stakes,
- * most time-critical action in the app — gets promoted from "one of six
- * equal tabs" to a visually dominant control (Fitts's Law: the most
- * critical action deserves the largest, easiest-to-hit target, not just an
- * equal slot in a row of six).
- *
- * The "lift" is signaled two ways now: a solid white ring around the circle
- * (so it reads as cleanly cut out from the bar behind it) plus a subtle
- * drop shadow — unlike flat surfaces elsewhere in the app (cards, buttons),
- * a shadow here is a genuine depth cue, not decoration: this control is
- * literally floating above the bar, so it should look like it. Kept soft
- * (low opacity, small radius) rather than a heavy Material-style shadow —
- * minimalist means restrained, not absent. The label stays beneath it, same
- * as every other tab — a FAB with no text label would break the app's
- * standing rule that icons are always paired with text.
- */
 function ReportFabButton({
   onPress,
   accessibilityState,
-}: {
-  onPress?: (e?: any) => void;
-  accessibilityState?: { selected?: boolean };
-}) {
+}: BottomTabBarButtonProps) {
   const focused = Boolean(accessibilityState?.selected);
   return (
     <View style={{ flex: 1, alignItems: "center" }}>
@@ -257,10 +230,10 @@ export default function ResidentLayout() {
           name="home"
           options={{
             title: "Home",
-            tabBarIcon: ({ focused, color }) => (
+            tabBarIcon: ({ focused, color }: { focused: boolean; color: ColorValue }) => (
               <TabIcon focused={focused} outline="home-outline" filled="home" color={color} />
             ),
-            tabBarLabel: ({ focused, color }) => (
+            tabBarLabel: ({ focused, color }: { focused: boolean; color: ColorValue }) => (
               <TabLabel focused={focused} color={color}>
                 Home
               </TabLabel>
@@ -271,10 +244,10 @@ export default function ResidentLayout() {
           name="reports"
           options={{
             title: "Reports",
-            tabBarIcon: ({ focused, color }) => (
+            tabBarIcon: ({ focused, color }: { focused: boolean; color: ColorValue }) => (
               <TabIcon focused={focused} outline="document-text-outline" filled="document-text" color={color} />
             ),
-            tabBarLabel: ({ focused, color }) => (
+            tabBarLabel: ({ focused, color }: { focused: boolean; color: ColorValue }) => (
               <TabLabel focused={focused} color={color}>
                 Reports
               </TabLabel>
@@ -285,7 +258,7 @@ export default function ResidentLayout() {
           name="report"
           options={{
             title: "Report",
-            tabBarButton: (props) => <ReportFabButton {...props} />,
+            tabBarButton: (props: BottomTabBarButtonProps) => <ReportFabButton {...props} />,
           }}
         />
 
@@ -293,15 +266,17 @@ export default function ResidentLayout() {
         <Tabs.Screen name="bot" options={{ href: null }} />
         <Tabs.Screen name="notification" options={{ href: null }} />
         <Tabs.Screen name="help" options={{ href: null }} />
+        <Tabs.Screen name="service-complaint" options={{ href: null }} />
+        <Tabs.Screen name="verify-id" options={{ href: null }} />
 
         <Tabs.Screen
           name="directory"
           options={{
             title: "Directory",
-            tabBarIcon: ({ focused, color }) => (
+            tabBarIcon: ({ focused, color }: { focused: boolean; color: ColorValue }) => (
               <TabIcon focused={focused} outline="call-outline" filled="call" color={color} />
             ),
-            tabBarLabel: ({ focused, color }) => (
+            tabBarLabel: ({ focused, color }: { focused: boolean; color: ColorValue }) => (
               <TabLabel focused={focused} color={color}>
                 Directory
               </TabLabel>
@@ -312,10 +287,10 @@ export default function ResidentLayout() {
           name="profile"
           options={{
             title: "Profile",
-            tabBarIcon: ({ focused, color }) => (
+            tabBarIcon: ({ focused, color }: { focused: boolean; color: ColorValue }) => (
               <TabIcon focused={focused} outline="person-outline" filled="person" color={color} />
             ),
-            tabBarLabel: ({ focused, color }) => (
+            tabBarLabel: ({ focused, color }: { focused: boolean; color: ColorValue }) => (
               <TabLabel focused={focused} color={color}>
                 Profile
               </TabLabel>
