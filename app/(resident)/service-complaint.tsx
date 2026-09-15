@@ -7,12 +7,10 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 
 const CATEGORIES = [
@@ -43,20 +41,7 @@ export default function ServiceComplaintScreen() {
   const [category, setCategory] = useState(CATEGORIES[0].id);
   const [description, setDescription] = useState("");
   const [address, setAddress] = useState("");
-  const [imageUri, setImageUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  async function pickImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled && result.assets[0].uri) {
-      setImageUri(result.assets[0].uri);
-    }
-  }
 
   async function handleSubmit() {
     if (!description.trim() || !address.trim()) {
@@ -92,32 +77,6 @@ export default function ServiceComplaintScreen() {
         address.trim();
 
       const refNo = `SC-${Math.floor(100000 + Math.random() * 900000)}`;
-      let publicImageUrl = null;
-
-      if (imageUri) {
-        try {
-          const fileExt = imageUri.split(".").pop();
-          const fileName = `${refNo}.${fileExt}`;
-          const formData = new FormData();
-          formData.append("file", {
-            uri: imageUri,
-            name: fileName,
-            type: `image/${fileExt}`,
-          } as any);
-
-          const { error: uploadError } = await supabase.storage
-            .from("complaint-attachments")
-            .upload(fileName, formData);
-
-          if (!uploadError) {
-            publicImageUrl = supabase.storage
-              .from("complaint-attachments")
-              .getPublicUrl(fileName).data.publicUrl;
-          }
-        } catch (imgErr) {
-          console.warn("Attachment upload warning:", imgErr);
-        }
-      }
 
       const formattedDate = new Date().toLocaleString("en-US", {
         month: "short",
@@ -147,7 +106,6 @@ export default function ServiceComplaintScreen() {
           how: description.trim(),
           description: description.trim(),
           location: address.trim(),
-          imageUrl: publicImageUrl,
           complainant_name: complainantName,
           complainant_phone: complainantPhone,
           complainant_address: complainantAddress,
@@ -158,7 +116,6 @@ export default function ServiceComplaintScreen() {
 
       setDescription("");
       setAddress("");
-      setImageUri(null);
       setCategory(CATEGORIES[0].id);
 
       Alert.alert(
@@ -245,21 +202,19 @@ export default function ServiceComplaintScreen() {
         />
 
         <Text className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-          4. Photo Evidence (Optional)
+          4. Physical Evidence Note
         </Text>
-        <Pressable
-          onPress={pickImage}
-          className="w-full h-32 bg-gray-50 border border-dashed border-gray-300 rounded-xl items-center justify-center mb-8 overflow-hidden"
-        >
-          {imageUri ? (
-            <Image source={{ uri: imageUri }} className="w-full h-full" resizeMode="cover" />
-          ) : (
-            <View className="items-center">
-              <Ionicons name="camera-outline" size={28} color="#9CA3AF" />
-              <Text className="text-[12px] text-gray-500 mt-1">Tap to attach a photo</Text>
-            </View>
-          )}
-        </Pressable>
+        <View className="p-4 bg-blue-50/70 border border-blue-100 rounded-xl flex-row items-start mb-8">
+          <Ionicons
+            name="information-circle-outline"
+            size={20}
+            color="#2563EB"
+            style={{ marginRight: 10, marginTop: 2 }}
+          />
+          <Text className="flex-1 text-[13px] text-blue-900 leading-5">
+            Kung mayroon kayong mga larawan o karagdagang ebidensya, maaari niyo itong dalhin sa Barangay Hall para sa pagsusuri at beripikasyon.
+          </Text>
+        </View>
 
         <Pressable
           onPress={handleSubmit}
