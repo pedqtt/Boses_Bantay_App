@@ -3,8 +3,8 @@ import { View, Text } from "react-native";
 const STATUS_META: Record<string, { bg: string; text: string; dot: string }> = {
   "Under Review": { bg: "bg-amber-700", text: "text-white", dot: "bg-white" },
   "Sinuri": { bg: "bg-amber-700", text: "text-white", dot: "bg-white" },
-  "Investigating": { bg: "bg-amber-600", text: "text-white", dot: "bg-white" },
-  "Nag-iimbestiga": { bg: "bg-amber-600", text: "text-white", dot: "bg-white" },
+  "Investigating": { bg: "bg-blue-600", text: "text-white", dot: "bg-white" },
+  "Nag-iimbestiga": { bg: "bg-blue-600", text: "text-white", dot: "bg-white" },
   "Resolved": { bg: "bg-green-700", text: "text-white", dot: "bg-white" },
   "Nareselba": { bg: "bg-green-700", text: "text-white", dot: "bg-white" },
 };
