@@ -98,6 +98,9 @@ export default function ReportScreen() {
   // resident has already reset the flow, which would otherwise repopulate a
   // cleared answer.
   const flowId = useRef(0);
+  // Prevent a double-tap on Stop or Retry from sending two GPU-heavy Whisper
+  // requests for the same chunk at once.
+  const processingChunk = useRef<string | null>(null);
 
   const currentChunk = CHUNKS[chunkIndex];
   const currentChunkState = chunks[currentChunk?.key] ?? {
@@ -201,6 +204,8 @@ export default function ReportScreen() {
    */
   const processChunk = useCallback(
     (chunkKey: ChunkKey, uri: string) => {
+      if (processingChunk.current === chunkKey) return;
+      processingChunk.current = chunkKey;
       const myFlow = flowId.current;
       const chunk = getChunk(chunkKey);
 
@@ -237,6 +242,9 @@ export default function ReportScreen() {
             status: "error",
             error: err?.message ?? "Hindi na-transcribe.",
           });
+        })
+        .finally(() => {
+          if (processingChunk.current === chunkKey) processingChunk.current = null;
         });
     },
     [setAnswer, setChunkState]
@@ -262,12 +270,16 @@ export default function ReportScreen() {
   }
 
   async function stopRecording() {
-    const durationMs = recorderState.durationMillis ?? 0;
+    const stateDurationMs = recorderState.durationMillis ?? 0;
     try {
       await audioRecorder.stop();
       setIsRecording(false);
       setIsPaused(false);
       const uri = audioRecorder.uri;
+      // `recorderState` updates on an interval and can lag behind the native
+      // recorder at the exact moment Stop is tapped. Prefer the recorder's
+      // native currentTime, while retaining the state value as a fallback.
+      const durationMs = Math.max(stateDurationMs, audioRecorder.currentTime * 1000);
 
       if (!uri || durationMs < MIN_RECORDING_MS) {
         Alert.alert(

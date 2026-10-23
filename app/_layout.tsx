@@ -3,9 +3,9 @@ import { View, ActivityIndicator } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { Session } from "@supabase/supabase-js";
-import { AuthProvider } from "@/lib/auth-context";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { colors } from "@/lib/theme";
 // @ts-ignore
 import "../global.css";
@@ -15,8 +15,16 @@ function InitialLayout() {
   const [initialized, setInitialized] = useState(false);
   const segments = useSegments();
   const router = useRouter();
+  const { profile } = useAuth();
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      // Local/mock mode has no Supabase client. Mark auth as initialized so
+      // the existing offline login flow can continue without calling null.auth.
+      setInitialized(true);
+      return;
+    }
+
     // Listen for real-time auth state changes from Supabase
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, currentSession) => {
@@ -34,15 +42,19 @@ function InitialLayout() {
     if (!initialized) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    // Login/register update AuthProvider immediately, while a real Supabase
+    // session can arrive a moment later. Accept either source so a successful
+    // login is not redirected back to the auth screen during that gap.
+    const isAuthenticated = Boolean(session || profile);
 
-    if (!session && !inAuthGroup) {
+    if (!isAuthenticated && !inAuthGroup) {
       // Redirect unauthenticated user to login
       router.replace("/(auth)/login");
-    } else if (session && inAuthGroup) {
+    } else if (isAuthenticated && inAuthGroup) {
       // Redirect authenticated user directly to resident home
       router.replace("/(resident)/home");
     }
-  }, [session, initialized, segments]);
+  }, [session, profile, initialized, segments]);
 
   if (!initialized) {
     return (

@@ -47,7 +47,8 @@
           "savePhotosPermission": "Allow Boses Bantay to save your report reference number to your photos.",
           "isAccessMediaLocationEnabled": false
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "router": {

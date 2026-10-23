@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Tabs, router, usePathname } from "expo-router";
-import { View, Text, Pressable, Animated, PanResponder, Dimensions } from "react-native";
+import { View, Text, Pressable, Animated, PanResponder, Dimensions, type ColorValue } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
@@ -23,7 +23,7 @@ function TabIcon({
   focused: boolean;
   outline: IconName;
   filled: IconName;
-  color: string;
+  color: ColorValue;
 }) {
   return (
     <View
@@ -36,7 +36,7 @@ function TabIcon({
 
 // Always visible on every tab — but the active one is a touch bolder and
 // larger, so hierarchy still reads even with all six labels present.
-function TabLabel({ focused, color, children }: { focused: boolean; color: string; children: string }) {
+function TabLabel({ focused, color, children }: { focused: boolean; color: ColorValue; children: string }) {
   return (
     <Text
       style={{
@@ -81,7 +81,10 @@ function TabLabel({ focused, color, children }: { focused: boolean; color: strin
  * hairline border still does that job. Floating controls are the one place
  * a shadow is doing real work (signaling "above," not "separate from").
  */
-function ReportFabButton({ onPress, accessibilityState }: BottomTabBarButtonProps) {
+function ReportFabButton({
+  onPress,
+  accessibilityState,
+}: Pick<BottomTabBarButtonProps, "onPress" | "accessibilityState">) {
   const focused = Boolean(accessibilityState?.selected);
   return (
     <View style={{ flex: 1, alignItems: "center" }}>

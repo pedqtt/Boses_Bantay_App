@@ -16,7 +16,7 @@ import { useKeyboardHandler } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { sendBotMessage, type ChatMessage } from "@/lib/api/mockData";
+import { sendBotMessage, type ChatMessage } from "@/lib/api/chat";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { colors } from "@/lib/theme";
 
@@ -40,16 +40,12 @@ const BOT_COLORS = {
   surface: "#FAF8F7",
 };
 
-// Same topics the header/disclaimer already promise ("serbisyo,
-// requirements, oras ng opisina") — example *questions* only, never example
-// *answers*, so nothing here reads as a real requirement or office hour.
-// Text only, no icons - the empty state is a plain list now (see
-// ChatEmptyState), not icon+label rows.
+// General discovery requests; actual documented topics and follow-up questions come from the server.
 const EXAMPLE_PROMPTS = [
-  "Ano ang requirements sa Barangay Clearance?",
-  "Anong oras bukas ang opisina?",
-  "Paano mag-file ng blotter report?",
-  "Saan po ang barangay hall?",
+  "Anong mga paksa ang puwede kong itanong?",
+  "Bigyan mo ako ng gabay mula sa mga barangay records.",
+  "Anong mga programa at patakaran ang nasa records?",
+  "Paano ako magtatanong tungkol sa requirements, bayad, at iskedyul?",
 ];
 
 // 40px, not the old 24px - big enough to actually anchor the row as "a
@@ -165,10 +161,13 @@ function ChatEmptyState({ onPickPrompt }: { onPickPrompt: (text: string) => void
       </Animated.View>
       <Animated.Text
         entering={FadeInUp.duration(340).easing(Easing.out(Easing.cubic))}
-        className="text-[22px] font-semibold text-ink tracking-tight text-center mb-10"
+        className="text-[22px] font-semibold text-ink tracking-tight text-center mb-3"
       >
-        Kumusta! Ano ang maitutulong ko?
+        Kumusta! Ano ang gusto mong malaman?
       </Animated.Text>
+      <Text className="text-[14px] leading-5 text-ink-soft text-center mb-7">
+        Hindi sigurado kung ano ang itatanong? Piliin ang gabay para makita ang mga paksang nasa records at halimbawang tanong.
+      </Text>
 
       {/* Each row gets a soft rounded blue-tinted shade instead of a card
           border or a divider line - light enough to stay minimal, but
@@ -259,7 +258,7 @@ export default function BotScreen() {
   }
 
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: "welcome", from: "bot", text: "Kumusta! Ask me about barangay services, requirements, or office hours." },
+    { id: "welcome", from: "bot", text: "Kumusta! Magtanong tungkol sa mga dokumentong aprubado ng barangay." },
   ]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -267,7 +266,7 @@ export default function BotScreen() {
   const [streamingText, setStreamingText] = useState("");
   const scrollRef = useRef<ScrollView>(null);
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   // REDESIGNED — every earlier version of this (three of them: a fixed
   // insets formula, then a measure-on-show correction, then a measure-and-
@@ -325,7 +324,7 @@ export default function BotScreen() {
 
   function handleNewChat() {
     setMessages([
-      { id: "welcome", from: "bot", text: "Kumusta! Ask me about barangay services, requirements, or office hours." },
+      { id: "welcome", from: "bot", text: "Kumusta! Magtanong tungkol sa mga dokumentong aprubado ng barangay." },
     ]);
     setInput("");
     setSending(false);
@@ -369,12 +368,19 @@ export default function BotScreen() {
     setSending(true);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     try {
-      const reply = await sendBotMessage(text);
+      const reply = await sendBotMessage(text, messages);
       if (!mountedRef.current) return;
       setSending(false);
       streamInMessage(reply);
-    } catch {
-      if (mountedRef.current) setSending(false);
+    } catch (error) {
+      if (mountedRef.current) {
+        setSending(false);
+        setMessages((prev) => [...prev, {
+          id: `error-${Date.now()}`, from: "bot",
+          text: error instanceof Error ? error.message : "Hindi makakonekta sa Barangay-Bot. Subukan muli.",
+          retryable: true, retryQuery: text, status: "service_failure",
+        }]);
+      }
     }
   }
 
@@ -508,7 +514,40 @@ export default function BotScreen() {
                       <BotAvatar />
                       {/* pt-2.5, not pt-0.5 - re-centered against the 40px
                           avatar (was tuned for the old 24px one). */}
-                      <Text className="flex-1 text-[15px] leading-6 text-ink pt-2.5">{m.text}</Text>
+                      <View className="flex-1 pt-2.5">
+                        <Text className="text-[15px] leading-6 text-ink">{m.text}</Text>
+                        {m.suggestions?.length ? (
+                          <View className="mt-3" style={{ gap: 8 }}>
+                            <Text className="text-[12px] text-ink-soft">Puwede mong itanong</Text>
+                            {m.suggestions.map((question) => (
+                              <Pressable key={question} accessibilityRole="button" accessibilityLabel={question}
+                                disabled={busy} onPress={() => handleSend(question)}
+                                className="rounded-xl px-4 py-3" style={{ backgroundColor: BOT_COLORS.accentTint, opacity: busy ? 0.5 : 1 }}>
+                                <Text className="text-[14px]" style={{ color: BOT_COLORS.accent }}>{question}</Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        ) : null}
+                        {m.citations?.map((citation, index) => (
+                          <View key={`${citation.documentTitle}-${citation.section}-${index}`} className="rounded-xl p-3 mt-3" style={{ backgroundColor: BOT_COLORS.accentTint }}>
+                            <View className="flex-row items-center">
+                              <Ionicons name="document-text-outline" size={14} color={BOT_COLORS.accent} />
+                              <Text className="flex-1 text-[12px] font-semibold ml-2" style={{ color: BOT_COLORS.accent }}>
+                                [{citation.id ?? index + 1}] {citation.documentTitle}
+                              </Text>
+                            </View>
+                            <Text className="text-[12px] text-ink-soft mt-1">{citation.section}</Text>
+                            {citation.excerpt ? <Text selectable className="text-[12px] text-ink-soft mt-2">{citation.excerpt}</Text> : null}
+                          </View>
+                        ))}
+                        {m.retryable && m.retryQuery ? (
+                          <Pressable accessibilityRole="button" accessibilityLabel="Retry document lookup" disabled={sending}
+                            onPress={() => setInput(m.retryQuery ?? "")} className="mt-3 self-start rounded-xl px-4 py-3"
+                            style={{ backgroundColor: BOT_COLORS.accentTint, opacity: sending ? 0.5 : 1 }}>
+                            <Text style={{ color: BOT_COLORS.accent }}>Subukan muli</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
                     </Animated.View>
                   )
                 )}
@@ -518,6 +557,7 @@ export default function BotScreen() {
                     <BotAvatar />
                     <View className="pt-3">
                       <TypingDots />
+                      <Text className="text-[12px] text-ink-soft mt-2">Hinahanap sa mga aprubadong dokumento...</Text>
                     </View>
                   </Animated.View>
                 )}

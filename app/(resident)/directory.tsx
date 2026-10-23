@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { supabase } from "@/lib/supabase"; // ⚠️ Adjust this import path if needed
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { Card } from "@/components/Card";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { colors } from "@/lib/theme";
@@ -444,6 +444,7 @@ export default function DirectoryScreen() {
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
   // Fetches once on mount only (empty dep array below) - this screen was
@@ -463,6 +464,10 @@ export default function DirectoryScreen() {
   const fetchContacts = useCallback(async (opts?: { silent?: boolean }) => {
     try {
       if (!opts?.silent) setLoading(true);
+      setLoadError(null);
+      if (!isSupabaseConfigured || !supabase) {
+        throw new Error("Hindi naka-configure ang directory. Pakisuri ang Supabase settings at i-restart ang app.");
+      }
       // Query live 'emergency_contacts' where is_active = true
       const { data, error } = await supabase
         .from("emergency_contacts")
@@ -483,7 +488,10 @@ export default function DirectoryScreen() {
         setContacts(mapped);
       }
     } catch (err) {
-      console.error("Error loading emergency contacts from Supabase:", err);
+      const message = err instanceof Error ? err.message :
+        (err && typeof err === "object" && "message" in err ? String(err.message) : "Hindi ma-load ang directory. Pakisuri ang internet at subukan muli.");
+      setLoadError(message);
+      console.warn("[directory]", message);
     } finally {
       setLoading(false);
     }
@@ -619,12 +627,21 @@ export default function DirectoryScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
           }
         >
+          {loadError && (
+            <Card className="p-5 mb-4">
+              <Text className="text-[15px] font-semibold text-ink">Hindi ma-load ang directory</Text>
+              <Text className="text-[13px] text-ink-soft mt-2">{loadError}</Text>
+              <Pressable onPress={() => fetchContacts()} accessibilityRole="button" className="mt-3 py-2">
+                <Text style={{ color: colors.primary }}>Subukan muli</Text>
+              </Pressable>
+            </Card>
+          )}
           {loading ? (
             <Card className="p-8 items-center justify-center">
               <ActivityIndicator color={colors.primary} size="large" />
               <Text className="text-[13px] text-ink-faint mt-3">Loading directory...</Text>
             </Card>
-          ) : contacts.length === 0 ? (
+          ) : contacts.length === 0 && loadError ? null : contacts.length === 0 ? (
             <Card className="p-8 items-center justify-center">
               <Ionicons name="call-outline" size={32} color={colors.outlineFaint} />
               <Text className="text-[15px] font-semibold text-ink mt-2">No contacts found</Text>

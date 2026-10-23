@@ -8,10 +8,16 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_CHAT_API_URL": "https://boses-bantay-chatbot.boses-bantay-supabase-chatbot.workers.dev"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_CHAT_API_URL": "https://boses-bantay-chatbot.boses-bantay-supabase-chatbot.workers.dev"
+      }
     }
   },
   "submit": {

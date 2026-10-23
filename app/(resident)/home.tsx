@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth-context";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { relativeTime } from "@/lib/relativeTime";
 import { Card } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
@@ -34,6 +34,12 @@ export default function ResidentHome() {
       async function loadDashboardData() {
         try {
           setLoading(true);
+
+          if (!isSupabaseConfigured) {
+            setReports([]);
+            setStats({ activeReports: 0, resolvedReports: 0 });
+            return;
+          }
 
           // 1. Get current logged-in user
           const {

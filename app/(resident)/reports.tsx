@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, Pressable } from "react-nati
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { relativeTime } from "@/lib/relativeTime";
 import { Card } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
@@ -89,6 +89,11 @@ export default function ReportsScreen() {
       async function loadReports() {
         try {
           setLoading(true);
+
+          if (!isSupabaseConfigured) {
+            setReports([]);
+            return;
+          }
 
           // 1. Get the current user
           const {

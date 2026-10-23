@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { relativeTime } from "@/lib/relativeTime";
 import { Card } from "@/components/Card";
 import { SectionLabel } from "@/components/SectionLabel";
@@ -240,6 +240,14 @@ export default function ReportDetailScreen() {
             fields,
             photoPaths: [],
           });
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (!isSupabaseConfigured) {
+        if (!cancelled) {
+          setNotFound(true);
           setLoading(false);
         }
         return;

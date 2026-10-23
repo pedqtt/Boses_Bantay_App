@@ -14,7 +14,10 @@
 
 import type { ReportFieldKey, ChunkKey } from "@/lib/reportQuestions";
 
-const LLM_API_URL = process.env.EXPO_PUBLIC_WHISPER_API_URL ?? "";
+const LLM_API_URL = (
+  process.env.EXPO_PUBLIC_WHISPER_API_URL?.trim() ||
+  "https://disloyal-snorkel-clapped.ngrok-free.dev"
+).replace(/\/+$/, "");
 const LLM_API_KEY = process.env.EXPO_PUBLIC_WHISPER_API_KEY ?? "";
 
 export const isLlmConfigured = Boolean(LLM_API_URL);

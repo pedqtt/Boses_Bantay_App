@@ -9,7 +9,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { captureRef } from "react-native-view-shot";
-import * as MediaLibrary from "expo-media-library";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { colors } from "@/lib/theme";
 import { CLOSING_COPY } from "@/lib/reportQuestions";
@@ -105,6 +104,19 @@ export function SubmittedScreen({ referenceNo, onViewReports, onGoHome }: Submit
     if (saving) return;
     setSaving(true);
     try {
+      // Keep an outdated development client from crashing the router while
+      // loading this screen. The native module becomes available after an
+      // Android rebuild with expo-media-library included.
+      let MediaLibrary: typeof import("expo-media-library");
+      try {
+        MediaLibrary = require("expo-media-library") as typeof import("expo-media-library");
+      } catch {
+        Alert.alert(
+          "Hindi available ang Gallery",
+          "I-rebuild po ang Android app para ma-enable ang pag-save sa Photos."
+        );
+        return;
+      }
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(

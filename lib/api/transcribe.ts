@@ -3,8 +3,12 @@
 // wiring up the real Whisper server later is a one-file change.
 
 import type { ReportFieldKey } from "@/lib/reportQuestions";
+import { File } from "expo-file-system";
 
-const WHISPER_API_URL = process.env.EXPO_PUBLIC_WHISPER_API_URL ?? "";
+const DEFAULT_WHISPER_API_URL = "https://disloyal-snorkel-clapped.ngrok-free.dev";
+const WHISPER_API_URL = (
+  process.env.EXPO_PUBLIC_WHISPER_API_URL?.trim() || DEFAULT_WHISPER_API_URL
+).replace(/\/+$/, "");
 // Only needed once the server is reachable from the open internet (see
 // whisper-server/README.md's tunnel setup) — empty is fine for same-Wi-Fi
 // local dev, where the server has no WHISPER_API_KEY set either.
@@ -29,6 +33,8 @@ if (!isWhisperConfigured) {
       "`eas env:create` instead, then rebuild)."
   );
 }
+
+console.log(`[transcribe] server configured: ${WHISPER_API_URL}`);
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -87,13 +93,11 @@ export async function transcribeVoiceReport(
   }
 
   const formData = new FormData();
-  // React Native's fetch/FormData accepts this shape for file uploads —
-  // not a real Blob, just { uri, name, type }.
-  formData.append("file", {
-    uri: audioUri,
-    name: "voice-report.m4a",
-    type: "audio/m4a",
-  } as unknown as Blob);
+  // Expo Go's current Android FormData implementation rejects the legacy
+  // React Native `{ uri, name, type }` object with "Unsupported FormDataPart
+  // implementation". Expo's native File implements Blob and is accepted as
+  // a real multipart file part.
+  formData.append("file", new File(audioUri));
   if (field) formData.append("field", field);
 
   // Long recordings take real time to transcribe on the server (large-v3 is
@@ -105,7 +109,9 @@ export async function transcribeVoiceReport(
 
   let res: Response;
   try {
-    res = await fetch(`${WHISPER_API_URL}/transcribe`, {
+    const endpoint = `${WHISPER_API_URL}/transcribe`;
+    console.log(`[transcribe] uploading ${field ?? "report"} to ${endpoint}`);
+    res = await fetch(endpoint, {
       method: "POST",
       body: formData,
       signal: controller.signal,
@@ -122,12 +128,20 @@ export async function transcribeVoiceReport(
         "Masyadong matagal ang pag-transcribe. Subukan pong mag-record ng mas maikli."
       );
     }
+    console.error("[transcribe] request failed", {
+      name: err?.name,
+      message: err?.message,
+      audioUri,
+      endpoint: `${WHISPER_API_URL}/transcribe`,
+    });
     throw new Error(
-      "Hindi maabot ang server. Tiyakin pong may internet ang telepono at gumagana ang server."
+      `Hindi maabot ang server (${err?.message ?? "network error"}). Tiyakin pong may internet ang telepono, naka-on ang ngrok, at gumagana ang server.`
     );
   } finally {
     clearTimeout(timeout);
   }
+
+  console.log(`[transcribe] server response: ${res.status} ${res.statusText}`);
 
   if (!res.ok) {
     // 401 specifically means the app and server disagree on the API key —

@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "boses-bantay-chatbot",
+  "main": "src/worker.mjs",
+  "account_id": "ae459a5bc56e2b30dca80fdf1a1b4768",
+  "compatibility_date": "2026-10-22",
+  "workers_dev": true,
+  "preview_urls": false,
+  "ai": { "binding": "AI" },
+  "ratelimits": [{ "name": "CHAT_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
+  "vars": {
+    "SUPABASE_URL": "https://biaqsosjorxklbtptdqy.supabase.co",
+    "CHAT_MODEL": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "CONTROL_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "REVIEW_MODEL": "@cf/qwen/qwen3.8-27b",
+    "MIN_SIMILARITY": "0.40"
+  },
+  "observability": { "enabled": false },
+  "send_metrics": false
+}
