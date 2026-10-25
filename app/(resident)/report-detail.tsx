@@ -1,3 +1,8 @@
+import { useAuth } from "@/lib/auth-context";
+import { scopeAccountQuery } from "@/lib/api/myReports";
+import { isKnownReportStatus, reportDate, type ReportSource } from "@/lib/myReports";
+import { ReportStatusBadge } from "@/components/reports/ReportStatusBadge";
+import { SavedComplaintPhotos } from "@/components/report/SavedComplaintPhotos";
 import { useEffect, useState } from "react";
 import { View, Text, ScrollView, ActivityIndicator, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,8 +20,6 @@ import { REVIEW_SECTIONS, getQuestion } from "@/lib/reportQuestions";
 import {
   KIND_META,
   STATUS_STEP_INDEX,
-  SAMPLE_REPORTS,
-  SAMPLE_REPORT_DETAILS,
   type ReportKind,
   type ReportStatus,
 } from "@/lib/sampleReports";
@@ -25,7 +28,7 @@ import { colors } from "@/lib/theme";
 type ReportDetailData = {
   id: string;
   referenceNo: string;
-  status: ReportStatus;
+  status: string;
   category: string;
   kind: ReportKind;
   createdAt: string;
@@ -33,6 +36,9 @@ type ReportDetailData = {
   isSample: boolean;
   fields: Record<string, string>;
   photoPaths: string[];
+  ownerId: string;
+  assignedToMe: boolean;
+  createdByMe: boolean;
 };
 
 // The real barangay pipeline, per the interview documentation - same source
@@ -199,7 +205,9 @@ function FieldRow({ label, value, isLast }: { label: string; value: string; isLa
  * answered twice in two different places.
  */
 export default function ReportDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, source: sourceParam } = useLocalSearchParams<{ id: string; source?: string }>();
+  const { profile } = useAuth();
+  const source: ReportSource = sourceParam === "service_complaints" || sourceParam === "pre_blotters" ? sourceParam : "reports";
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [data, setData] = useState<ReportDetailData | null>(null);
@@ -210,38 +218,11 @@ export default function ReportDetailScreen() {
     async function load() {
       setLoading(true);
       setNotFound(false);
+      setData(null);
 
       if (!id) {
         setNotFound(true);
         setLoading(false);
-        return;
-      }
-
-      if (id.startsWith("sample-")) {
-        const summary = SAMPLE_REPORTS.find((r) => r.id === id);
-        const fields = SAMPLE_REPORT_DETAILS[id];
-        if (!summary || !fields) {
-          if (!cancelled) {
-            setNotFound(true);
-            setLoading(false);
-          }
-          return;
-        }
-        if (!cancelled) {
-          setData({
-            id: summary.id,
-            referenceNo: summary.referenceNo,
-            status: summary.status,
-            category: summary.category,
-            kind: summary.kind,
-            createdAt: summary.createdAt,
-            finalizedAt: summary.finalizedAt,
-            isSample: true,
-            fields,
-            photoPaths: [],
-          });
-          setLoading(false);
-        }
         return;
       }
 
@@ -254,43 +235,31 @@ export default function ReportDetailScreen() {
       }
 
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        const { data: row, error } = await supabase
-          .from("reports")
-          .select("*")
-          .eq("id", id)
-          .eq("user_id", user?.id ?? "")
-          .single();
-
-        if (error || !row) throw error ?? new Error("Not found");
-
-        const kind: ReportKind = row.full_details?.type === "service_complaint" ? "service_complaint" : "blotter";
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user || user.id !== profile?.id) throw Error("Sign in required");
+        const key = source === "service_complaints" ? "complaint_id" : source === "pre_blotters" ? "blotter_id" : "id";
+        const { data: row, error } = await scopeAccountQuery(supabase.from(source).select("*"), source, user.id).eq(key, id).single();
+        if (error || !row || (row.user_id !== user.id && !(source === "service_complaints" && row.assigned_to === user.id))) throw Error("Report not available to this account");
+        const kind: ReportKind = source === "service_complaints" || row.full_details?.type === "service_complaint" ? "service_complaint" : "blotter";
         const fullDetails = row.full_details ?? {};
-
-        const fields: Record<string, string> =
-          kind === "service_complaint"
-            ? {
-                category: fullDetails.categoryLabel ?? row.category ?? "",
-                location: fullDetails.location ?? row.incident_location_text ?? "",
-                description: fullDetails.description ?? row.summary ?? "",
-              }
-            : (fullDetails as Record<string, string>);
-
+        const fields: Record<string, string> = kind === "service_complaint"
+          ? { category: fullDetails.categoryLabel ?? row.category ?? "", location: fullDetails.location ?? row.location ?? row.location_address ?? "", description: fullDetails.description ?? row.description ?? row.summary ?? "" }
+          : source === "pre_blotters"
+            ? { ...row.complainant_details, ...row.respondent_details, description: row.remarks ?? "", location: row.location_address ?? "" }
+            : fullDetails;
         if (!cancelled) {
           setData({
-            id: String(row.id),
+            id: String(row[key]),
             referenceNo: row.reference_no,
             status: row.status,
-            category: row.category,
+            category: row.category ?? row.incident_type ?? "Blotter report",
             kind,
-            createdAt: row.created_at,
+            createdAt: row.created_at ?? row.submitted_at,
             finalizedAt: row.finalized_at ?? null,
             isSample: false,
             fields,
-            photoPaths: fullDetails.photoPaths ?? [],
+            photoPaths: Array.isArray(fullDetails.photoPaths) ? fullDetails.photoPaths : [],
+            ownerId: user.id, createdByMe: row.user_id === user.id, assignedToMe: source === "service_complaints" && row.assigned_to === user.id,
           });
           setLoading(false);
         }
@@ -307,7 +276,7 @@ export default function ReportDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, source, profile?.id]);
 
   const kindMeta = data ? KIND_META[data.kind] : null;
 
@@ -326,7 +295,7 @@ export default function ReportDetailScreen() {
             <View className="flex-1 items-center justify-center">
               <ActivityIndicator color={colors.primary} size="large" />
             </View>
-          ) : notFound || !data || !kindMeta ? (
+          ) : notFound || !data || data.ownerId !== profile?.id || !kindMeta ? (
             <View className="flex-1 items-center justify-center px-8">
               <Ionicons name="alert-circle-outline" size={28} color={colors.outlineFaint} />
               <Text className="text-[14px] text-ink-faint mt-2 text-center">
@@ -350,11 +319,11 @@ export default function ReportDetailScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text className="text-[15.5px] font-bold text-ink">{data.category}</Text>
-                    <Text className="text-[12px] text-ink-faint mt-0.5">{relativeTime(data.createdAt)}</Text>
+                    <Text className="text-[12px] text-ink-faint mt-0.5">{reportDate(data.createdAt)}</Text>
                   </View>
-                  <StatusPill status={data.status} />
+                  <ReportStatusBadge status={data.status} />
                 </View>
-                {!data.finalizedAt && (
+                {data.kind === "blotter" && !data.finalizedAt && (
                   <View
                     className="flex-row items-center mt-3.5 pt-3.5"
                     style={{ borderTopWidth: 1, borderTopColor: colors.outlineVariant, gap: 8 }}
@@ -366,15 +335,19 @@ export default function ReportDetailScreen() {
 
               {/* Progress - the real barangay pipeline, not just a status
                   word with no context for what it means or what's next. */}
+              <View className="flex-row flex-wrap mb-5" style={{ gap: 8 }}>
+                {data.createdByMe && <Text className="text-brand text-[12px] bg-brand-50 rounded-full px-3 py-2">Ginawa ko</Text>}
+                {data.assignedToMe && <Text className="text-brand text-[12px] bg-brand-50 rounded-full px-3 py-2">Nakatalaga sa akin</Text>}
+              </View>
               <SectionLabel>Progress</SectionLabel>
               <View className="mb-6">
-                <ProgressTimeline
+                {isKnownReportStatus(data.status) ? <ProgressTimeline
                   status={data.status}
                   includeSummons={data.kind === "blotter" && data.fields.blotterType === "Summons"}
-                />
+                /> : <Card className="p-4"><Text className="text-[14px] text-ink-soft leading-6">Naitalang status: {data.status}. Kumpirmahin sa barangay ang susunod na hakbang.</Text></Card>}
               </View>
 
-              {!data.finalizedAt && (
+              {data.kind === "blotter" && !data.finalizedAt && (
                 <View
                   className="flex-row items-start rounded-2xl px-4 py-3 mb-6"
                   style={{ backgroundColor: "#FDECC8" }}
@@ -423,21 +396,8 @@ export default function ReportDetailScreen() {
                     <FieldRow label="Deskripsyon" value={data.fields.description ?? ""} isLast={data.photoPaths.length === 0} />
                   </Card>
 
-                  {data.photoPaths.length > 0 && (
-                    <View className="flex-row flex-wrap mt-3" style={{ gap: 8 }}>
-                      {data.photoPaths.map((path) => {
-                        const { data: publicUrl } = supabase.storage.from("report_evidence").getPublicUrl(path);
-                        return (
-                          <Image
-                            key={path}
-                            source={{ uri: publicUrl.publicUrl }}
-                            style={{ width: 80, height: 80, borderRadius: 12 }}
-                            resizeMode="cover"
-                          />
-                        );
-                      })}
-                    </View>
-                  )}
+
+                  {data.photoPaths.length > 0 && <SavedComplaintPhotos paths={data.photoPaths} />}
                 </View>
               )}
 
