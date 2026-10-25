@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView, Keyboard } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,9 +16,11 @@ import { useKeyboardHandler } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { sendBotMessage, type ChatMessage } from "@/lib/api/chat";
+import { sendBotMessage, createBotSession, CHAT_CATEGORIES, CHAT_GREETING, CHAT_CLOSING, type ChatMessage } from "@/lib/api/chat";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { colors } from "@/lib/theme";
+import { ChatResponse } from "@/components/chat/ChatResponse";
+import { answerForDisplay, unwrapExcerpt } from "@/lib/chat/citation-presentation";
 
 // UPDATED - this used to be its own page-local palette (Imperial Blue /
 // White Convolvulus), scoped to bot.tsx only. That reference palette is
@@ -40,14 +42,6 @@ const BOT_COLORS = {
   surface: "#FAF8F7",
 };
 
-// General discovery requests; actual documented topics and follow-up questions come from the server.
-const EXAMPLE_PROMPTS = [
-  "Anong mga paksa ang puwede kong itanong?",
-  "Bigyan mo ako ng gabay mula sa mga barangay records.",
-  "Anong mga programa at patakaran ang nasa records?",
-  "Paano ako magtatanong tungkol sa requirements, bayad, at iskedyul?",
-];
-
 // 40px, not the old 24px - big enough to actually anchor the row as "a
 // participant speaking," not a decorative dot that reads as an
 // afterthought next to a full paragraph of reply text. No shadow on it -
@@ -56,7 +50,7 @@ function BotAvatar() {
   return (
     <View
       className="w-10 h-10 rounded-full items-center justify-center mr-3"
-      style={{ backgroundColor: BOT_COLORS.accentTint }}
+      style={{ backgroundColor: BOT_COLORS.accentTint, borderWidth: 1, borderColor: "rgba(2,31,148,0.08)" }}
     >
       {/* Sparkles instead of a chat bubble - a chat-bubble icon inside a
           chat screen is redundant (the screen already says what it is);
@@ -120,10 +114,12 @@ function SendButton({
           scale.value = withTiming(1, { duration: 150, easing: Easing.out(Easing.back(1.5)) });
         }}
         disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel="Ipadala ang tanong"
         className="w-11 h-11 rounded-full items-center justify-center"
-        style={{ backgroundColor: disabled ? "#D1D5DB" : BOT_COLORS.accent }}
+        style={{ backgroundColor: disabled ? BOT_COLORS.accentTint : BOT_COLORS.accent }}
       >
-        <Ionicons name="arrow-up" size={18} color="white" />
+        <Ionicons name="arrow-up" size={19} color={disabled ? colors.primaryMuted : colors.onPrimary} />
       </Pressable>
     </Animated.View>
   );
@@ -139,64 +135,41 @@ function TypingDots() {
   );
 }
 
-/**
- * Empty-state hero, shown only before the resident's first message.
- * Second pass, pushed further toward "as little as possible": the earlier
- * version still had a filled avatar circle, a subtitle sentence repeating
- * what the header/disclaimer already say, and four boxed/bordered cards —
- * three separate visual treatments competing for attention on one screen.
- * Cut down to two elements: one greeting line, and the starter questions as
- * a plain hairline-divided list — text only, no icon, no fill, no border
- * box. Ma (negative space) is what separates "this is the screen" from
- * "here's how to start," not a frame drawn around either one.
- */
+/** Opening screen: the existing greeting and six vertical category options. */
 function ChatEmptyState({ onPickPrompt }: { onPickPrompt: (text: string) => void }) {
   return (
-    <View className="flex-1 justify-center px-2 pb-12">
-      <Animated.View
-        entering={FadeIn.duration(400)}
-        style={{ alignItems: "center", marginBottom: 14 }}
-      >
-        <Ionicons name="sparkles" size={22} color={BOT_COLORS.accent} />
+    <View style={{ width: "100%", maxWidth: 560, alignSelf: "center", paddingTop: 28, paddingBottom: 28 }}>
+      <Animated.View entering={FadeIn.duration(300)} style={{ alignItems: "center", marginBottom: 16 }}>
+        <View style={{ width: 52, height: 52, borderRadius: 18, backgroundColor: BOT_COLORS.accentTint, alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name="sparkles" size={25} color={BOT_COLORS.accent} />
+        </View>
       </Animated.View>
-      <Animated.Text
-        entering={FadeInUp.duration(340).easing(Easing.out(Easing.cubic))}
-        className="text-[22px] font-semibold text-ink tracking-tight text-center mb-3"
-      >
-        Kumusta! Ano ang gusto mong malaman?
+      <Animated.Text entering={FadeInUp.duration(300).easing(Easing.out(Easing.cubic))}
+        style={{ fontSize: 24, lineHeight: 32, fontWeight: "600", letterSpacing: -.4, textAlign: "center", color: colors.onSurface, paddingHorizontal: 12 }}>
+        {CHAT_GREETING}
       </Animated.Text>
-      <Text className="text-[14px] leading-5 text-ink-soft text-center mb-7">
-        Hindi sigurado kung ano ang itatanong? Piliin ang gabay para makita ang mga paksang nasa records at halimbawang tanong.
+      <Text style={{ fontSize: 14, lineHeight: 21, color: colors.onSurfaceVariant, textAlign: "center", marginTop: 8, marginBottom: 24, paddingHorizontal: 12 }}>
+        {CHAT_CLOSING}
       </Text>
 
-      {/* Each row gets a soft rounded blue-tinted shade instead of a card
-          border or a divider line - light enough to stay minimal, but
-          enough of its own fill to read as a distinct tappable chip
-          rather than plain text floating on the page. */}
-      <View style={{ gap: 8 }}>
-        {/* Staggered by 40ms per row - one continuous cascade settling
-            into place rather than the whole list appearing at once. */}
-        {EXAMPLE_PROMPTS.map((p, i) => (
-          <Animated.View
-            key={p}
-            entering={FadeInUp.duration(320)
-              .delay(120 + i * 40)
-              .easing(Easing.out(Easing.cubic))}
-          >
-            <Pressable
-              onPress={() => onPickPrompt(p)}
-              className="flex-row items-center rounded-2xl active:opacity-70"
-              style={{ backgroundColor: "rgba(2,31,148,0.06)", paddingVertical: 14, paddingHorizontal: 16 }}
-            >
-              <Text className="flex-1 text-[14.5px] font-medium text-ink" numberOfLines={2}>
-                {p}
-              </Text>
-              <Ionicons
-                name="arrow-forward"
-                size={15}
-                color={colors.primary}
-                style={{ marginLeft: 10 }}
-              />
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingHorizontal: 2 }}>
+        <Text style={{ fontSize: 12, lineHeight: 18, fontWeight: "600", color: colors.onSurfaceVariant }}>Mga kategorya</Text>
+        <Text style={{ fontSize: 11, lineHeight: 18, color: colors.onSurfaceFaint }}>{CHAT_CATEGORIES.length} na paksa</Text>
+      </View>
+      <View style={{ gap: 12 }}>
+        {CHAT_CATEGORIES.map((category, i) => (
+          <Animated.View key={category.id} entering={FadeInUp.duration(260).delay(80 + i * 32).easing(Easing.out(Easing.cubic))}>
+            <Pressable onPress={() => onPickPrompt(category.label)} accessibilityRole="button" accessibilityLabel={`${i + 1}. ${category.label}`}
+              className="active:opacity-70"
+              style={{ width: "100%", flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 16, backgroundColor: BOT_COLORS.accentTint, borderWidth: 1, borderColor: "rgba(2,31,148,0.08)", paddingVertical: 14, paddingHorizontal: 14 }}>
+              <View style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.75)" }}>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: BOT_COLORS.accent }}>{i + 1}</Text>
+              </View>
+              <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                <Text style={{ fontSize: 14, lineHeight: 20, fontWeight: "600", color: colors.onPrimaryContainer }}>{category.label}</Text>
+                <Text style={{ fontSize: 12, lineHeight: 18, color: colors.onSurfaceVariant }}>{category.example}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={BOT_COLORS.accent} />
             </Pressable>
           </Animated.View>
         ))}
@@ -204,6 +177,7 @@ function ChatEmptyState({ onPickPrompt }: { onPickPrompt: (text: string) => void
     </View>
   );
 }
+
 
 /**
  * FIXED — was a static header that owned its own tab-root hero treatment
@@ -258,15 +232,19 @@ export default function BotScreen() {
   }
 
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: "welcome", from: "bot", text: "Kumusta! Magtanong tungkol sa mga dokumentong aprubado ng barangay." },
+    { id: "welcome", from: "bot", text: CHAT_GREETING },
   ]);
+  const sessionRef = useRef<string | null>(null);
+  const requestBusyRef = useRef(false);
+  const generationRef = useRef(0);
   const [input, setInput] = useState("");
+  const [composerFocused, setComposerFocused] = useState(false);
   const [sending, setSending] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState("");
   const scrollRef = useRef<ScrollView>(null);
   const mountedRef = useRef(true);
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; generationRef.current += 1; }; }, []);
 
   // REDESIGNED — every earlier version of this (three of them: a fixed
   // insets formula, then a measure-on-show correction, then a measure-and-
@@ -323,8 +301,13 @@ export default function BotScreen() {
   const isEmpty = messages.length === 1 && !busy;
 
   function handleNewChat() {
+    Keyboard.dismiss();
+    setComposerFocused(false);
+    generationRef.current += 1;
+    sessionRef.current = null;
+    requestBusyRef.current = false;
     setMessages([
-      { id: "welcome", from: "bot", text: "Kumusta! Magtanong tungkol sa mga dokumentong aprubado ng barangay." },
+      { id: "welcome", from: "bot", text: CHAT_GREETING },
     ]);
     setInput("");
     setSending(false);
@@ -337,14 +320,15 @@ export default function BotScreen() {
   // each tick, then commits the full message to `messages` once done.
   // `mountedRef` guards against setState after the screen unmounts mid-reveal.
   function streamInMessage(message: ChatMessage) {
+    const generation = generationRef.current;
     setStreamingId(message.id);
     setStreamingText("");
-    const full = message.text;
+    const full = unwrapExcerpt(answerForDisplay(message.text, message.citations ?? []));
     const chunk = Math.max(1, Math.round(full.length / 40));
     let shown = 0;
 
     const tick = () => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || generation !== generationRef.current) return;
       shown = Math.min(full.length, shown + chunk);
       setStreamingText(full.slice(0, shown));
       scrollRef.current?.scrollToEnd({ animated: true });
@@ -352,6 +336,7 @@ export default function BotScreen() {
         setTimeout(tick, 18);
       } else {
         setMessages((prev) => [...prev, message]);
+        requestBusyRef.current = false;
         setStreamingId(null);
         setStreamingText("");
       }
@@ -361,19 +346,24 @@ export default function BotScreen() {
 
   async function handleSend(overrideText?: string) {
     const text = (overrideText ?? input).trim();
-    if (!text || busy) return;
+    if (!text || busy || requestBusyRef.current) return;
+    requestBusyRef.current = true;
+    const generation = generationRef.current;
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, from: "user", text };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setSending(true);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     try {
-      const reply = await sendBotMessage(text, messages);
-      if (!mountedRef.current) return;
+      if (!sessionRef.current) sessionRef.current = await createBotSession();
+      if (!mountedRef.current || generation !== generationRef.current) return;
+      const reply = await sendBotMessage(text, sessionRef.current);
+      if (!mountedRef.current || generation !== generationRef.current) return;
       setSending(false);
       streamInMessage(reply);
     } catch (error) {
-      if (mountedRef.current) {
+      if (mountedRef.current && generation === generationRef.current) {
+        requestBusyRef.current = false;
         setSending(false);
         setMessages((prev) => [...prev, {
           id: `error-${Date.now()}`, from: "bot",
@@ -456,9 +446,9 @@ export default function BotScreen() {
             hitSlop={4}
             className="flex-row items-center active:opacity-70"
             style={{
-              height: 36,
+              height: 40,
               paddingHorizontal: 14,
-              borderRadius: 18,
+              borderRadius: 20,
               backgroundColor: colors.primaryContainer,
               opacity: isEmpty ? 0 : busy ? 0.4 : 1,
               gap: 6,
@@ -477,12 +467,12 @@ export default function BotScreen() {
             className="flex-1 px-5"
             contentContainerStyle={isEmpty ? { flexGrow: 1 } : undefined}
             showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+            onContentSizeChange={() => { if (busy) scrollRef.current?.scrollToEnd({ animated: true }); }}
           >
             {isEmpty ? (
               <ChatEmptyState onPickPrompt={(text) => handleSend(text)} />
             ) : (
-              <View className="gap-5 pt-5 pb-6">
+              <View className="gap-7 pt-6 pb-8">
                 {messages.map((m) =>
                   m.from === "user" ? (
                     <Animated.View
@@ -502,7 +492,7 @@ export default function BotScreen() {
                           borderBottomRightRadius: 6,
                         }}
                       >
-                        <Text className="text-[14px] leading-5 text-white">{m.text}</Text>
+                        <Text className="text-[15px] leading-6 text-white">{m.text}</Text>
                       </View>
                     </Animated.View>
                   ) : (
@@ -514,32 +504,20 @@ export default function BotScreen() {
                       <BotAvatar />
                       {/* pt-2.5, not pt-0.5 - re-centered against the 40px
                           avatar (was tuned for the old 24px one). */}
-                      <View className="flex-1 pt-2.5">
-                        <Text className="text-[15px] leading-6 text-ink">{m.text}</Text>
+                      <View className="flex-1 pt-2.5" style={{ minWidth: 0 }}>
+                        <ChatResponse message={m} />
                         {m.suggestions?.length ? (
-                          <View className="mt-3" style={{ gap: 8 }}>
-                            <Text className="text-[12px] text-ink-soft">Puwede mong itanong</Text>
+                          <View style={{ marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.outlineVariant, gap: 12 }}>
+                            <Text className="text-[12px] font-semibold text-ink-soft" style={{ marginBottom: 2 }}>Pumili ng paksa</Text>
                             {m.suggestions.map((question) => (
                               <Pressable key={question} accessibilityRole="button" accessibilityLabel={question}
                                 disabled={busy} onPress={() => handleSend(question)}
-                                className="rounded-xl px-4 py-3" style={{ backgroundColor: BOT_COLORS.accentTint, opacity: busy ? 0.5 : 1 }}>
+                                className="rounded-2xl px-4 active:opacity-70" style={{ backgroundColor: BOT_COLORS.accentTint, borderWidth: 1, borderColor: "rgba(2,31,148,0.10)", paddingVertical: 14, opacity: busy ? 0.5 : 1 }}>
                                 <Text className="text-[14px]" style={{ color: BOT_COLORS.accent }}>{question}</Text>
                               </Pressable>
                             ))}
                           </View>
                         ) : null}
-                        {m.citations?.map((citation, index) => (
-                          <View key={`${citation.documentTitle}-${citation.section}-${index}`} className="rounded-xl p-3 mt-3" style={{ backgroundColor: BOT_COLORS.accentTint }}>
-                            <View className="flex-row items-center">
-                              <Ionicons name="document-text-outline" size={14} color={BOT_COLORS.accent} />
-                              <Text className="flex-1 text-[12px] font-semibold ml-2" style={{ color: BOT_COLORS.accent }}>
-                                [{citation.id ?? index + 1}] {citation.documentTitle}
-                              </Text>
-                            </View>
-                            <Text className="text-[12px] text-ink-soft mt-1">{citation.section}</Text>
-                            {citation.excerpt ? <Text selectable className="text-[12px] text-ink-soft mt-2">{citation.excerpt}</Text> : null}
-                          </View>
-                        ))}
                         {m.retryable && m.retryQuery ? (
                           <Pressable accessibilityRole="button" accessibilityLabel="Retry document lookup" disabled={sending}
                             onPress={() => setInput(m.retryQuery ?? "")} className="mt-3 self-start rounded-xl px-4 py-3"
@@ -586,18 +564,21 @@ export default function BotScreen() {
               style={{
                 borderRadius: 26,
                 borderWidth: 1.5,
-                borderColor: BOT_COLORS.accentTint,
+                borderColor: composerFocused ? colors.primaryMuted : BOT_COLORS.accentTint,
               }}
             >
               <TextInput
                 value={input}
                 onChangeText={setInput}
-                onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150)}
-                placeholder="Type a message…"
+                onFocus={() => { setComposerFocused(true); setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150); }}
+                onBlur={() => setComposerFocused(false)}
+                accessibilityLabel="Tanong para sa Barangay-Bot"
+                placeholder="Pumili ng numero o magtanong…"
+                maxLength={4000}
                 placeholderTextColor={colors.outline}
                 multiline
                 style={{ maxHeight: 120 }}
-                className="flex-1 px-2 py-2 text-[14px] leading-5 text-ink"
+                className="flex-1 px-2 py-2 text-[15px] leading-6 text-ink"
               />
               <SendButton onPress={() => handleSend()} disabled={busy || !input.trim()} />
             </View>

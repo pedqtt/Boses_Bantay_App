@@ -1,0 +1,677 @@
+{
+  "version": 1,
+  "greeting": "Kumusta! Ano po ang kailangan ninyo?",
+  "closing": {
+    "english": "Choose a number or type your question.",
+    "tagalog": "Pumili ng numero o i-type ang tanong ninyo.",
+    "taglish": "Pumili ng numero o i-type ang tanong ninyo."
+  },
+  "category_question": {
+    "english": "What would you like to know about {category}?",
+    "tagalog": "Ano po ang gusto ninyong malaman tungkol sa {category}?",
+    "taglish": "Ano po ang gusto ninyong malaman tungkol sa {category}?"
+  },
+  "quick_options": {
+    "english": "Quick options",
+    "tagalog": "Mga puwedeng itanong",
+    "taglish": "Quick options"
+  },
+  "unsupported": {
+    "english": "I don't support that topic here. Please choose a barangay category below.",
+    "tagalog": "Hindi ko sakop ang paksang iyon dito. Pumili po ng kategorya tungkol sa barangay sa ibaba.",
+    "taglish": "Sorry po, hindi supported ang topic na iyon dito. Pumili ng barangay category sa ibaba."
+  },
+  "choose_topic": {
+    "english": "Which topic do you mean?",
+    "tagalog": "Alin pong paksa ang ibig ninyong sabihin?",
+    "taglish": "Aling topic po ang ibig ninyong sabihin?"
+  },
+  "back_option": {
+    "english": "Back to categories: Menu",
+    "tagalog": "Bumalik sa mga kategorya: Mga Paksa",
+    "taglish": "Back to categories: Menu / Mga Paksa"
+  },
+  "overview_query": {
+    "english": "What information do the documents provide about {topic}? Answer briefly.",
+    "tagalog": "Ano ang nakasaad sa mga dokumento tungkol sa {topic}? Maikling sagot sa Tagalog.",
+    "taglish": "Anong available information tungkol sa {topic}? Short answer in Taglish."
+  },
+  "detail_query": {
+    "english": "What are the documented {detail} for {topic}?",
+    "tagalog": "Ano ang nakasaad na {detail} para sa {topic}? Sagot sa Tagalog.",
+    "taglish": "Ano ang documented {detail} para sa {topic}? Sagot in Taglish."
+  },
+  "missing": {
+    "english": "I couldn't find that information in the available records. Please confirm it with the Barangay Hall.",
+    "tagalog": "Wala akong mahanap na impormasyong iyon sa mga dokumentong mayroon. Pakikumpirma po sa Barangay Hall.",
+    "taglish": "Sorry po, wala akong makitang information na iyon sa available records. Paki-confirm sa Barangay Hall."
+  },
+  "commands": {
+    "menu": [
+      "menu",
+      "mga paksa",
+      "back to categories",
+      "categories",
+      "kategorya",
+      "what can i ask",
+      "ano ang puwede kong itanong",
+      "anong puwedeng itanong",
+      "help",
+      "help me",
+      "can you help me",
+      "what topics are available",
+      "ano ang puwede itanong"
+    ],
+    "back": [
+      "back",
+      "balik",
+      "bumalik"
+    ],
+    "greeting": [
+      "hello",
+      "hi",
+      "hey",
+      "kumusta",
+      "kamusta",
+      "kumusta po",
+      "magandang araw",
+      "good morning",
+      "good afternoon",
+      "good evening",
+      "hello bro",
+      "hello po",
+      "hi po",
+      "hey bro",
+      "kamusta po",
+      "kumusta bro"
+    ],
+    "details": [
+      "details",
+      "detalye",
+      "options",
+      "more options"
+    ],
+    "thanks": [
+      "thanks",
+      "thank you",
+      "salamat",
+      "salamat po"
+    ],
+    "goodbye": [
+      "bye",
+      "goodbye",
+      "paalam",
+      "ingat"
+    ],
+    "reset": [
+      "reset",
+      "new chat",
+      "bagong usapan",
+      "simula ulit"
+    ],
+    "continue": [
+      "yan",
+      "yun",
+      "iyon",
+      "ok",
+      "okay",
+      "sige",
+      "yung isa",
+      "yes",
+      "continue",
+      "tell me more",
+      "more",
+      "more details",
+      "that",
+      "it",
+      "go on"
+    ]
+  },
+  "question_terms": [
+    "what",
+    "how",
+    "how much",
+    "how long",
+    "when",
+    "where",
+    "who",
+    "why",
+    "can i",
+    "do i",
+    "does",
+    "is there",
+    "are there",
+    "magkano",
+    "paano",
+    "ano",
+    "anong",
+    "saan",
+    "kailan",
+    "sino",
+    "gaano",
+    "puwede",
+    "pwede",
+    "maaari"
+  ],
+  "step_triggers": [
+    "steps",
+    "step by step",
+    "how to",
+    "how do i",
+    "paano",
+    "mga hakbang",
+    "hakbang"
+  ],
+  "details": [
+    {
+      "id": "requirements",
+      "name": {
+        "english": "Requirements",
+        "tagalog": "Mga kailangan",
+        "taglish": "Requirements"
+      },
+      "aliases": [
+        "requirements",
+        "requirement",
+        "mga kailangan",
+        "kailangan",
+        "kailangang dalhin",
+        "what do i need",
+        "what to bring"
+      ],
+      "mode": "concise"
+    },
+    {
+      "id": "fee",
+      "name": {
+        "english": "Fee",
+        "tagalog": "Bayad",
+        "taglish": "Fee"
+      },
+      "aliases": [
+        "fee",
+        "fees",
+        "cost",
+        "price",
+        "bayad",
+        "magkano",
+        "presyo",
+        "how much"
+      ],
+      "mode": "concise"
+    },
+    {
+      "id": "processing_time",
+      "name": {
+        "english": "Processing time",
+        "tagalog": "Tagal ng pagproseso",
+        "taglish": "Processing time"
+      },
+      "aliases": [
+        "processing time",
+        "how long",
+        "gaano katagal",
+        "tagal",
+        "ilang araw"
+      ],
+      "mode": "concise"
+    },
+    {
+      "id": "steps",
+      "name": {
+        "english": "Steps",
+        "tagalog": "Mga hakbang",
+        "taglish": "Steps"
+      },
+      "aliases": [
+        "steps",
+        "paano",
+        "mga hakbang",
+        "procedure",
+        "process",
+        "how to",
+        "how do i"
+      ],
+      "mode": "guide"
+    },
+    {
+      "id": "office_hours",
+      "name": {
+        "english": "Office hours",
+        "tagalog": "Oras ng opisina",
+        "taglish": "Office hours"
+      },
+      "aliases": [
+        "office hours",
+        "hours",
+        "oras",
+        "schedule",
+        "bukas"
+      ],
+      "mode": "concise"
+    }
+  ],
+  "categories": [
+    {
+      "id": "certificates",
+      "name": {
+        "english": "Certificates and Clearances",
+        "tagalog": "Mga Sertipiko at Clearance",
+        "taglish": "Certificates and Clearances"
+      },
+      "example": {
+        "english": "clearance, residency, indigency",
+        "tagalog": "clearance, paninirahan, indigency",
+        "taglish": "clearance, residency, indigency"
+      },
+      "aliases": [
+        "certificates",
+        "clearances",
+        "certificates and clearances",
+        "sertipiko",
+        "mga sertipiko",
+        "documents"
+      ],
+      "topics": [
+        {
+          "id": "clearance",
+          "name": {
+            "english": "Barangay clearance",
+            "tagalog": "Barangay clearance",
+            "taglish": "Barangay clearance"
+          },
+          "aliases": [
+            "clearance",
+            "barangay clearance"
+          ]
+        },
+        {
+          "id": "residency",
+          "name": {
+            "english": "Certificate of residency",
+            "tagalog": "Sertipiko ng paninirahan",
+            "taglish": "Certificate of residency"
+          },
+          "aliases": [
+            "residency",
+            "certificate of residency",
+            "paninirahan"
+          ]
+        },
+        {
+          "id": "indigency",
+          "name": {
+            "english": "Certificate of indigency",
+            "tagalog": "Sertipiko ng indigency",
+            "taglish": "Certificate of indigency"
+          },
+          "aliases": [
+            "indigency",
+            "certificate of indigency"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "business",
+      "name": {
+        "english": "Business and Permits",
+        "tagalog": "Negosyo at mga Permit",
+        "taglish": "Business and Permits"
+      },
+      "example": {
+        "english": "business clearance, business permit",
+        "tagalog": "business clearance, permit sa negosyo",
+        "taglish": "business clearance, business permit"
+      },
+      "aliases": [
+        "business",
+        "permits",
+        "business and permits",
+        "negosyo",
+        "permit"
+      ],
+      "topics": [
+        {
+          "id": "business_clearance",
+          "name": {
+            "english": "Business clearance",
+            "tagalog": "Clearance para sa negosyo",
+            "taglish": "Business clearance"
+          },
+          "aliases": [
+            "business clearance",
+            "clearance negosyo"
+          ]
+        },
+        {
+          "id": "business_permit",
+          "name": {
+            "english": "Business permit",
+            "tagalog": "Permit sa negosyo",
+            "taglish": "Business permit"
+          },
+          "aliases": [
+            "business permit",
+            "permit sa negosyo",
+            "business registration"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "complaints",
+      "name": {
+        "english": "Complaints and Peace and Order",
+        "tagalog": "Mga Reklamo at Kapayapaan",
+        "taglish": "Complaints and Peace and Order"
+      },
+      "example": {
+        "english": "complaints, noise, community safety",
+        "tagalog": "reklamo, ingay, kaligtasan",
+        "taglish": "complaints, noise, community safety"
+      },
+      "aliases": [
+        "complaints",
+        "peace and order",
+        "reklamo",
+        "complaint"
+      ],
+      "topics": [
+        {
+          "id": "community_complaints",
+          "name": {
+            "english": "Community complaints",
+            "tagalog": "Mga reklamo sa pamayanan",
+            "taglish": "Community complaints"
+          },
+          "aliases": [
+            "community complaints",
+            "complaints",
+            "reklamo"
+          ]
+        },
+        {
+          "id": "noise",
+          "name": {
+            "english": "Noise concerns",
+            "tagalog": "Mga reklamo sa ingay",
+            "taglish": "Noise concerns"
+          },
+          "aliases": [
+            "noise",
+            "noise control",
+            "ingay",
+            "karaoke"
+          ]
+        },
+        {
+          "id": "animal_control",
+          "name": {
+            "english": "Animal control",
+            "tagalog": "Pag-aalaga at pagkontrol sa hayop",
+            "taglish": "Animal control"
+          },
+          "aliases": [
+            "animal control",
+            "pets",
+            "pet owners",
+            "hayop",
+            "aso"
+          ]
+        },
+        {
+          "id": "curfew",
+          "name": {
+            "english": "Curfew",
+            "tagalog": "Curfew",
+            "taglish": "Curfew"
+          },
+          "aliases": [
+            "curfew",
+            "minor curfew"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "health",
+      "name": {
+        "english": "Health and Social Services",
+        "tagalog": "Kalusugan at Serbisyong Panlipunan",
+        "taglish": "Health and Social Services"
+      },
+      "example": {
+        "english": "health, social assistance, accessibility",
+        "tagalog": "kalusugan, tulong, accessibility",
+        "taglish": "health, social assistance, accessibility"
+      },
+      "aliases": [
+        "health",
+        "social services",
+        "health and social services",
+        "kalusugan",
+        "serbisyong panlipunan"
+      ],
+      "topics": [
+        {
+          "id": "health_services",
+          "name": {
+            "english": "Health services",
+            "tagalog": "Mga serbisyong pangkalusugan",
+            "taglish": "Health services"
+          },
+          "aliases": [
+            "health services",
+            "health",
+            "kalusugan"
+          ]
+        },
+        {
+          "id": "social_assistance",
+          "name": {
+            "english": "Social assistance",
+            "tagalog": "Tulong panlipunan",
+            "taglish": "Social assistance"
+          },
+          "aliases": [
+            "social assistance",
+            "social services",
+            "tulong",
+            "ayuda"
+          ]
+        },
+        {
+          "id": "accessibility",
+          "name": {
+            "english": "Accessibility assistance",
+            "tagalog": "Tulong para sa accessibility",
+            "taglish": "Accessibility assistance"
+          },
+          "aliases": [
+            "accessibility",
+            "accessibility assistance",
+            "accessible"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "programs",
+      "name": {
+        "english": "Community Programs and Events",
+        "tagalog": "Mga Programa at Kaganapan sa Pamayanan",
+        "taglish": "Community Programs and Events"
+      },
+      "example": {
+        "english": "cleanup, garden, community events",
+        "tagalog": "paglilinis, hardin, mga pagtitipon",
+        "taglish": "cleanup, garden, community events"
+      },
+      "aliases": [
+        "community programs",
+        "community programs and events",
+        "programs",
+        "events",
+        "programa",
+        "kaganapan"
+      ],
+      "topics": [
+        {
+          "id": "cleanup",
+          "name": {
+            "english": "Community cleanup",
+            "tagalog": "Paglilinis sa pamayanan",
+            "taglish": "Community cleanup"
+          },
+          "aliases": [
+            "community cleanup",
+            "cleanup",
+            "paglilinis"
+          ]
+        },
+        {
+          "id": "garden",
+          "name": {
+            "english": "Community garden",
+            "tagalog": "Hardin ng pamayanan",
+            "taglish": "Community garden"
+          },
+          "aliases": [
+            "community garden",
+            "garden",
+            "hardin"
+          ]
+        },
+        {
+          "id": "events",
+          "name": {
+            "english": "Community events and facilities",
+            "tagalog": "Mga pagtitipon at pasilidad",
+            "taglish": "Community events and facilities"
+          },
+          "aliases": [
+            "community events",
+            "events",
+            "hall",
+            "facility booking",
+            "study room",
+            "bulwagan"
+          ]
+        },
+        {
+          "id": "waste",
+          "name": {
+            "english": "Waste collection",
+            "tagalog": "Koleksyon ng basura",
+            "taglish": "Waste collection"
+          },
+          "aliases": [
+            "waste collection",
+            "garbage",
+            "waste",
+            "basura"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "contacts",
+      "name": {
+        "english": "Contact, Hours, and Officials",
+        "tagalog": "Kontak, Oras, at mga Opisyal",
+        "taglish": "Contact, Hours, and Officials"
+      },
+      "example": {
+        "english": "contact details, office hours, officials",
+        "tagalog": "impormasyon sa kontak, oras, mga opisyal",
+        "taglish": "contact details, office hours, officials"
+      },
+      "aliases": [
+        "contact",
+        "contacts",
+        "hours and officials",
+        "contact hours and officials",
+        "officials",
+        "kontak",
+        "opisyal"
+      ],
+      "topics": [
+        {
+          "id": "office_hours",
+          "name": {
+            "english": "Office hours",
+            "tagalog": "Oras ng opisina",
+            "taglish": "Office hours"
+          },
+          "aliases": [
+            "office hours",
+            "office schedule",
+            "oras ng opisina"
+          ]
+        },
+        {
+          "id": "officials",
+          "name": {
+            "english": "Barangay officials",
+            "tagalog": "Mga opisyal ng barangay",
+            "taglish": "Barangay officials"
+          },
+          "aliases": [
+            "barangay officials",
+            "officials",
+            "opisyal",
+            "captain",
+            "kapitan"
+          ]
+        },
+        {
+          "id": "contact_details",
+          "name": {
+            "english": "Contact details",
+            "tagalog": "Impormasyon sa kontak",
+            "taglish": "Contact details"
+          },
+          "aliases": [
+            "contact details",
+            "contact",
+            "phone",
+            "telephone",
+            "hotline",
+            "numero"
+          ]
+        }
+      ]
+    }
+  ],
+  "scope_terms": [
+    "barangay"
+  ],
+  "social": {
+    "thanks": {
+      "english": "You're welcome! What else would you like to know?",
+      "tagalog": "Walang anuman po! Ano pa ang nais ninyong malaman?",
+      "taglish": "You're welcome po! Ano pa ang gusto ninyong malaman?"
+    },
+    "goodbye": {
+      "english": "Take care! Come back anytime you need help with barangay information.",
+      "tagalog": "Ingat po! Balik lang kapag may tanong tungkol sa barangay.",
+      "taglish": "Ingat po! Balik lang kapag may barangay questions ka."
+    }
+  },
+  "greetings": {
+    "english": "Hello! What would you like help with?",
+    "tagalog": "Kumusta! Ano po ang kailangan ninyo?",
+    "taglish": "Kumusta! Ano po ang kailangan ninyo?"
+  },
+  "resume_prompt": {
+    "english": "What would you like to know? You can choose a category number or type a question.",
+    "tagalog": "Ano po ang nais ninyong malaman? Puwedeng pumili ng numero o magtanong.",
+    "taglish": "Ano po ang gusto ninyong malaman? Puwedeng pumili ng number o mag-type ng question."
+  },
+  "memory_resume": {
+    "english": "We were discussing {topic}. You can ask for requirements, fee, processing time or steps.",
+    "tagalog": "Ang pinag-uusapan natin ay {topic}. Puwede kang magtanong tungkol sa mga kailangan, bayad, tagal o mga hakbang.",
+    "taglish": "Pinag-uusapan natin ang {topic}. Puwede mong itanong ang requirements, fee, processing time o steps."
+  }
+}

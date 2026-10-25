@@ -1,0 +1,229 @@
+[
+  {
+    "id": "Q01",
+    "kind": "supported",
+    "question": "How much money is needed as a deposit to reserve the fictional Halimbawa hall?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "A fictional reservation deposit is PHP 200.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "Q02",
+    "kind": "supported",
+    "question": "How far in advance must I submit the fictional hall booking form?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "Submit Form H-02 at least five working days before an event.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "Q03",
+    "kind": "supported",
+    "question": "When can I cancel a fictional hall booking and still get the deposit back?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "The deposit is refundable if cancellation is at least 48 hours early.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "Q04",
+    "kind": "supported",
+    "question": "Ilang upuan at mesa ang kasama sa fictional hall reservation?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "An approved hall reservation includes 30 chairs and four tables.",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "id": "Q05",
+    "kind": "supported",
+    "question": "Does the fictional hall booking come with speakers or sound equipment?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "Sound equipment is not included.",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "id": "Q06",
+    "kind": "supported",
+    "question": "What must the organizer do before handing the fictional hall back?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "The organizer returns the hall clean and checks equipment with staff.",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "id": "Q07",
+    "kind": "supported",
+    "question": "What identification and form do I need at the fictional records desk?",
+    "expected": [
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "Residents bring one valid ID and complete Form H-01."
+      }
+    ]
+  },
+  {
+    "id": "Q08",
+    "kind": "supported",
+    "question": "Kailan kinokolekta ang nabubulok na basura sa fictional Halimbawa?",
+    "expected": [
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "biodegradable waste is collected on Tuesdays at 7 AM."
+      }
+    ]
+  },
+  {
+    "id": "Q09",
+    "kind": "supported",
+    "question": "How long can I book the fictional study room for?",
+    "expected": [
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "Bookings last two hours."
+      }
+    ]
+  },
+  {
+    "id": "Q10",
+    "kind": "supported",
+    "question": "What should a resident bring to the fictional community garden orientation?",
+    "expected": [
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "Participants bring reusable gloves and a water bottle."
+      }
+    ]
+  },
+  {
+    "id": "Q11",
+    "kind": "supported",
+    "question": "Does a feedback acknowledgement guarantee resolution within three working days?",
+    "expected": [
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "The acknowledgement is not a resolution deadline."
+      }
+    ]
+  },
+  {
+    "id": "Q12",
+    "kind": "supported",
+    "question": "In the San Isidro sample policy, what exceptions are given to the minor curfew guidance?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "unless accompanied by a parent or legal guardian or traveling for a valid purpose such as school, work, or an emergency.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "Q13",
+    "kind": "supported",
+    "question": "Anong oras dapat iwasan ang sobrang ingay ayon sa San Isidro sample policy?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "especially between 10:00 PM and 6:00 AM.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "Q14",
+    "kind": "supported",
+    "question": "Does the San Isidro sample policy allow burning household rubbish?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "Burning household garbage within the barangay is prohibited.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "Q15",
+    "kind": "supported",
+    "question": "Under the San Isidro sample rules, what must pet owners do in public places?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "Pet owners should properly clean up after their animals in public areas.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "Q16",
+    "kind": "supported",
+    "question": "In the San Isidro sample, where must vehicles not block access?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "Residents should not block entrances, sidewalks, emergency access routes, or public roads.",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "id": "Q17",
+    "kind": "supported",
+    "question": "What details should a community complaint include in the San Isidro sample document?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "nature of the concern, location, date",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "id": "Q18",
+    "kind": "supported",
+    "question": "Compare the fictional hall cancellation condition with the fictional records desk clearance processing time.",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "The deposit is refundable if cancellation is at least 48 hours early.",
+        "page": 1
+      },
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "A fictional clearance costs PHP 35 and takes two working days."
+      }
+    ]
+  },
+  {
+    "id": "U01",
+    "kind": "unanswerable",
+    "question": "What is the study room Wi-Fi password?",
+    "expected": []
+  },
+  {
+    "id": "U02",
+    "kind": "unanswerable",
+    "question": "Who won the 2024 Nobel Prize in Physics?",
+    "expected": []
+  }
+]

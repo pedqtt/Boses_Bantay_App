@@ -1,0 +1,277 @@
+[
+  {
+    "id": "deposit_english",
+    "intent": "deposit",
+    "language": "english",
+    "kind": "supported",
+    "question": "How much is the deposit to reserve the fictional Halimbawa hall?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "A fictional reservation deposit is PHP 200.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "deposit_tagalog",
+    "intent": "deposit",
+    "language": "tagalog",
+    "kind": "supported",
+    "question": "Magkano ang paunang bayad para maipareserba ang bulwagan sa kathang-isip na Barangay Halimbawa?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "A fictional reservation deposit is PHP 200.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "deposit_taglish",
+    "intent": "deposit",
+    "language": "taglish",
+    "kind": "supported",
+    "question": "Magkano ang reservation deposit sa fictional Halimbawa hall?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "A fictional reservation deposit is PHP 200.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "equipment_english",
+    "intent": "equipment",
+    "language": "english",
+    "kind": "supported",
+    "question": "How many chairs and tables come with the fictional hall reservation?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "An approved hall reservation includes 30 chairs and four tables.",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "id": "equipment_tagalog",
+    "intent": "equipment",
+    "language": "tagalog",
+    "kind": "supported",
+    "question": "Ilang upuan at mesa ang kasama kapag nagpareserba ng bulwagan sa kathang-isip na Barangay Halimbawa?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "An approved hall reservation includes 30 chairs and four tables.",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "id": "equipment_taglish",
+    "intent": "equipment",
+    "language": "taglish",
+    "kind": "supported",
+    "question": "Ilang chairs at tables ang included sa fictional hall booking?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "An approved hall reservation includes 30 chairs and four tables.",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "id": "study_duration_english",
+    "intent": "study_duration",
+    "language": "english",
+    "kind": "supported",
+    "question": "How long may I reserve the fictional study room?",
+    "expected": [
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "Bookings last two hours."
+      }
+    ]
+  },
+  {
+    "id": "study_duration_tagalog",
+    "intent": "study_duration",
+    "language": "tagalog",
+    "kind": "supported",
+    "question": "Gaano katagal maaaring gamitin ang silid-aralan sa isang pagpapareserba sa kathang-isip na Barangay Halimbawa?",
+    "expected": [
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "Bookings last two hours."
+      }
+    ]
+  },
+  {
+    "id": "study_duration_taglish",
+    "intent": "study_duration",
+    "language": "taglish",
+    "kind": "supported",
+    "question": "Gaano katagal ang isang booking sa fictional study room?",
+    "expected": [
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "Bookings last two hours."
+      }
+    ]
+  },
+  {
+    "id": "curfew_exceptions_english",
+    "intent": "curfew_exceptions",
+    "language": "english",
+    "kind": "supported",
+    "question": "What exceptions to the minor curfew guidance appear in the San Isidro sample policy?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "unless accompanied by a parent or legal guardian or traveling for a valid purpose such as school, work, or an emergency.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "curfew_exceptions_tagalog",
+    "intent": "curfew_exceptions",
+    "language": "tagalog",
+    "kind": "supported",
+    "question": "Ayon sa halimbawang patakaran ng San Isidro, kailan pinapayagang hindi pa makauwi ang mga menor de edad pagsapit ng takdang oras?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "unless accompanied by a parent or legal guardian or traveling for a valid purpose such as school, work, or an emergency.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "curfew_exceptions_taglish",
+    "intent": "curfew_exceptions",
+    "language": "taglish",
+    "kind": "supported",
+    "question": "Sa San Isidro sample policy, ano ang exemptions sa curfew guidance para sa minors?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "unless accompanied by a parent or legal guardian or traveling for a valid purpose such as school, work, or an emergency.",
+        "page": 1
+      }
+    ]
+  },
+  {
+    "id": "complaint_details_english",
+    "intent": "complaint_details",
+    "language": "english",
+    "kind": "supported",
+    "question": "What details belong in a community complaint under the San Isidro sample policy?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "nature of the concern, location, date",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "id": "complaint_details_tagalog",
+    "intent": "complaint_details",
+    "language": "tagalog",
+    "kind": "supported",
+    "question": "Anong mga detalye ang kailangang ilagay sa reklamo tungkol sa pamayanan ayon sa halimbawang patakaran ng San Isidro?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "nature of the concern, location, date",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "id": "complaint_details_taglish",
+    "intent": "complaint_details",
+    "language": "taglish",
+    "kind": "supported",
+    "question": "Ano ang required details sa community complaint ayon sa San Isidro sample policy?",
+    "expected": [
+      {
+        "source": "SAMPLE BARANGAY RULES AND POLICIES.pdf",
+        "evidence": "nature of the concern, location, date",
+        "page": 2
+      }
+    ]
+  },
+  {
+    "id": "multi_document_english",
+    "intent": "multi_document",
+    "language": "english",
+    "kind": "supported",
+    "question": "Compare the fictional hall cancellation condition with the fictional records desk clearance processing time.",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "The deposit is refundable if cancellation is at least 48 hours early.",
+        "page": 1
+      },
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "A fictional clearance costs PHP 35 and takes two working days."
+      }
+    ]
+  },
+  {
+    "id": "multi_document_tagalog",
+    "intent": "multi_document",
+    "language": "tagalog",
+    "kind": "supported",
+    "question": "Sa kathang-isip na Barangay Halimbawa, gaano kaaga dapat magkansela ng reserbasyon sa bulwagan upang maibalik ang paunang bayad, at ilang araw ang pagproseso ng clearance?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "The deposit is refundable if cancellation is at least 48 hours early.",
+        "page": 1
+      },
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "A fictional clearance costs PHP 35 and takes two working days."
+      }
+    ]
+  },
+  {
+    "id": "multi_document_taglish",
+    "intent": "multi_document",
+    "language": "taglish",
+    "kind": "supported",
+    "question": "Sa fictional Halimbawa, ilang hours before dapat mag-cancel ng hall booking para refundable ang deposit, at ilang working days ang clearance processing?",
+    "expected": [
+      {
+        "source": "synthetic_facility_guide.pdf",
+        "evidence": "The deposit is refundable if cancellation is at least 48 hours early.",
+        "page": 1
+      },
+      {
+        "source": "synthetic_resident_guide.txt",
+        "evidence": "A fictional clearance costs PHP 35 and takes two working days."
+      }
+    ]
+  },
+  {
+    "id": "unknown_tagalog",
+    "language": "tagalog",
+    "kind": "unanswerable",
+    "question": "Ano ang lihim na hudyat para makakonekta sa Wi-Fi ng silid-aralan?",
+    "expected": []
+  },
+  {
+    "id": "unknown_taglish",
+    "language": "taglish",
+    "kind": "unanswerable",
+    "question": "Sino ang winner ng 2024 Nobel Prize in Physics?",
+    "expected": []
+  }
+]
