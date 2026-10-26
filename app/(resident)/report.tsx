@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Alert, View } from "react-native";
+import { saveRecordedClip } from "@/lib/api/recordingFile";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useNavigation, useFocusEffect } from "expo-router";
 import {
@@ -12,7 +13,7 @@ import {
   setAudioModeAsync,
 } from "expo-audio";
 import { transcribeVoiceReport } from "@/lib/api/transcribe";
-import { extractFromTranscript, summarizeForOfficer } from "@/lib/api/llm";
+import { summarizeForOfficer } from "@/lib/api/llm";
 import { saveDraft, loadDraft, clearDraft } from "@/lib/api/reportDraft";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
@@ -31,7 +32,6 @@ import { BahagiHeader } from "@/components/report/BahagiHeader";
 import {
   makeEmptyAnswers,
   makeEmptyChunks,
-  mergeExtraction,
   confirmChunkFields,
   chunkMode,
   validate,
@@ -100,7 +100,11 @@ export default function ReportScreen() {
   const flowId = useRef(0);
   // Prevent a double-tap on Stop or Retry from sending two GPU-heavy Whisper
   // requests for the same chunk at once.
-  const processingChunk = useRef<string | null>(null);
+  const processingChunk = useRef<Partial<Record<ChunkKey, number>>>({});
+  const requestSequence = useRef(0);
+  const recordingTake = useRef<{ key: ChunkKey; base: string; clips: string[]; flow: number } | null>(null);
+  const recordingBusy = useRef(false);
+  const playbackQueue = useRef<string[]>([]);
 
   const currentChunk = CHUNKS[chunkIndex];
   const currentChunkState = chunks[currentChunk?.key] ?? {
@@ -165,15 +169,27 @@ export default function ReportScreen() {
   const player = useAudioPlayer(currentChunkState.uri ?? null);
   const playerStatus = useAudioPlayerStatus(player);
 
+  useEffect(() => {
+    if (playerStatus.didJustFinish && playbackQueue.current.length) {
+      player.replace(playbackQueue.current.shift()!);
+      player.play();
+    }
+  }, [playerStatus.didJustFinish, player]);
+
+  useEffect(() => {
+    playbackQueue.current = [];
+    player.pause();
+  }, [chunkIndex, player]);
+
   function togglePlayback() {
     if (!currentChunkState.uri) return;
-    if (playerStatus.playing) {
-      player.pause();
-      return;
+    if (playerStatus.playing) { player.pause(); return; }
+    if (playbackQueue.current.length || playerStatus.currentTime > 0) {
+      if (!playerStatus.didJustFinish) { player.play(); return; }
     }
-    const atEnd =
-      playerStatus.duration > 0 && playerStatus.currentTime >= playerStatus.duration - 0.15;
-    if (atEnd) player.seekTo(0);
+    const clips = currentChunkState.clips?.length ? currentChunkState.clips : [currentChunkState.uri];
+    playbackQueue.current = clips.slice(1);
+    player.replace(clips[0]);
     player.play();
   }
 
@@ -191,31 +207,23 @@ export default function ReportScreen() {
     []
   );
 
-  /**
-   * Transcribe, then extract. Both run in the background so the resident can
-   * keep moving; by the time they reach the next screen the fields are
-   * usually already populated, which is what makes chunks 2 and 3 render as
-   * taps rather than recordings.
-   *
-   * Extraction failure is silent by design - extractFromTranscript returns
-   * {} rather than throwing, and an empty result is indistinguishable from
-   * "the story didn't mention it". Either way the next chunk falls back to a
-   * record prompt.
-   */
+  /** Transcribe the recording only; report details are entered by the resident. */
   const processChunk = useCallback(
-    (chunkKey: ChunkKey, uri: string) => {
-      if (processingChunk.current === chunkKey) return;
-      processingChunk.current = chunkKey;
+    (chunkKey: ChunkKey, uri: string, base = "") => {
+      const revision = ++requestSequence.current;
+      processingChunk.current[chunkKey] = revision;
       const myFlow = flowId.current;
       const chunk = getChunk(chunkKey);
+      const isCurrent = () => flowId.current === myFlow && processingChunk.current[chunkKey] === revision;
 
-      setChunkState(chunkKey, { status: "transcribing", transcript: "", error: undefined, uri });
+      setChunkState(chunkKey, { status: "transcribing", transcript: base, transcriptionBase: base, done: false, error: undefined, uri });
 
       transcribeVoiceReport(uri, chunk.verbatimField ?? undefined)
-        .then(async ({ text }) => {
-          if (flowId.current !== myFlow) return;
+        .then(({ text: latestText }) => {
+          if (!isCurrent()) return;
+          const text = [base.trim(), latestText.trim()].filter(Boolean).join("\n\n");
 
-          setChunkState(chunkKey, { status: "extracting", transcript: text, done: true });
+          setChunkState(chunkKey, { status: "done", transcript: text, done: true });
 
           // The verbatim transcript IS the legal statement for chunk 1. It's
           // written straight through as the resident's own words and is
@@ -229,48 +237,57 @@ export default function ReportScreen() {
               chunk: chunkKey,
             });
           }
-
-          const extracted = await extractFromTranscript(text, chunkKey);
-          if (flowId.current !== myFlow) return;
-
-          setAnswers((prev) => mergeExtraction(prev, extracted, chunkKey));
-          setChunkState(chunkKey, { status: "done" });
         })
         .catch((err: any) => {
-          if (flowId.current !== myFlow) return;
+          if (!isCurrent()) return;
+          if (chunk.verbatimField) setAnswer(chunk.verbatimField, { status: "error" });
           setChunkState(chunkKey, {
             status: "error",
             error: err?.message ?? "Hindi na-transcribe.",
           });
         })
         .finally(() => {
-          if (processingChunk.current === chunkKey) processingChunk.current = null;
+          if (processingChunk.current[chunkKey] === revision) delete processingChunk.current[chunkKey];
         });
     },
     [setAnswer, setChunkState]
   );
 
-  async function startRecording() {
+  async function startRecording(append = false) {
+    if (recordingBusy.current || processingChunk.current[currentChunk.key]) return;
+    recordingBusy.current = true;
+    playbackQueue.current = [];
+    player.pause();
+    try {
     const { granted } = await AudioModule.requestRecordingPermissionsAsync();
     if (!granted) {
+      recordingBusy.current = false;
       Alert.alert(
         "Kailangan ang mikropono",
         'Kailangan po ng Boses Bantay ng access sa mikropono para ma-record ang inyong salaysay. Maaari po itong i-enable sa Settings, o i-type na lang.'
       );
       return;
     }
-    try {
       await audioRecorder.prepareToRecordAsync();
+      recordingTake.current = {
+        key: currentChunk.key, flow: flowId.current,
+        base: append ? currentChunkState.transcript : "",
+        clips: append ? (currentChunkState.clips ?? (currentChunkState.uri ? [currentChunkState.uri] : [])) : [],
+      };
       audioRecorder.record();
       setIsRecording(true);
       setIsPaused(false);
     } catch (err: any) {
+      recordingBusy.current = false;
       Alert.alert("Hindi makapag-record", err?.message ?? "Subukan po muli.");
     }
   }
 
   async function stopRecording() {
-    const stateDurationMs = recorderState.durationMillis ?? 0;
+    const take = recordingTake.current;
+    if (!take) return;
+    recordingTake.current = null;
+    const stateDurationMs = Math.max(recorderState.durationMillis ?? 0, audioRecorder.currentTime * 1000);
     try {
       await audioRecorder.stop();
       setIsRecording(false);
@@ -282,14 +299,31 @@ export default function ReportScreen() {
       const durationMs = Math.max(stateDurationMs, audioRecorder.currentTime * 1000);
 
       if (!uri || durationMs < MIN_RECORDING_MS) {
+        recordingBusy.current = false;
         Alert.alert(
           "Masyadong maikli",
           "Hindi po namin naabutan ang sinabi ninyo. Subukan po muling mag-record."
         );
         return;
       }
-      processChunk(currentChunk.key, uri);
+      const clipUri = await saveRecordedClip(uri);
+      recordingBusy.current = false;
+      if (take.flow !== flowId.current) return;
+      setChunkState(take.key, { clips: [...take.clips, clipUri] });
+      const config = getChunk(take.key);
+      setAnswers(prev => {
+        const next = { ...prev };
+        for (const key of Object.keys(next) as ReportFieldKey[]) {
+          if (next[key].chunk === take.key && next[key].source === "extracted") next[key] = { ...EMPTY_ANSWER };
+        }
+        if (config.verbatimField) next[config.verbatimField] = {
+          text: take.base, status: "transcribing", source: "spoken", chunk: take.key, uri: clipUri,
+        };
+        return next;
+      });
+      processChunk(take.key, clipUri, take.base);
     } catch (err: any) {
+      recordingBusy.current = false;
       setIsRecording(false);
       setIsPaused(false);
       Alert.alert("Hindi makapag-record", err?.message ?? "Subukan po muli.");
@@ -315,7 +349,8 @@ export default function ReportScreen() {
   }
 
   function retryTranscription() {
-    if (currentChunkState.uri) processChunk(currentChunk.key, currentChunkState.uri);
+    if (processingChunk.current[currentChunk.key]) return;
+    if (currentChunkState.uri) processChunk(currentChunk.key, currentChunkState.uri, currentChunkState.transcriptionBase ?? "");
   }
 
   // ── Navigation ─────────────────────────────────────────────────────────
@@ -361,11 +396,13 @@ export default function ReportScreen() {
       }
       return next;
     });
-    setChunkState(currentChunk.key, { transcript: "", uri: undefined, status: "empty", done: false });
+    delete processingChunk.current[currentChunk.key];
+    if (currentChunk.verbatimField) setAnswer(currentChunk.verbatimField, { ...EMPTY_ANSWER });
+    setChunkState(currentChunk.key, { transcript: "", uri: undefined, clips: [], transcriptionBase: "", status: "empty", done: false });
   }
 
   function startFlow() {
-    flowId.current += 1;
+    flowId.current += 1; processingChunk.current = {}; playbackQueue.current = [];
     setAnswers(applyProfile(makeEmptyAnswers()));
     setChunks(makeEmptyChunks());
     setChunkIndex(0);
@@ -427,7 +464,7 @@ export default function ReportScreen() {
       startFlow();
       return;
     }
-    flowId.current += 1;
+    flowId.current += 1; processingChunk.current = {}; playbackQueue.current = [];
     setAnswers(draft.answers as AnswersMap);
     setChunks(draft.chunks as ChunksMap);
     setChunkIndex(draft.chunkIndex ?? 0);
@@ -442,7 +479,7 @@ export default function ReportScreen() {
   }
 
   function resetFlow() {
-    flowId.current += 1;
+    flowId.current += 1; processingChunk.current = {}; playbackQueue.current = [];
     setAnswers(makeEmptyAnswers());
     setChunks(makeEmptyChunks());
     setChunkIndex(0);
@@ -452,7 +489,10 @@ export default function ReportScreen() {
     if (profile?.id) clearDraft(profile.id);
   }
 
-  const { missing, busy, canSubmit } = validate(answers);
+  const validation = validate(answers);
+  const missing = validation.missing;
+  const busy = validation.busy || Object.values(chunks).some(c => c.status === "transcribing" || c.status === "extracting");
+  const canSubmit = validation.canSubmit && !busy && !isRecording;
 
   async function handleSubmit() {
     // No more "Kulang pa ang detalye" popup naming which fields are
@@ -555,6 +595,11 @@ export default function ReportScreen() {
     router.push("/(resident)/home");
   }
 
+  function backFromReport() {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(resident)/home");
+  }
+
   // Gate the whole flow behind full Barangay ID authorization, not just
   // "logged in" - an unverified account has already passed OTP/login, so
   // without this anyone could file before staff ever confirmed their ID.
@@ -564,7 +609,7 @@ export default function ReportScreen() {
       <VerificationRequiredScreen
         status={profile?.barangayIdStatus ?? "unverified"}
         onGoVerify={() => router.push("/(resident)/verify-id")}
-        onGoBack={exitToHome}
+        onGoBack={backFromReport}
       />
     );
   }
@@ -755,7 +800,8 @@ export default function ReportScreen() {
               setAnswer(currentChunk.verbatimField, { text, status: "done", source: "typed" });
             }
           }}
-          onStartRecording={startRecording}
+          onStartRecording={() => { void startRecording(false); }}
+          onAppendRecording={() => { void startRecording(true); }}
           onStopRecording={stopRecording}
           onPauseRecording={pauseRecording}
           onResumeRecording={resumeRecording}
@@ -794,7 +840,7 @@ export default function ReportScreen() {
       label: "Bagong Report",
       filledSegments: 0,
       totalSegments: 0,
-      onBack: exitToHome,
+      onBack: backFromReport,
     };
     body = (
       <ChooseReportTypeScreen
@@ -816,7 +862,7 @@ export default function ReportScreen() {
     // directory.tsx/reports.tsx), so the header actually reads as a
     // distinct, lighter surface instead of matching the page underneath it.
     <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
-      <ScreenBackground backgroundColor="#FAF8F7">
+      <ScreenBackground backgroundColor={colors.residentBackground}>
         <View style={{ flex: 1 }}>
           <BahagiHeader {...headerProps} />
           {body}

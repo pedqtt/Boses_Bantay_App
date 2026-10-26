@@ -1,5 +1,6 @@
-import { Pressable, Text } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text } from "@/components/AppText";
+import { Pressable } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import { colors } from "@/lib/theme";
 
 /**

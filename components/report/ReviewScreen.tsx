@@ -1,7 +1,10 @@
+import { Text } from "@/components/AppText";
+import { ReportPrimaryLabel } from "./ReportPrimaryLabel";
+import { reportStyles } from "./reportStyles";
 import { useState } from "react";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import { View, Pressable, ActivityIndicator } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { colors } from "@/lib/theme";
 import {
@@ -12,11 +15,11 @@ import {
   AGE_REQUIREMENTS_HINT,
 } from "@/lib/validation";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
-import { Card } from "@/components/Card";
-import { FormField } from "@/components/FormField";
-import { FormChoiceField } from "@/components/FormChoiceField";
-import { FormCheckboxField } from "@/components/FormCheckboxField";
-import { PhoneInput } from "@/components/PhoneInput";
+import { ReportCard as Card } from "./ReportCard";
+import { FormField } from "./ReportFormFields";
+import { FormChoiceField } from "./ReportFormFields";
+import { FormCheckboxField } from "./ReportFormFields";
+import { PhoneInput } from "./ReportFormFields";
 import {
   CHUNKS,
   POST_BLOTTER_COPY,
@@ -73,9 +76,9 @@ function SectionHeader({
   onToggle: () => void;
 }) {
   return (
-    <View className="flex-row items-center justify-between mb-1">
-      <Text className={REPORT_TYPE.eyebrowBrand}>{label}</Text>
-      <Pressable onPress={onToggle} className="flex-row items-center py-2 active:opacity-70" hitSlop={8}>
+    <View className="flex-row items-center justify-between mb-3">
+      <Text style={{ flex: 1, marginRight: 12 }} className={REPORT_TYPE.eyebrowBrand}>{label}</Text>
+      <Pressable onPress={onToggle} accessibilityRole="button" className="flex-row items-center bg-brand-50 border border-brand-100 rounded-xl px-3 py-2 active:opacity-70" hitSlop={8}>
         <Ionicons
           name={editing ? "checkmark-circle" : "pencil-outline"}
           size={15}
@@ -109,9 +112,9 @@ function FieldRow({
     <View className={`py-4 ${isLast ? "" : "border-b border-gray-100"}`}>
       <View className="flex-row items-center mb-1.5">
         <Ionicons name={icon as any} size={14} color={colors.onSurfaceVariant} style={{ marginRight: 6 }} />
-        <Text className={REPORT_TYPE.fieldLabel}>{label}</Text>
+        <Text style={{ flex: 1 }} className={REPORT_TYPE.fieldLabel}>{label}</Text>
       </View>
-      <Text className={value ? REPORT_TYPE.body : `${REPORT_TYPE.body} text-ink-faint`}>
+      <Text style={{ lineHeight: 27 }} className={value ? REPORT_TYPE.body : `${REPORT_TYPE.body} text-ink-faint`}>
         {value || "Hindi pa nasagot"}
       </Text>
     </View>
@@ -274,15 +277,15 @@ export function ReviewScreen({
                 the conversational prompt, same split ConfirmYouScreen
                 ("Kayo po ba ito?") and DetailsScreen ("Kaunti na lang po.")
                 both use between their own header label and body heading. */}
-            <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
+            <Text className="text-[27px] leading-9 font-semibold text-ink tracking-tight mb-2">
               Halos tapos na po.
             </Text>
-            <Text className="text-[15px] text-ink-soft leading-7 mb-8">
+            <Text className="text-[15px] text-ink-soft leading-6 mb-8">
               Itama po ang anumang mali bago ipasa.
             </Text>
 
             {/* Part 1 - identity, its own card. */}
-            <Card className="px-5 pt-5 pb-1 mb-8">
+            <Card className="px-5 pt-5 pb-1 mb-6">
               <SectionHeader
                 label="Sino ang Nagrereklamo"
                 editing={editingHeader}
@@ -308,7 +311,7 @@ export function ReviewScreen({
                 toggle - each paragraph is always a direct text box, the
                 same as it was on the chunk screens), so no SectionHeader
                 edit affordance here, just the label. */}
-            <Card className="px-5 py-5 mb-8">
+            <Card className="px-5 py-5 mb-6">
               <Text className={`${REPORT_TYPE.eyebrowBrand} mb-5`}>Ang Insidente</Text>
 
               <View style={{ gap: 28 }}>
@@ -321,7 +324,7 @@ export function ReviewScreen({
                           from the form fields around them, the way a
                           statement is set apart in the printed blotter. */}
                       <View
-                        style={{ width: 3, borderRadius: 2, backgroundColor: colors.primaryContainer }}
+                        style={{ width: 3, borderRadius: 2, backgroundColor: colors.residentTint }}
                       />
                       <View className="flex-1 ml-4">
                         <View className="flex-row items-center mb-2.5">
@@ -345,7 +348,7 @@ export function ReviewScreen({
 
                         <Pressable
                           onPress={() => onJumpToChunk(index)}
-                          className="flex-row items-center self-start mt-3 border border-gray-200 rounded-full pl-2.5 pr-3 py-1.5 active:opacity-70"
+                          accessibilityRole="button" className="flex-row items-center self-start mt-3 bg-brand-50 border border-brand-100 rounded-full px-3 py-2.5 active:opacity-70"
                         >
                           <Ionicons name="mic-outline" size={13} color={colors.onSurfaceVariant} />
                           <Text className="text-[13px] font-medium text-ink-soft ml-1.5">
@@ -362,7 +365,7 @@ export function ReviewScreen({
             {/* Part 3 - categorical decisions, not narrative, not
                 identity, so its own card rather than folded into either
                 of the other two. */}
-            <Card className="px-5 pt-5 pb-1 mb-8">
+            <Card className="px-5 pt-5 pb-1 mb-6">
               <SectionHeader
                 label="Detalye ng Blotter"
                 editing={editingDetails}
@@ -476,7 +479,7 @@ export function ReviewScreen({
                 <Pressable
                   onPress={onBackToQuestions}
                   disabled={submitting}
-                  className="py-1 items-center active:opacity-70"
+                  accessibilityRole="button" className="py-3 items-center active:opacity-70"
                 >
                   <Text className="text-[15px] font-medium text-ink-soft">Bumalik sa mga tanong</Text>
                 </Pressable>
@@ -485,6 +488,7 @@ export function ReviewScreen({
               <Pressable
                 onPress={onSubmit}
                 disabled={submitting || !canSubmit}
+                style={reportStyles.primaryAction}
                 className={`rounded-2xl py-4 items-center overflow-hidden active:opacity-85 ${
                   submitting || !canSubmit ? "bg-gray-300" : "bg-brand"
                 }`}
@@ -492,7 +496,7 @@ export function ReviewScreen({
                 {submitting ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text className="text-white font-semibold text-[18px]">Ipasa ang report</Text>
+                  <ReportPrimaryLabel icon="paper-plane-outline">Ipasa ang report</ReportPrimaryLabel>
                 )}
               </Pressable>
             </AuthActionGroup>

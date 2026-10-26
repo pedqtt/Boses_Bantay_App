@@ -1,5 +1,6 @@
-import { View, Text, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text } from "@/components/AppText";
+import { View, Pressable } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { colors } from "@/lib/theme";
 
@@ -18,6 +19,7 @@ const VARIANT_STYLES: Record<CircleControlVariant, { bg: string; iconColor: stri
 const FRAME_SIZE = 112;
 
 type CircleControlProps = {
+  disabled?: boolean;
   icon: string;
   label: string;
   onPress: () => void;
@@ -43,6 +45,7 @@ type CircleControlProps = {
  * unmistakably the same kind of thing at a glance.
  */
 export function CircleControl({
+  disabled = false,
   icon,
   label,
   onPress,
@@ -56,14 +59,19 @@ export function CircleControl({
     <View className="items-center" style={{ width: columnWidth }}>
       <View style={{ width: FRAME_SIZE, height: FRAME_SIZE }} className="items-center justify-center">
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          disabled={disabled}
+          accessibilityState={{ disabled }}
+          android_ripple={{ color: variant === "secondary" ? "#2563EB18" : "#FFFFFF30", borderless: false }}
           onPress={onPress}
           className={`rounded-full items-center justify-center active:opacity-85 ${bg}`}
-          style={{ width: diameter, height: diameter }}
+          style={{ width: diameter, height: diameter, opacity: disabled ? 0.4 : 1, overflow: "hidden", borderWidth: variant === "secondary" ? 1 : 2, borderColor: variant === "secondary" ? colors.outlineVariant : "#FFFFFF55" }}
         >
           <Ionicons name={icon as any} size={iconSize ?? Math.round(diameter * 0.3)} color={iconColor} />
         </Pressable>
       </View>
-      <Text numberOfLines={1} className={`${REPORT_TYPE.controlLabel} mt-2`}>
+      <Text numberOfLines={2} style={{ minHeight: 38, lineHeight: 19 }} className={`${REPORT_TYPE.controlLabel} mt-2`}>
         {label}
       </Text>
     </View>

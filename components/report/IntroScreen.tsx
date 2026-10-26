@@ -1,6 +1,10 @@
-import { View, Text, Pressable, ScrollView } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text } from "@/components/AppText";
+import { ReportPrimaryLabel } from "./ReportPrimaryLabel";
+import { reportStyles } from "./reportStyles";
+import { View, Pressable, ScrollView } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
+import { GuideCard } from "./GuideCard";
 import { colors } from "@/lib/theme";
 import { CHUNKS, REVIEW_SECTIONS, INTRO_COPY } from "@/lib/reportQuestions";
 
@@ -46,10 +50,10 @@ export function IntroScreen({
       showsVerticalScrollIndicator={false}
     >
       <View>
-        <Text className="text-[28px] font-semibold text-ink tracking-tight mb-3">
+        <Text className="text-[27px] leading-9 font-semibold text-ink tracking-tight mb-3">
           {INTRO_COPY.title}
         </Text>
-        <Text className="text-[15px] text-ink-soft leading-7 mb-7">{INTRO_COPY.body}</Text>
+        <Text className="text-[15px] text-ink-soft leading-6 mb-7">{INTRO_COPY.body}</Text>
 
         {/* An unfinished report from a previous session. Recovering it
             has to be offered explicitly rather than silently resumed:
@@ -85,8 +89,7 @@ export function IntroScreen({
           </View>
         )}
 
-        <View className="bg-white border border-gray-200 rounded-2xl p-5">
-          <Text className={`${REPORT_TYPE.eyebrowMuted} mb-4`}>4 na hakbang</Text>
+        <GuideCard title="4 na hakbang" icon="list-outline" neutral>
 
           {/* Step 1 - confirm identity. Not a spoken question like the
               three below it, so it gets its own row styled the same
@@ -95,14 +98,11 @@ export function IntroScreen({
               not another recording. */}
           <View>
             <View className="flex-row items-start">
-              <Ionicons
-                name="person-outline"
-                size={18}
-                color={colors.primary}
-                style={{ marginRight: 10, marginTop: 2 }}
-              />
+              <View className="bg-brand-50 border border-brand-100 rounded-xl items-center justify-center mr-3" style={{ width: 36, height: 36 }}>
+                <Ionicons name="person-outline" size={18} color={colors.primary} />
+              </View>
               <View className="flex-1">
-                <Text className={REPORT_TYPE.body}>1. {CONFIRM_YOU_SECTION.label}</Text>
+                <Text className="text-[16px] leading-6 font-semibold text-ink">1. {CONFIRM_YOU_SECTION.label}</Text>
                 <Text className={`${REPORT_TYPE.caption} mt-0.5`}>
                   Kumpirmahin lang po - hindi na kailangang mag-record.
                 </Text>
@@ -111,31 +111,29 @@ export function IntroScreen({
           </View>
 
           {CHUNKS.map((chunk, i) => (
-            <View key={chunk.key} className="mt-5">
+            <View key={chunk.key} className="mt-4 pt-4 border-t border-gray-100">
               <View className="flex-row items-start">
-                <Ionicons
-                  name={chunk.icon as any}
-                  size={18}
-                  color={colors.primary}
-                  style={{ marginRight: 10, marginTop: 2 }}
-                />
+                <View className="bg-brand-50 border border-brand-100 rounded-xl items-center justify-center mr-3" style={{ width: 36, height: 36 }}>
+                  <Ionicons name={chunk.icon as any} size={18} color={colors.primary} />
+                </View>
                 <View className="flex-1">
-                  <Text className={REPORT_TYPE.body}>
+                  <Text className="text-[16px] leading-6 font-semibold text-ink">
                     {i + 2}. {chunk.question}
                   </Text>
                 </View>
               </View>
             </View>
           ))}
-        </View>
+        </GuideCard>
       </View>
 
       <View className="mt-8">
         <Pressable
           onPress={onStart}
+          style={reportStyles.primaryAction}
           className="bg-brand rounded-2xl py-4 items-center overflow-hidden active:opacity-85 mb-3"
         >
-          <Text className={REPORT_TYPE.buttonPrimary}>Simulan</Text>
+          <ReportPrimaryLabel icon="arrow-forward">Simulan</ReportPrimaryLabel>
         </Pressable>
         <Text className={`${REPORT_TYPE.hint} text-center`}>
           Maaari po kayong mag-record o mag-type. Hindi pa po ito opisyal hangga't

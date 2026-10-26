@@ -1,6 +1,7 @@
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { Text } from "@/components/AppText";
+import { View, Pressable, StyleSheet } from "react-native";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { KIND_META } from "@/lib/sampleReports";
 import { reportDate, reportNextStep, type AccountReport } from "@/lib/myReports";
 import { colors } from "@/lib/theme";

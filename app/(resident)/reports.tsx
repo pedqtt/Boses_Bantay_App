@@ -1,11 +1,12 @@
+import { Text, TextInput } from "@/components/AppText";
 import { ReportsPageGuide } from "@/components/reports/ReportsPageGuide";
 import { ReportListCard } from "@/components/reports/ReportListCard";
 import { ReportsOverview } from "@/components/reports/ReportsOverview";
 import { useCallback, useRef, useState } from "react";
-import { View, Text, FlatList, TextInput, RefreshControl, ActivityIndicator, Pressable } from "react-native";
+import { View, FlatList, RefreshControl, ActivityIndicator, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { fetchAccountReports } from "@/lib/api/myReports";
@@ -60,23 +61,23 @@ export default function ReportsScreen() {
     (scope === "all" || scope === "created" && report.createdByMe || scope === "assigned" && report.assignedToMe) &&
     (filter === "all" || filter === "active" && !isClosedReport(report.status) || filter === "closed" && isClosedReport(report.status)) &&
     (!query || [report.referenceNo, report.category, report.summary, report.location, report.status].some(value => value.toLowerCase().includes(query))));
-  return <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: "#FAF8F7" }}>
-    <ScreenBackground backgroundColor="#FAF8F7">
-      <View className="bg-white px-5 py-4 border-b border-gray-200">
-        <View className="flex-row items-center" style={{ gap: 8 }}>
+  return <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: "#FFFFFF" }}>
+    <ScreenBackground backgroundColor={colors.residentBackground}>
+      <View style={{ backgroundColor: "#FFFFFF", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text accessibilityRole="header" className="text-[24px] leading-8 font-semibold text-ink tracking-tight">My Reports</Text>
+            <Text variant="screenTitle" accessibilityRole="header" style={{ fontSize: 28, lineHeight: 36, fontWeight: "700", color: "#14244B", letterSpacing: -0.6 }}>My Reports</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Buksan ang gabay sa My Reports" accessibilityHint="Nagbubukas ng interactive demo na may naka-highlight na controls"
-            onPress={() => setGuideOpen(true)} className="items-center justify-center rounded-[14px] active:opacity-70"
-            style={{ width: 44, height: 44, backgroundColor: "#F1F3F8" }}>
+            onPress={() => setGuideOpen(true)} android_ripple={{ color: "#DCE4F5" }}
+            style={{ width: 48, height: 48, flexShrink: 0, borderRadius: 16, backgroundColor: "#F1F3F8", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
             <Ionicons name="help-circle-outline" size={23} color={colors.primary} />
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="I-refresh ang reports"
             accessibilityState={{ disabled: loading || refreshing, busy: loading || refreshing }}
             disabled={loading || refreshing} onPress={() => { void load(true); }}
-            className="bg-brand-50 rounded-[14px] items-center justify-center active:opacity-70"
-            style={{ width: 44, height: 44, flexShrink: 0 }}>
+            android_ripple={{ color: "#DCE4F5" }}
+            style={{ width: 48, height: 48, flexShrink: 0, borderRadius: 16, backgroundColor: colors.residentTint, alignItems: "center", justifyContent: "center", overflow: "hidden", opacity: loading || refreshing ? 0.65 : 1 }}>
             {loading || refreshing ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name="refresh-outline" size={20} color={colors.primary} />}
           </Pressable>
         </View>
@@ -100,7 +101,7 @@ export default function ReportsScreen() {
                 const selected = scope === item.id;
                 return <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={`${item.label}, ${item.count} reports`}
                   onPress={() => setScope(item.id)} className="flex-1 rounded-xl items-center justify-center active:opacity-70"
-                  style={{ minHeight: 44, paddingHorizontal: 4, paddingVertical: 9, backgroundColor: selected ? "#EDF1FC" : "white" }}>
+                  style={{ minHeight: 44, paddingHorizontal: 4, paddingVertical: 9, backgroundColor: selected ? colors.residentSelected : "white" }}>
                   <Text style={{ color: selected ? colors.primary : colors.onSurfaceVariant, fontSize: 12, lineHeight: 18, fontWeight: selected ? "600" : "500", textAlign: "center" }}>{item.label}{loading ? "" : ` (${item.count})`}</Text>
                 </Pressable>;
               })}

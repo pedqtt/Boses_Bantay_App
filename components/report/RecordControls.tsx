@@ -1,5 +1,7 @@
+import { Text } from "@/components/AppText";
 import { useEffect, useRef } from "react";
-import { View, Text, Animated, Easing } from "react-native";
+import { View, Pressable, Animated, Easing } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { colors } from "@/lib/theme";
 import { LiveWaveform } from "./LiveWaveform";
@@ -21,6 +23,7 @@ type RecordControlsProps = {
   answerStatus: AnswerStatus;
   hasRecording: boolean;
   isPlaying: boolean;
+  onAppend?: () => void;
   onStart: () => void;
   onStop: () => void;
   onPause: () => void;
@@ -64,6 +67,7 @@ export function RecordControls({
   answerStatus,
   hasRecording,
   isPlaying,
+  onAppend,
   onStart,
   onStop,
   onPause,
@@ -117,7 +121,7 @@ export function RecordControls({
             width) for a softer, smoother waveform silhouette than the
             previous slightly-squared ends. */}
         <View className="items-center px-6 py-7 mb-6 w-full">
-          <View className="flex-row items-center mb-3">
+          <View className="flex-row items-center mb-3 rounded-full bg-red-50 px-3 py-1.5">
             <Animated.View
               style={{
                 width: 8,
@@ -185,6 +189,7 @@ export function RecordControls({
     <View className="items-center py-2">
       <View className="flex-row items-start justify-center">
         <CircleControl
+          disabled={answerStatus === "transcribing" || answerStatus === "extracting"}
           icon={recordIcon}
           label={recordLabel}
           variant="primary"
@@ -218,6 +223,19 @@ export function RecordControls({
           />
         )}
       </View>
+      {hasRecording && onAppend && (
+        <View className="mt-5 w-full items-center">
+          <Pressable onPress={onAppend} accessibilityRole="button"
+            disabled={answerStatus === "transcribing" || answerStatus === "extracting" || answerStatus === "error"}
+            accessibilityState={{ disabled: answerStatus === "transcribing" || answerStatus === "extracting" || answerStatus === "error" }}
+            className="flex-row items-center justify-center bg-brand-50 border border-brand-100 rounded-full px-5 py-3 active:opacity-70"
+            style={{ opacity: answerStatus === "transcribing" || answerStatus === "extracting" || answerStatus === "error" ? 0.45 : 1 }}>
+            <Ionicons name="add-circle-outline" size={20} color={colors.primary} style={{ marginRight: 8 }} />
+            <Text className="text-[14px] leading-5 font-semibold text-brand">Dagdag recording</Text>
+          </Pressable>
+          <Text className="text-ink-soft text-center text-[13px] leading-5 mt-3 px-2">Idagdag sa dulo, o I-record muli para palitan ang buong recording.</Text>
+        </View>
+      )}
     </View>
   );
 }

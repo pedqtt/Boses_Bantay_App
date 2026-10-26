@@ -1,7 +1,7 @@
-import { View, Text } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text } from "@/components/AppText";
+import { View } from "react-native";
+import { GuideCard } from "./GuideCard";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
-import { colors } from "@/lib/theme";
 import type { ReportQuestion } from "@/lib/reportQuestions";
 
 /**
@@ -23,9 +23,8 @@ export function QuestionPrompt({ question }: { question: ReportQuestion }) {
       </View>
 
       {question.hint && (
-        <View className="flex-row items-start bg-brand-50 rounded-xl px-3.5 py-3 mb-4">
-          <Ionicons name="bulb-outline" size={16} color={colors.primary} style={{ marginTop: 2 }} />
-          <Text className={`${REPORT_TYPE.hint} ml-2 flex-1`}>{question.hint}</Text>
+        <View className="mb-4">
+          <GuideCard><Text className={REPORT_TYPE.hint}>{question.hint}</Text></GuideCard>
         </View>
       )}
     </View>

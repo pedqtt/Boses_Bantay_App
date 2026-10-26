@@ -1,14 +1,16 @@
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { Text, TextInput } from "@/components/AppText";
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, Image, ActivityIndicator, Alert } from "react-native";
+import { View, Pressable, Image, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import * as ImagePicker from "expo-image-picker";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Card } from "@/components/Card";
 import { SectionLabel } from "@/components/SectionLabel";
-import { ScreenBackground } from "@/components/ScreenBackground";
+import { AuthScreenFrame as ScreenBackground, AuthFormCard, authStyles } from "@/components/auth/AuthScreenFrame";
 import { PhotoSourceButtons } from "@/components/PhotoSourceButtons";
 import { colors } from "@/lib/theme";
 
@@ -130,19 +132,13 @@ export default function UploadIdScreen() {
 
   const canSubmit = Boolean(imageUri) && Boolean(idNumber.trim()) && consentGiven;
 
-  // FIXED - no ScrollView, no spacer, same as login.tsx/otp.tsx: fully
-  // static layout, only the focused field's border highlight changes.
-  // NOTE: this screen has more content than the others (image card + ID
-  // field + consent row + button) - on shorter phones with the keyboard
-  // open, the bottom of the form can run past the visible area since
-  // nothing here can scroll to reach it. Flag this to the resident-facing
-  // team if it turns out to be a real problem on small devices.
+  // Scrollable form content keeps large accessibility text reachable.
 
   return (
-    <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
       <ScreenBackground>
-      <View style={{ flex: 1 }} className="px-5 pt-6">
-          <Text className="text-[28px] font-semibold text-ink tracking-tight mb-1.5">
+      <KeyboardAwareScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" bottomOffset={24} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32 }}>
+          <Text variant="screenTitle" className="text-[28px] font-semibold text-ink tracking-tight mb-1.5">
             I-verify ang Barangay ID
           </Text>
           <Text className="text-[15px] text-ink-soft mb-8 leading-7">
@@ -222,18 +218,18 @@ export default function UploadIdScreen() {
             onPress={handleSubmit}
             disabled={loading || !canSubmit}
             className={`rounded-2xl py-4 items-center overflow-hidden ${
-              !canSubmit || loading ? "bg-gray-300" : "bg-brand active:opacity-85"
+              !canSubmit || loading ? "bg-[#647392]" : "bg-brand active:opacity-95"
             }`}
           >
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-white font-semibold text-[18px]">
+              <Text variant="body" className="text-white font-semibold text-[18px]">
                 Isumite para Aprubahan
               </Text>
             )}
           </Pressable>
-      </View>
+      </KeyboardAwareScrollView>
       </ScreenBackground>
     </SafeAreaView>
   );

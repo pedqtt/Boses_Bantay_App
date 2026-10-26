@@ -1,8 +1,11 @@
-import { View, Text, TextInput, Pressable, ActivityIndicator } from "react-native";
+import { Text, TextInput } from "@/components/AppText";
+import { useState } from "react";
+import { View, Pressable, ActivityIndicator } from "react-native";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { colors } from "@/lib/theme";
 
 type AnswerEditorProps = {
+  editable?: boolean;
   value: string;
   onChangeText: (text: string) => void;
   placeholder: string;
@@ -40,6 +43,7 @@ type AnswerEditorProps = {
  * aspirational: there is now only one place this markup can drift.
  */
 export function AnswerEditor({
+  editable = true,
   value,
   onChangeText,
   placeholder,
@@ -51,26 +55,32 @@ export function AnswerEditor({
   missingMessage,
   onFocus,
 }: AnswerEditorProps) {
+  const [focused, setFocused] = useState(false);
   const hasError = Boolean(errorMessage) || Boolean(missingMessage);
 
   return (
     <View>
       {isTranscribing ? (
-        <View className="flex-row items-center bg-white border border-gray-200 rounded-2xl p-4">
+        <View className="flex-row items-center bg-brand-50 border border-brand-100 rounded-2xl px-4 py-5">
           <ActivityIndicator size="small" color={colors.primary} />
-          <Text className={`${REPORT_TYPE.helper} ml-3`}>{transcribingLabel}</Text>
+          <Text className={`${REPORT_TYPE.helper} ml-3 flex-1`}>{transcribingLabel}</Text>
         </View>
       ) : (
         <TextInput
+          editable={editable}
           value={value}
           onChangeText={onChangeText}
-          onFocus={onFocus}
+          onFocus={(event) => { setFocused(true); onFocus?.(event); }}
+          onBlur={() => setFocused(false)}
+          accessibilityLabel={placeholder}
+          selectionColor={colors.primary}
+          style={{ lineHeight: 27, borderColor: hasError ? colors.error : focused ? colors.primary : colors.outlineVariant }}
           multiline
           textAlignVertical="top"
           placeholder={placeholder}
           placeholderTextColor={colors.outline}
           className={`${REPORT_TYPE.body} bg-white border rounded-2xl p-4 ${
-            tall ? "min-h-[124px]" : "min-h-[64px]"
+            tall ? "min-h-[144px]" : "min-h-[76px]"
           } ${hasError ? "border-alert" : "border-gray-200"}`}
         />
       )}
@@ -80,8 +90,9 @@ export function AnswerEditor({
           <Text className={`${REPORT_TYPE.caption} text-alert`}>{errorMessage}</Text>
           {onRetry && (
             <Pressable
+              accessibilityRole="button"
               onPress={onRetry}
-              className="self-start border border-gray-200 rounded-xl px-4 py-2.5 mt-2 active:opacity-70"
+              className="self-start bg-brand-50 border border-brand-100 rounded-xl px-4 py-2.5 mt-3 active:opacity-70"
             >
               <Text className={REPORT_TYPE.linkBrand}>Subukan muli</Text>
             </Pressable>

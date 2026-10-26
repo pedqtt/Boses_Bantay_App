@@ -1,4 +1,5 @@
-import { View, Text } from "react-native";
+import { Text } from "@/components/AppText";
+import { View } from "react-native";
 import type { ReportSummary } from "@/lib/api/mockData";
 
 // Single source of truth for the status badge vocabulary — was previously

@@ -1,26 +1,24 @@
-import { useCallback, useRef, useState, type ReactNode } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-  Alert,
-  Modal,
-  FlatList,
-  Dimensions,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
-} from "react-native";
+import { Text } from "@/components/AppText";
+import { insertServiceComplaint } from "@/lib/api/serviceComplaintSubmission";
+import { loadComplaintDraft, saveComplaintDraft, clearComplaintDraft, type ComplaintDraft } from "@/lib/api/serviceComplaintDraft";
+import { ComplaintAttachments } from "@/components/report/ComplaintAttachments";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { View, Pressable, Image, ActivityIndicator, Alert, Modal, FlatList, Dimensions, BackHandler, type NativeSyntheticEvent, type NativeScrollEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useNavigation, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import * as ImagePicker from "expo-image-picker";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { Card } from "@/components/Card";
+import { KeyboardAwareScrollView, type KeyboardAwareScrollViewRef } from "react-native-keyboard-controller";
+import { File, Paths } from "expo-file-system";
+import { FormField } from "@/components/report/ReportFormFields";
+import { VoiceDescriptionInput, type VoiceDescriptionDraft } from "@/components/report/VoiceDescriptionInput";
+import { GuideCard } from "@/components/report/GuideCard";
+import { ReportPrimaryLabel } from "@/components/report/ReportPrimaryLabel";
+import { reportStyles } from "@/components/report/reportStyles";
+import { ServiceComplaintIntro, ServiceComplaintReview } from "@/components/report/ServiceComplaintGuide";
+import { COMPLAINT_STEPS, complaintCanAdvance, complaintNext, complaintPrevious, type ComplaintStep } from "@/lib/serviceComplaintFlow";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { BahagiHeader } from "@/components/report/BahagiHeader";
 import { SubmittedScreen } from "@/components/report/SubmittedScreen";
@@ -57,45 +55,6 @@ const CATEGORIES: Category[] = [
   { value: "other", label: "Iba Pa", icon: "ellipsis-horizontal-outline" },
 ];
 
-/**
- * Numbered section header - the same "1. / 2. / 3." organizing device
- * IntroScreen already uses to make a short flow feel like a short flow
- * (Hick's Law: perceived effort tracks visible step count). This screen has
- * no BahagiHeader stepper of its own (it's one screen, not a multi-bahagi
- * flow), so the numbering has to live in the body instead - three sections,
- * ordered by how a resident actually decides what to report: what it is,
- * then the specifics, then optional proof.
- */
-function StepSection({
-  n,
-  title,
-  hint,
-  children,
-}: {
-  n: number;
-  title: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <View className="mb-7">
-      <View className="flex-row items-center mb-4">
-        <View
-          className="items-center justify-center rounded-full mr-2.5"
-          style={{ width: 22, height: 22, backgroundColor: colors.primaryContainer }}
-        >
-          <Text className="text-[12px] font-bold" style={{ color: colors.primary }}>
-            {n}
-          </Text>
-        </View>
-        <Text className={REPORT_TYPE.fieldLabel}>{title}</Text>
-      </View>
-      {hint && <Text className={`${REPORT_TYPE.caption} mb-4`}>{hint}</Text>}
-      {children}
-    </View>
-  );
-}
-
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // The hero photo's own container is full content width (the screen's own
 // px-6 minus the ScrollView's horizontal padding, 24px each side), so a
@@ -103,7 +62,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // shape. Deriving the height from that same width makes it a true square,
 // scaling correctly across phone sizes instead of a magic-number height
 // picked for one screen width.
-const HERO_SIZE = SCREEN_WIDTH - 48;
 
 /**
  * Full-screen swipeable viewer for a set of already-added photos - the
@@ -158,7 +116,7 @@ function PhotoViewer({
           onMomentumScrollEnd={handleMomentumEnd}
           renderItem={({ item }) => (
             <View style={{ width: SCREEN_WIDTH, alignItems: "center", justifyContent: "center" }}>
-              <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: "70%" }} resizeMode="contain" />
+              <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: "70%" }} resizeMode="contain" resizeMethod="resize" />
             </View>
           )}
         />
@@ -220,56 +178,24 @@ function PhotoViewer({
   );
 }
 
-/**
- * Lightweight complaint flow, deliberately NOT built on top of the voice
- * chunk machinery in report.tsx/reportFlow.ts - that flow exists to capture
- * a legally authoritative spoken statement about an incident between
- * people, with a respondent, witnesses, and blotter type. A broken
- * streetlight doesn't have any of that; forcing it through the same 4-step
- * recording flow would ask a resident "sino ang kausap ninyo" about a
- * pothole. One category tap + a location + a short description covers what
- * the barangay actually needs to dispatch someone, and reads as
- * proportionate to how small the actual report is (Hick's Law - fewer,
- * more relevant fields, not a copy of the bigger flow with unused steps
- * hidden).
- *
- * REDESIGN (component-hierarchy pass): the first version gave category,
- * location, description, and photo all the same visual weight - four
- * identical "label + card" blocks in a row, so nothing actually read as
- * more important than anything else even though they aren't equally
- * important.
- *
- *   Primary   - category. It's the first real decision and the one that
- *               determines everything downstream, so it gets the largest
- *               touch targets on the screen: a 2-column tile grid instead
- *               of small wrapped chips, each tile with its own icon circle
- *               (Fitts's Law - the decision that matters most gets the
- *               biggest target, same reasoning as the Report FAB).
- *   Secondary - location + description. Two closely-related facts about
- *               the same complaint (where, what) now live in ONE card
- *               split by a hairline, the same "two facts belong side by
- *               side, not as two separate card blocks" fix profile.tsx's
- *               identity card already applied to Numero/Purok.
- *   Tertiary  - photos (up to MAX_PHOTOS). Genuinely optional evidence, so
- *               it's a horizontal strip of small thumbnails plus a quiet
- *               dashed "add" tile - real add/remove/replace affordances
- *               without growing into a second bank of full-width cards
- *               that would visually compete with the two required
- *               sections above it.
- *
- * Writes to the same `reports` table as the blotter flow so it shows up
- * alongside blotter reports in My Reports and status updates work the same
- * way - `full_details.type: "service_complaint"` is the marker that
- * distinguishes it, plus `category`/`incident_category` reusing the
- * complaint's own label so the reports list needs no special-casing to
- * display it.
- */
+/** Guided complaint flow; form data remains in the controller across steps. */
 export default function ServiceComplaintScreen() {
   const { profile } = useAuth();
+  const [step, setStep] = useState<ComplaintStep>("intro");
+  const [editingFromReview, setEditingFromReview] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const submitLock = useRef(false);
+  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const [category, setCategory] = useState<Category | null>(null);
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
+  const [voiceDraft, setVoiceDraft] = useState<VoiceDescriptionDraft>({ clips: [] });
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const voiceBusyRef = useRef(false);
+  const handleVoiceBusy = useCallback((busy: boolean) => { voiceBusyRef.current = busy; setVoiceBusy(busy); }, []);
   const [images, setImages] = useState<string[]>([]);
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const attachmentLock = useRef(false);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [referenceNo, setReferenceNo] = useState("");
@@ -280,184 +206,233 @@ export default function ServiceComplaintScreen() {
   // not a minor annoyance, so it's removed as a misclick target entirely
   // while this flow is on screen.
   const navigation = useNavigation();
+  const [draftReady, setDraftReady] = useState(false);
+  const skipPersistence = useRef(false);
+  const completed = useRef(false);
+  const pendingPhoto = useRef<{ replaceUri: string | null } | null>(null);
+  const snapshot = useRef<ComplaintDraft | null>(null);
+  const owner = useRef(profile?.id);
+  owner.current = profile?.id;
+  snapshot.current = { step, categoryId: category?.value ?? null, location, description, images, voiceDraft, pendingPhoto: pendingPhoto.current };
+
+  function persistDraft(patch: Partial<ComplaintDraft> = {}) {
+    if (!profile?.id || !snapshot.current) return Promise.resolve();
+    return saveComplaintDraft(profile.id, { ...snapshot.current, pendingPhoto: pendingPhoto.current, ...patch });
+  }
+  useEffect(() => {
+    if (!profile?.id) return;
+    let cancelled = false;
+    const userId = profile.id;
+    setDraftReady(false);
+    void (async () => {
+      try {
+        const saved = await loadComplaintDraft(userId);
+        if (cancelled) return;
+        if (saved) {
+          setStep(saved.step); setCategory(CATEGORIES.find(c => c.value === saved.categoryId) ?? null);
+          setLocation(saved.location); setDescription(saved.description); setImages(saved.images);
+          setVoiceDraft(saved.voiceDraft); pendingPhoto.current = saved.pendingPhoto;
+          snapshot.current = saved;
+        }
+        if (saved?.pendingPhoto) {
+          const pending = await ImagePicker.getPendingResultAsync();
+          if (cancelled) return;
+          if (pending && "code" in pending) throw new Error(pending.message);
+          if (pending && !pending.canceled) {
+            const uris = await copyPhotos(pending.assets.map(asset => asset.uri));
+            if (cancelled) return;
+            const photos = mergePickedPhotos(saved.images, uris, saved.pendingPhoto.replaceUri);
+            setImages(photos); setStep("photos");
+            pendingPhoto.current = null;
+            await saveComplaintDraft(userId, { ...saved, images: photos, step: "photos", pendingPhoto: null });
+          } else {
+            pendingPhoto.current = null;
+            await saveComplaintDraft(userId, { ...saved, pendingPhoto: null });
+          }
+        }
+      } catch {
+        if (!cancelled) Alert.alert("Hindi naibalik ang larawan", "Nananatili ang inyong report. Subukan pong kunan o piliin muli ang larawan.");
+      } finally { if (!cancelled) setDraftReady(true); }
+    })();
+    return () => { cancelled = true; };
+  }, [profile?.id]);
+  useEffect(() => {
+    if (!draftReady || submitted || skipPersistence.current || attachmentLock.current || !profile?.id) return;
+    if (!category && !location.trim() && !description.trim() && !images.length) return;
+    const timer = setTimeout(() => { if (!skipPersistence.current) void persistDraft().catch(() => {}); }, 400);
+    return () => clearTimeout(timer);
+  }, [draftReady, step, category, location, description, images, voiceDraft, submitted, profile?.id]);
+
 
   function resetForm() {
+    pendingPhoto.current = null;
+    setStep("intro"); setEditingFromReview(false); setSubmitError(""); submitLock.current = false;
     setCategory(null);
     setLocation("");
     setDescription("");
-    setImages([]);
+    setVoiceDraft({ clips: [] }); handleVoiceBusy(false);
+    setImages([]); setAttachmentBusy(false); attachmentLock.current = false;
     setSubmitting(false);
     setReferenceNo("");
     setSubmitted(false);
   }
 
-  // This route is registered as a Tabs.Screen (href: null, same as
-  // verify-id/pending) so it stays mounted after the first visit like
-  // every other tab - React Navigation doesn't unmount it just because
-  // the resident navigated away. Without this, filing a second complaint
-  // would reopen the exact form state (or even the submitted confirmation
-  // screen) left over from the last one. Resetting on blur, not just after
-  // a successful submit, means leaving half-filled and coming back later
-  // to file a *different* complaint also starts clean - the one case that
-  // should still be preserved (an accidental back-tap mid-form) is
-  // deliberately not special-cased here, since this is a short one-screen
-  // form, not the multi-step blotter flow that has its own draft-recovery
-  // system for that.
+  // Keep step data while navigating within this screen; clear it after leaving.
   useFocusEffect(
     useCallback(() => {
       navigation.setOptions({ tabBarStyle: { display: "none" } });
+      if (completed.current) { completed.current = false; resetForm(); }
       return () => {
         navigation.setOptions({ tabBarStyle: undefined });
-        resetForm();
+        // Camera launches and temporary blur must never discard the form.
       };
     }, [navigation])
   );
 
-  const slotsLeft = MAX_PHOTOS - images.length;
-
-  function addImages(uris: string[]) {
-    if (uris.length === 0) return;
-    setImages((prev) => [...prev, ...uris].slice(0, MAX_PHOTOS));
+  function goTo(next: ComplaintStep) {
+    skipPersistence.current = false;
+    setStep(next);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
   }
+  function goBack() {
+    if (submitLock.current || voiceBusyRef.current || attachmentLock.current) return;
+    if (editingFromReview) { setEditingFromReview(false); goTo("review"); return; }
+    if (step !== "intro") { goTo(complaintPrevious(step)); return; }
+    if (category || location.trim() || description.trim() || images.length) {
+      Alert.alert("Lumabas sa report?", "Hindi mase-save ang hindi pa naipapasang report.", [
+        { text: "Ipagpatuloy", style: "cancel" },
+        { text: "Lumabas", style: "destructive", onPress: () => {
+          skipPersistence.current = true;
+          if (profile?.id) void clearComplaintDraft(profile.id).then(() => { resetForm(); router.back(); }).catch(() => { skipPersistence.current = false; Alert.alert("Hindi mabura ang draft", "Pakisubukan muli."); });
+        } },
+      ]);
+    } else router.back();
+  }
+  useFocusEffect(useCallback(() => {
+    const listener = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (submitted || profile?.barangayIdStatus !== "pb_authorized") return false;
+      goBack(); return true;
+    });
+    return () => listener.remove();
+  }, [step, editingFromReview, category, location, description, images.length, submitted, profile?.barangayIdStatus]));
+
+  const slotsLeft = MAX_PHOTOS - images.length;
 
   function removeImage(uri: string) {
     setImages((prev) => prev.filter((u) => u !== uri));
+    setViewerIndex(index => images.length <= 1 ? null : index === null ? null : Math.min(index, images.length - 2));
   }
 
-  function replaceImage(oldUri: string, newUri: string) {
-    setImages((prev) => prev.map((u) => (u === oldUri ? newUri : u)));
+  function mergePickedPhotos(previous: string[], uris: string[], replaceUri: string | null): string[] {
+    if (replaceUri && uris.length) return previous.map(uri => uri === replaceUri ? uris[0] : uri);
+    return [...new Set([...previous, ...uris])].slice(0, MAX_PHOTOS);
   }
-
-  // `onReplace` is only passed when this is swapping out one existing
-  // photo (see the per-thumbnail "Palitan" action) - camera only ever
-  // hands back one shot at a time either way, so a single result is always
-  // correct here.
-  async function handleTakePhoto(onReplace?: (uri: string) => void) {
-    if (!onReplace && slotsLeft <= 0) return;
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Kailangan ang pahintulot",
-        "Kailangan po namin ng access sa camera para makakuha ng larawan."
-      );
-      return;
+  async function copyPhotos(uris: string[]): Promise<string[]> {
+    const copies: string[] = [];
+    for (const uri of uris.slice(0, MAX_PHOTOS)) {
+      const source = new File(uri);
+      const extension = source.extension || ".jpg";
+      const destination = new File(Paths.document, `complaint-photo-${Date.now()}-${Math.random().toString(36).slice(2)}${extension}`);
+      await source.copy(destination);
+      if (!destination.exists || !destination.size) throw new Error("Photo copy failed");
+      copies.push(destination.uri);
     }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.6,
-    });
-    if (result.canceled) return;
-    if (onReplace) onReplace(result.assets[0].uri);
-    else addImages([result.assets[0].uri]);
+    return copies;
   }
-
-  async function handlePickImage(onReplace?: (uri: string) => void) {
-    if (!onReplace && slotsLeft <= 0) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.6,
-      // Multi-select so a resident documenting one problem from a couple
-      // of angles doesn't have to reopen this picker per photo - capped to
-      // however many slots are actually left.
-      allowsMultipleSelection: !onReplace,
-      selectionLimit: onReplace ? 1 : Math.max(slotsLeft, 1),
-    });
-    if (result.canceled) return;
-    if (onReplace) onReplace(result.assets[0].uri);
-    else addImages(result.assets.map((a) => a.uri));
+  async function selectPhotos(camera: boolean, replaceUri: string | null = null) {
+    if (attachmentLock.current || !draftReady || !profile?.id) return;
+    const userId = profile.id;
+    attachmentLock.current = true; setAttachmentBusy(true);
+    try {
+      if (camera) {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) { Alert.alert("Kailangan ang camera", "Payagan ang camera sa Settings, o pumili sa gallery."); return; }
+      }
+      pendingPhoto.current = { replaceUri };
+      // Complete the durable checkpoint BEFORE Android opens another Activity.
+      await persistDraft();
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ["images"], quality: 0.5, base64: false, exif: false, allowsEditing: false,
+        allowsMultipleSelection: !camera && !replaceUri, selectionLimit: replaceUri ? 1 : Math.max(slotsLeft, 1),
+      };
+      const result = camera ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+      if (owner.current !== userId) return;
+      if (!result.canceled) {
+        const uris = await copyPhotos(result.assets.map(asset => asset.uri));
+        if (owner.current !== userId) return;
+        const next = mergePickedPhotos(snapshot.current?.images ?? images, uris, replaceUri);
+        setImages(next);
+        pendingPhoto.current = null;
+        await persistDraft({ images: next, pendingPhoto: null });
+      } else { pendingPhoto.current = null; await persistDraft({ pendingPhoto: null }); }
+    } catch {
+      pendingPhoto.current = null;
+      try { await persistDraft({ pendingPhoto: null }); } catch { /* Keep the in-memory form for retry. */ }
+      Alert.alert("Hindi maidagdag ang larawan", "Nananatili ang inyong report. Subukan pong muli o piliin ang larawan sa gallery.");
+    } finally {
+      if (owner.current === userId) { attachmentLock.current = false; setAttachmentBusy(false); }
+    }
   }
-
-  // One quiet entry point instead of two full-width filled buttons sitting
-  // permanently on screen - photo is optional evidence, tertiary to the
-  // required fields above it, so the choice between camera/gallery only
-  // needs to exist at the moment the resident actually taps "add a photo,"
-  // not as two buttons competing for attention the whole time.
-  //
-  // `onReplace` threads through to both source handlers so the same sheet
-  // doubles as the "Palitan" (swap) action on an existing thumbnail - one
-  // picker UI for both "add a new photo" and "replace this one," rather
-  // than a second bespoke flow for swapping.
-  function handleAddPhoto(onReplace?: (uri: string) => void) {
-    Alert.alert(onReplace ? "Palitan ang Larawan" : "Magdagdag ng Larawan", undefined, [
-      { text: "Kumuha ng Larawan", onPress: () => handleTakePhoto(onReplace) },
-      { text: "Piliin sa Gallery", onPress: () => handlePickImage(onReplace) },
+  function handleAddPhoto(replaceUri: string | null = null) {
+    Alert.alert(replaceUri ? "Palitan ang larawan" : "Magdagdag ng larawan", undefined, [
+      { text: "Kumuha ng larawan", onPress: () => { void selectPhotos(true, replaceUri); } },
+      { text: "Piliin sa gallery", onPress: () => { void selectPhotos(false, replaceUri); } },
       { text: "Kanselahin", style: "cancel" },
     ]);
   }
 
-  const canSubmit = Boolean(category) && location.trim().length > 0 && description.trim().length > 0;
+  const formFields = { category: category?.value ?? null, location, description };
+  const canSubmit = complaintCanAdvance("review", formFields);
+  const canAdvance = draftReady && complaintCanAdvance(step, formFields) && !voiceBusy && !attachmentBusy;
+  function advance() {
+    if (!canAdvance || submitLock.current || voiceBusyRef.current || attachmentLock.current) return;
+    if (step === "review") { void handleSubmit(); return; }
+    if (editingFromReview) { setEditingFromReview(false); goTo("review"); return; }
+    goTo(complaintNext(step));
+  }
 
   async function handleSubmit() {
-    if (!canSubmit || !category) return;
-    setSubmitting(true);
-
+    if (!canSubmit || !category || submitLock.current || voiceBusyRef.current || attachmentLock.current) return;
+    submitLock.current = true; setSubmitting(true); setSubmitError("");
     const refNo = `BGY-${Math.floor(100000 + Math.random() * 900000)}`;
-
+    const photoPaths: string[] = [];
+    const uploadedPaths: string[] = [];
+    let committed = false;
+    let databaseAttempted = false;
     try {
-      const photoPaths: string[] = [];
-
-      // Best-effort upload, one photo at a time - a missing/misconfigured
-      // storage bucket, or one bad file in the middle of the set, shouldn't
-      // strand a resident on this screen over evidence that's optional in
-      // the first place. Same "don't let a backend gap block the filing"
-      // posture as the TEMPORARY bypass in report.tsx. Each photo is tried
-      // independently so one failure doesn't drop the rest.
-      if (images.length > 0 && isSupabaseConfigured && profile?.id) {
-        for (let i = 0; i < images.length; i++) {
-          try {
-            const response = await fetch(images[i]);
-            const blob = await response.blob();
-            const filePath = `${profile.id}/${Date.now()}-${i}.jpeg`;
-            const { error: uploadError } = await supabase.storage
-              .from("report_evidence")
-              .upload(filePath, blob, { contentType: "image/jpeg" });
-            if (!uploadError) photoPaths.push(filePath);
-          } catch (photoErr) {
-            console.warn("[service-complaint] photo upload failed, continuing without it ->", photoErr);
-          }
+      if (!isSupabaseConfigured || !supabase) throw new Error("Hindi pa naka-configure ang report service. Pakikontak ang admin.");
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error("Mag-sign in po muli bago ipasa ang report.");
+      for (let i = 0; i < images.length; i++) {
+        const file = new File(images[i]);
+        if (!file.exists || !file.size) throw new Error("Hindi makita ang larawan. Alisin at idagdag po itong muli.");
+        if (file.size > 10 * 1024 * 1024) throw new Error("Hanggang 10 MB bawat larawan. Pumili po ng mas maliit na larawan.");
+        const mime = file.type || "image/jpeg";
+        const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : mime === "image/heic" ? "heic" : "jpeg";
+        const filePath = `${user.id}/${Date.now()}-${i}.${ext}`;
+        const { error } = await supabase.storage.from("report_evidence").upload(filePath, await file.arrayBuffer(), { contentType: mime });
+        if (error) {
+          console.warn("[service-complaint] photo upload rejected", { message: error.message });
+          throw new Error("Hindi ma-upload ang larawan. Pakisubukan muli; kung paulit-ulit, ipasuri sa admin ang photo storage settings.");
         }
+        photoPaths.push(filePath); uploadedPaths.push(filePath);
       }
-
-      if (isSupabaseConfigured) {
-        try {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          if (!user) throw new Error("You must be logged in to submit a report.");
-
-          const { error } = await supabase.from("reports").insert({
-            reference_no: refNo,
-            user_id: user.id,
-            status: "Under Review",
-            category: category.label,
-            summary: description.trim(),
-            incident_category: category.value,
-            incident_location_text: location.trim(),
-            full_details: {
-              type: "service_complaint",
-              category: category.value,
-              categoryLabel: category.label,
-              location: location.trim(),
-              description: description.trim(),
-              photoPaths,
-            },
-          });
-
-          if (error) throw error;
-        } catch (backendErr: any) {
-          console.warn(
-            "[service-complaint] TEMPORARY bypass: backend submission failed, continuing anyway ->",
-            backendErr?.message ?? backendErr
-          );
-        }
+      databaseAttempted = true;
+      const receipt = await insertServiceComplaint(supabase, {
+        referenceNo: refNo, userId: user.id, category, location, description, photoPaths,
+      });
+      committed = true;
+      skipPersistence.current = true; completed.current = true;
+      if (profile?.id) { try { await clearComplaintDraft(profile.id); } catch { /* The report has already been saved successfully. */ } }
+      setReferenceNo(receipt.referenceNo); setSubmitted(true);
+    } catch (err: unknown) {
+      console.warn("[service-complaint] submission failed", err);
+      setSubmitError(err instanceof Error ? err.message : "Hindi naipasa ang report. Pakisubukan muli.");
+      if (!committed && !databaseAttempted && uploadedPaths.length && supabase) {
+        try { await supabase.storage.from("report_evidence").remove(uploadedPaths); } catch { /* Best-effort cleanup. */ }
       }
-
-      setReferenceNo(refNo);
-      setSubmitted(true);
-    } catch (err: any) {
-      Alert.alert("Hindi naipasa ang report", err?.message ?? "Subukan po muli.");
     } finally {
-      setSubmitting(false);
+      submitLock.current = false; setSubmitting(false);
     }
   }
 
@@ -478,6 +453,7 @@ export default function ServiceComplaintScreen() {
   if (submitted) {
     return (
       <SubmittedScreen
+        kind="serviceComplaint"
         referenceNo={referenceNo}
         onViewReports={() => router.replace("/(resident)/reports")}
         onGoHome={() => router.replace("/(resident)/home")}
@@ -485,32 +461,30 @@ export default function ServiceComplaintScreen() {
     );
   }
 
+  const position = COMPLAINT_STEPS.indexOf(step);
+  const headings: Record<ComplaintStep, [string, string]> = {
+    intro: ["Serbisyo / Kagamitan", ""],
+    category: ["Anong uri ng problema?", "Piliin ang pinaka-akma sa inyong concern."],
+    details: ["Saan at ano ang problema?", "Ibigay ang lokasyon at maikling paglalarawan."],
+    photos: ["Magdagdag ng mga larawan.", "Ipakita ang problema nang mas malinaw. Opsyonal ang mga attachment."],
+    review: ["Suriin ang inyong report.", "Itama ang anumang mali bago ipasa."],
+  };
   return (
     <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
-      <ScreenBackground backgroundColor="#FAF8F7">
-        <View style={{ flex: 1 }}>
-          {/* No stepper - same call as chooseType's header. This form is
-              one screen, not a multi-step journey, and a 1-of-1 (or
-              2-of-2) stepper just drew a single dot left-aligned in an
-              otherwise empty full-width row, which read as a blank line
-              rather than an actual progress signal. Back button + title
-              only. */}
-          <BahagiHeader
-            label="Serbisyo / Kagamitan"
-            filledSegments={0}
-            totalSegments={0}
-            onBack={() => router.back()}
-          />
-
-          <ScrollView
-            className="flex-1 px-6"
-            contentContainerStyle={{ paddingTop: 14, paddingBottom: 40 }}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* 1 - PRIMARY: what kind of problem. Largest touch targets on
-                the screen - a 2-column tile grid, not small wrapped chips,
-                since this is the one decision everything else depends on. */}
-            <StepSection n={1} title="Anong uri ng problema?">
+      <ScreenBackground backgroundColor={colors.residentBackground}>
+        <BahagiHeader label={step === "review" ? "Suriin ang report" : "Serbisyo / Kagamitan"}
+          stepText={position ? `Bahagi ${position} ng 4` : undefined}
+          filledSegments={position} totalSegments={4} onBack={goBack} backDisabled={submitting || voiceBusy || attachmentBusy} />
+        <KeyboardAwareScrollView ref={scrollRef} bottomOffset={24} className="flex-1 px-6"
+          keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingTop: 24, paddingBottom: 32 }}>
+          {step !== "intro" && <View className="mb-6">
+            <Text className="text-[27px] leading-9 font-semibold text-ink mb-2">{headings[step][0]}</Text>
+            <Text className={REPORT_TYPE.subtitle}>{headings[step][1]}</Text>
+          </View>}
+          {step === "intro" && <ServiceComplaintIntro />}
+          {step === "category" && (
+            <View>
               <View className="flex-row flex-wrap" style={{ gap: 10 }}>
                 {CATEGORIES.map((c) => {
                   const active = category?.value === c.value;
@@ -518,15 +492,17 @@ export default function ServiceComplaintScreen() {
                     <Pressable
                       key={c.value}
                       onPress={() => setCategory(c)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: active }}
                       className="items-center active:opacity-80"
                       style={{
-                        width: "31%",
+                        width: "48%",
                         paddingVertical: 14,
                         paddingHorizontal: 6,
                         borderRadius: 16,
                         borderWidth: 1.5,
                         borderColor: active ? colors.primary : colors.outlineVariant,
-                        backgroundColor: active ? colors.primaryContainer : "white",
+                        backgroundColor: active ? colors.residentTint : "white",
                       }}
                     >
                       {active && (
@@ -550,8 +526,8 @@ export default function ServiceComplaintScreen() {
                         style={{ marginBottom: 6 }}
                       />
                       <Text
-                        className="text-[11.5px] font-medium text-center"
-                        style={{ color: active ? colors.primary : colors.onSurface, lineHeight: 15 }}
+                        className="text-[14px] font-medium text-center"
+                        style={{ color: active ? colors.primary : colors.onSurface, lineHeight: 20 }}
                         numberOfLines={2}
                       >
                         {c.label}
@@ -560,201 +536,41 @@ export default function ServiceComplaintScreen() {
                   );
                 })}
               </View>
-            </StepSection>
-
-            {/* 2 - SECONDARY: the two supporting facts about the same
-                complaint (where, what happened), grouped in one card and
-                split by a hairline instead of two separate label+card
-                blocks - same fix profile.tsx applied to Numero/Purok. */}
-            <StepSection n={2} title="Detalye ng Report">
-              <Card>
-                <View className="px-4 pt-3.5 pb-3.5">
-                  <Text
-                    className="text-[11px] font-semibold uppercase text-ink-faint"
-                    style={{ letterSpacing: 0.5, marginBottom: 4 }}
-                  >
-                    Saan po ito nangyayari?
-                  </Text>
-                  <TextInput
-                    value={location}
-                    onChangeText={setLocation}
-                    placeholder="Hal. tapat ng Blk 3 Lot 12, Purok 5"
-                    placeholderTextColor={colors.outline}
-                    className="text-[16px] text-ink"
-                    style={{ paddingVertical: 4 }}
-                  />
-                </View>
-
-                <View style={{ height: 1, backgroundColor: colors.outlineVariant }} />
-
-                <View className="px-4 pt-3.5 pb-4">
-                  <Text
-                    className="text-[11px] font-semibold uppercase text-ink-faint"
-                    style={{ letterSpacing: 0.5, marginBottom: 4 }}
-                  >
-                    Ilarawan po ang problema
-                  </Text>
-                  <TextInput
-                    value={description}
-                    onChangeText={setDescription}
-                    placeholder="Ilarawan po ang nakita ninyo..."
-                    placeholderTextColor={colors.outline}
-                    multiline
-                    textAlignVertical="top"
-                    className="text-[16px] text-ink"
-                    style={{ minHeight: 88, paddingVertical: 4 }}
-                  />
-                </View>
-              </Card>
-            </StepSection>
-
-            {/* 3 - TERTIARY: optional evidence, but multi-photo now, laid
-                out the way Facebook's own composer does it - one large
-                featured photo plus a row of smaller tiles underneath,
-                instead of a single-height filmstrip of same-size photos
-                that gives every image equal weight it doesn't need. Tap
-                any photo to open it full-screen in PhotoViewer, where
-                replace/remove actually live now (see that component's
-                doc comment). Grid tiles keep a quick-delete badge for
-                "get rid of this one, no need to even open it," but
-                replace moved out of the tiny tiles entirely. */}
-            <StepSection
-              n={3}
-              title="Larawan (opsyonal)"
-              hint={images.length > 0 ? `${images.length}/${MAX_PHOTOS} na larawan` : undefined}
-            >
-              {images.length === 0 ? (
-                // Empty state as one inviting, full-width tile - not a
-                // small dashed square easy to miss. This is the moment a
-                // resident decides whether to bother adding proof at all,
-                // so it gets a real presence on screen even though the
-                // section stays optional.
-                <Pressable
-                  onPress={() => handleAddPhoto()}
-                  className="items-center justify-center rounded-2xl active:opacity-70"
-                  style={{
-                    height: 110,
-                    borderWidth: 1.5,
-                    borderStyle: "dashed",
-                    borderColor: colors.outlineVariant,
-                    backgroundColor: "white",
-                  }}
-                >
-                  <Ionicons name="images-outline" size={24} color={colors.primary} />
-                  <Text className="text-[14px] font-semibold mt-1.5" style={{ color: colors.onSurface }}>
-                    Magdagdag ng Larawan
-                  </Text>
-                  <Text className={`${REPORT_TYPE.caption} mt-0.5`}>Kumuha o pumili mula sa gallery</Text>
-                </Pressable>
-              ) : (
-                <View>
-                  {/* Featured photo - the one the resident added/looked at
-                      first, full width. */}
-                  <Pressable onPress={() => setViewerIndex(0)} className="active:opacity-90">
-                    <Image
-                      source={{ uri: images[0] }}
-                      style={{ width: HERO_SIZE, height: HERO_SIZE, borderRadius: 16 }}
-                      resizeMode="cover"
-                    />
-                    <Pressable
-                      onPress={() => removeImage(images[0])}
-                      hitSlop={8}
-                      className="absolute items-center justify-center rounded-full active:opacity-70"
-                      style={{
-                        top: 8,
-                        right: 8,
-                        width: 26,
-                        height: 26,
-                        backgroundColor: "rgba(0,0,0,0.55)",
-                      }}
-                    >
-                      <Ionicons name="close" size={15} color="white" />
-                    </Pressable>
-                  </Pressable>
-
-                  {/* Supporting grid - remaining photos plus the add tile,
-                      as a row of smaller squares under the hero. */}
-                  {(images.length > 1 || slotsLeft > 0) && (
-                    <View className="flex-row flex-wrap mt-2.5" style={{ gap: 8 }}>
-                      {images.slice(1).map((uri, i) => (
-                        <View key={uri} style={{ width: 72, height: 72 }}>
-                          <Pressable onPress={() => setViewerIndex(i + 1)} className="active:opacity-90">
-                            <Image
-                              source={{ uri }}
-                              style={{ width: 72, height: 72, borderRadius: 12 }}
-                              resizeMode="cover"
-                            />
-                          </Pressable>
-                          <Pressable
-                            onPress={() => removeImage(uri)}
-                            hitSlop={8}
-                            className="absolute items-center justify-center rounded-full active:opacity-70"
-                            style={{
-                              top: -6,
-                              right: -6,
-                              width: 20,
-                              height: 20,
-                              backgroundColor: colors.error,
-                              borderWidth: 2,
-                              borderColor: "white",
-                            }}
-                          >
-                            <Ionicons name="close" size={11} color="white" />
-                          </Pressable>
-                        </View>
-                      ))}
-
-                      {slotsLeft > 0 && (
-                        <Pressable
-                          onPress={() => handleAddPhoto()}
-                          className="items-center justify-center active:opacity-70"
-                          style={{
-                            width: 72,
-                            height: 72,
-                            borderRadius: 12,
-                            borderWidth: 1.5,
-                            borderStyle: "dashed",
-                            borderColor: colors.outlineVariant,
-                          }}
-                        >
-                          <Ionicons name="add" size={20} color={colors.onSurfaceVariant} />
-                        </Pressable>
-                      )}
-                    </View>
-                  )}
-                </View>
-              )}
-            </StepSection>
-
-            <Pressable
-              onPress={handleSubmit}
-              disabled={!canSubmit || submitting}
-              className="rounded-2xl py-4 items-center overflow-hidden active:opacity-85"
-              style={{ backgroundColor: canSubmit ? colors.primary : colors.outlineVariant }}
-            >
-              {submitting ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text className={REPORT_TYPE.buttonPrimary}>Isumite ang Report</Text>
-              )}
-            </Pressable>
-            {!canSubmit && (
-              <Text className={`${REPORT_TYPE.caption} text-center mt-2.5`}>
-                Kumpletuhin muna ang uri, lokasyon, at deskripsyon.
-              </Text>
-            )}
-          </ScrollView>
+            </View>
+          )}
+          {step === "details" && <View>
+            <View className="mb-5"><GuideCard><Text className={REPORT_TYPE.hint}>Isama ang kalye, purok, o malapit na palatandaan. Ilarawan kung ano ang sira o problemang napansin ninyo.</Text></GuideCard></View>
+            <FormField label="Lokasyon" value={location} onChangeText={setLocation}
+              placeholder="Hal. tapat ng Blk 3 Lot 12, Purok 5" />
+            <Text className={`${REPORT_TYPE.fieldLabel} mb-3`}>Paglalarawan ng problema</Text>
+            <Text className={`${REPORT_TYPE.helper} mb-4`}>Maaaring mag-record o mag-type. Maaari ring baguhin ang transcript bago magpatuloy.</Text>
+            <VoiceDescriptionInput value={description} onChangeText={setDescription}
+              draft={voiceDraft} onDraftChange={setVoiceDraft} onBusyChange={handleVoiceBusy} />
+          </View>}
+          {step === "photos" && <ComplaintAttachments images={images} busy={attachmentBusy}
+            onCamera={() => { void selectPhotos(true); }} onGallery={() => { void selectPhotos(false); }} onPhoto={setViewerIndex}
+            onRemovePhoto={removeImage} />}
+          {step === "review" && <ServiceComplaintReview category={category?.label ?? ""}
+            location={location.trim()} description={description.trim()} images={images}
+            onEdit={next => { if (!submitting) { setEditingFromReview(true); goTo(next); } }}
+            onPhoto={setViewerIndex} />}
+        </KeyboardAwareScrollView>
+        <View style={reportStyles.actionBar}>
+          {submitError && step === "review" ? <Text accessibilityRole="alert" className="text-alert text-[13px] leading-5 mb-3">{submitError}</Text> : null}
+          {!canAdvance && !voiceBusy && !attachmentBusy && <Text className={`${REPORT_TYPE.helper} text-center mb-3`}>{step === "category" ? "Pumili po muna ng uri ng problema." : "Kumpletuhin po ang lokasyon at paglalarawan."}</Text>}
+          <Pressable onPress={advance} disabled={!canAdvance || submitting} accessibilityRole="button"
+            accessibilityState={{ disabled: !canAdvance || submitting, busy: submitting }}
+            style={[reportStyles.primaryAction, { backgroundColor: canAdvance ? colors.primary : colors.outlineVariant }]}
+            className="items-center active:opacity-85">
+            {submitting ? <ActivityIndicator color="white" /> : <ReportPrimaryLabel icon={step === "review" ? "paper-plane-outline" : "arrow-forward"}>
+              {step === "review" ? "Ipasa ang report" : editingFromReview ? "Bumalik sa review" : step === "intro" ? "Simulan" : step === "photos" && !images.length ? "Laktawan at suriin" : step === "photos" ? "Suriin ang report" : "Susunod"}
+            </ReportPrimaryLabel>}
+          </Pressable>
         </View>
       </ScreenBackground>
-
-      <PhotoViewer
-        visible={viewerIndex !== null}
-        images={images}
-        startIndex={viewerIndex ?? 0}
-        onClose={() => setViewerIndex(null)}
-        onRemove={removeImage}
-        onReplace={(uri) => handleAddPhoto((newUri) => replaceImage(uri, newUri))}
-      />
+      <PhotoViewer key={`${viewerIndex ?? "closed"}-${images.length}`} visible={viewerIndex !== null}
+        images={images} startIndex={viewerIndex ?? 0} onClose={() => setViewerIndex(null)}
+        onRemove={removeImage} onReplace={uri => handleAddPhoto(uri)} />
     </SafeAreaView>
   );
 }

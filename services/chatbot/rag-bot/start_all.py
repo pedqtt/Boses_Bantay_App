@@ -40,6 +40,8 @@ def wait_ready(url, expected, process, seconds=40):
 def hidden_process(arguments, log_name, cwd=BACKEND, env=None):
     private = BACKEND / '.private'
     private.mkdir(exist_ok=True)
+    env=(env or os.environ).copy()
+    env['PYTHONUNBUFFERED']='1'
     with (private / log_name).open('ab') as log:
         return subprocess.Popen(arguments, cwd=cwd, stdout=log, stderr=log,
                                 creationflags=subprocess.CREATE_NO_WINDOW, env=env)
@@ -50,6 +52,48 @@ def api_ready(body):
         return json.loads(body).get('service') == 'boses-rag-mobile'
     except (ValueError, AttributeError):
         return False
+
+
+def voice_settings(environment):
+    directory = Path(environment.get('WHISPER_SERVICE_DIR') or PROJECT.parent / 'whisper-server')
+    candidates = [Path(environment['WHISPER_PYTHON'])] if environment.get('WHISPER_PYTHON') else [directory / 'venv/Scripts/python.exe', directory / '.venv/Scripts/python.exe']
+    python = next((candidate for candidate in candidates if candidate.is_file()), None)
+    if python is None or not (directory / 'app.py').is_file():
+        raise RuntimeError('Whisper service/environment is missing. Set WHISPER_SERVICE_DIR and optionally WHISPER_PYTHON in the backend .env.')
+    return directory, python
+
+
+def voice_ready(body):
+    try:
+        value = json.loads(body)
+        return value.get('status') == 'ok' and isinstance(value.get('model'), str)
+    except (ValueError, AttributeError):
+        return False
+
+
+def ensure_voice(environment, key):
+    url = environment.get('VOICE_UPSTREAM_URL') or 'http://127.0.0.1:8000'
+    target = urlparse(url)
+    if target.hostname not in {'127.0.0.1','localhost'} or target.scheme != 'http' or target.path not in {'','/'}:
+        raise RuntimeError('VOICE_UPSTREAM_URL must point to the local Whisper worker.')
+    existing = read_url(url.rstrip('/') + '/health')
+    if existing:
+        if not voice_ready(existing):
+            raise RuntimeError('The Whisper port belongs to another service.')
+        print('Whisper transcription is already running.')
+        return
+    directory, python = voice_settings(environment)
+    env = os.environ.copy()
+    env['WHISPER_API_KEY'] = environment.get('VOICE_UPSTREAM_API_KEY') or key
+    env['OLLAMA_MODEL'] = environment.get('VOICE_LLM_MODEL') or 'qwen3:8b'
+    # Existing local model cache avoids a model download during startup.
+    env['HF_HUB_OFFLINE'] = '1'
+    for name in ['WHISPER_MODEL','WHISPER_DEVICE','WHISPER_COMPUTE_TYPE','WHISPER_LANGUAGE']:
+        if environment.get(name): env[name] = environment[name]
+    print('Starting Whisper transcription locally. Waiting for the cached model...')
+    process = hidden_process([str(python),'-m','uvicorn','app:app','--host','127.0.0.1','--port',str(target.port or 8000)], 'startup-whisper.log', cwd=directory, env=env)
+    wait_ready(url.rstrip('/')+'/health', voice_ready, process, seconds=180)
+    print('Whisper transcription is ready.')
 
 
 def main():
@@ -78,6 +122,7 @@ def main():
     if mobile_url.scheme != 'http' or mobile_url.port != 8503 or not mobile_url.hostname:
         raise RuntimeError('This local launcher needs EXPO_PUBLIC_RAG_API_URL=http://<laptop-IP>:8503. Keep hosted URLs in a separate environment.')
     if args.check:
+        voice_settings(backend_env)
         print('Setup OK: Node, Expo, Ollama, Python, and local chatbot configuration found.')
         print('No services started and no configuration changed.')
         return 0
@@ -114,13 +159,15 @@ def main():
     if missing:
         raise RuntimeError('Missing Ollama models. Run: ' + ' and '.join('ollama pull ' + name for name in missing))
 
+    ensure_voice(backend_env, key)
+
     health = read_url('http://127.0.0.1:8503/health')
     if health is not None and not api_ready(health):
         raise RuntimeError('Port 8503 belongs to another service. Close that service or change its port.')
     if not health:
         print('Starting mobile chatbot API...')
         api_env = os.environ.copy()
-        for name in ['RAG_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'OLLAMA_HOST']:
+        for name in ['RAG_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'OLLAMA_HOST','VOICE_UPSTREAM_URL','VOICE_UPSTREAM_API_KEY']:
             if backend_env.get(name):
                 api_env[name] = backend_env[name]
         process = hidden_process([sys.executable, str(BACKEND / 'mobile_api.py'), '--host', '0.0.0.0', '--port', '8503'], 'startup-mobile-api.log', env=api_env)

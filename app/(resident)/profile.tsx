@@ -1,268 +1,85 @@
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { Text } from "@/components/AppText";
+import { useState } from "react";
+import { View, Pressable, ScrollView, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { useAuth } from "@/lib/auth-context";
 import { signOut } from "@/lib/api/auth";
-import { Card } from "@/components/Card";
-import { SectionLabel } from "@/components/SectionLabel";
-import { ScreenBackground } from "@/components/ScreenBackground";
 import { colors } from "@/lib/theme";
+import { homeStyles } from "@/components/home/homeStyles";
 
-// Keys must match ResidentProfile["barangayIdStatus"] exactly (lib/api/auth.ts)
-// — this previously used "pending"/"verified", which don't exist in that
-// type, so the row always rendered blank for every real status value.
-const ID_STATUS_META: Record<string, { label: string; tone: "muted" | "progress" | "done" }> = {
-  unverified: { label: "Hindi pa verified", tone: "muted" },
-  secretary_verified: { label: "Halos tapos na", tone: "progress" },
-  pb_authorized: { label: "Verified na", tone: "done" },
-};
-
-const ID_STATUS_COLORS: Record<"muted" | "progress" | "done", { bg: string; text: string }> = {
-  muted: { bg: colors.outlineVariant, text: colors.onSurfaceVariant },
-  progress: { bg: "#FDECC8", text: "#92600C" },
-  done: { bg: colors.primaryContainer, text: colors.primary },
-};
-
-/**
- * Complete redesign, not a styling pass on the old layout - the previous
- * screen was a plain identity block plus a flat list of five rows with no
- * distinction between "info," "action," and "not built yet." Two things
- * were actually wrong, not just plain-looking:
- *
- *   1. Barangay ID status was a bare word ("Verified"/"Almost there") with
- *      no visual weight - the one piece of state on this whole screen that
- *      actually matters (can this resident's reports be trusted as coming
- *      from a verified identity?) read the same as a static label.
- *   2. Notifications and Help & support rendered as normal tappable rows
- *      with a chevron - full affordance for two features that don't do
- *      anything yet (empty onPress). That's a broken promise, not a
- *      minor omission - tapping a row with a chevron and having nothing
- *      happen is worse than not having the row at all.
- *
- * Fixed here: a real status pill (colored by state, not just text) on the
- * hero card, and Notifications/Help & support demoted to a disabled,
- * visibly inactive state with a "Malapit na" (Coming soon) tag instead of
- * a chevron - so the screen stops advertising affordance it can't deliver.
- */
-
-function IdStatusPill({ status }: { status: string }) {
-  const meta = ID_STATUS_META[status] ?? ID_STATUS_META.unverified;
-  const c = ID_STATUS_COLORS[meta.tone];
-  return (
-    <View
-      className="flex-row items-center rounded-full px-3 py-1.5"
-      style={{ backgroundColor: c.bg }}
-    >
-      {meta.tone === "done" && (
-        <Ionicons name="checkmark-circle" size={13} color={c.text} style={{ marginRight: 4 }} />
-      )}
-      <Text className="text-[12px] font-semibold" style={{ color: c.text }}>
-        {meta.label}
-      </Text>
-    </View>
-  );
-}
-
-function AccountRow({
-  icon,
-  label,
-  onPress,
-  comingSoon,
-  isLast,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress?: () => void;
-  comingSoon?: boolean;
-  isLast?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress || comingSoon}
-      className="active:opacity-60"
-    >
-      <View
-        className={`flex-row items-center py-4 ${isLast ? "" : "border-b"}`}
-        style={{ borderColor: colors.outlineVariant, opacity: comingSoon ? 0.5 : 1 }}
-      >
-        {/* Bare icon, no tinted disc behind it - the icon-in-a-circle
-            treatment reads as "this is a distinct interactive object" the
-            way it's used on cards elsewhere; a plain settings-style list
-            like this one is quieter without five identical circles down
-            the left edge. */}
-        <Ionicons name={icon} size={18} color={colors.outline} style={{ width: 28 }} />
-        <Text className="flex-1 text-[15px] text-ink">{label}</Text>
-
-        {comingSoon ? (
-          <Text className="text-[12px] font-medium" style={{ color: colors.outline }}>
-            Malapit na
-          </Text>
-        ) : (
-          onPress && <Ionicons name="chevron-forward" size={18} color={colors.outlineFaint} />
-        )}
-      </View>
-    </Pressable>
-  );
-}
+const STATUS = {
+  unverified: { label: "Hindi pa verified", description: "I-submit ang inyong Barangay ID para sa verification.", icon: "shield-outline", background: "#FFF4DF", foreground: "#855A0B" },
+  secretary_verified: { label: "Hinihintay ang authorization", description: "Na-verify na ng secretary. Hinihintay ang authorization ng Punong Barangay.", icon: "time-outline", background: "#FFF4DF", foreground: "#855A0B" },
+  pb_authorized: { label: "Verified na", description: "Na-authorize na ng Punong Barangay ang inyong account.", icon: "shield-checkmark-outline", background: "#EAF5EE", foreground: "#246343" },
+} as const;
 
 export default function ProfileScreen() {
   const { profile, signOut: clearSession } = useAuth();
-
+  const [loggingOut, setLoggingOut] = useState(false);
+  const status = profile?.barangayIdStatus ?? "unverified";
+  const verification = STATUS[status] ?? STATUS.unverified;
+  const name = [profile?.firstName, profile?.middleName, profile?.lastName].filter(part => part?.trim()).map(part => part!.trim()).join(" ") || profile?.fullName?.trim() || "Resident";
+  const initials = [profile?.firstName, profile?.lastName].map(part => Array.from(part?.trim() || "")[0] || "").join("").toLocaleUpperCase();
   async function handleLogout() {
-    await signOut(profile?.id);
-    clearSession();
-    router.replace("/(auth)/login");
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try { await signOut(profile?.id); clearSession(); router.replace("/(auth)/login"); }
+    catch { Alert.alert("Hindi makapag-log out", "Pakisubukan muli po."); }
+    finally { setLoggingOut(false); }
   }
-
-  const idStatus = profile?.barangayIdStatus ?? "unverified";
-
-  return (
-    <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: colors.surfaceContainerLow }}>
-      {/* Same header/body contrast treatment as bot.tsx and directory.tsx:
-          white header with a hairline bottom border, body lightened off
-          the app-wide surface color via ScreenBackground's per-screen
-          override. */}
-      <ScreenBackground backgroundColor="#FAF8F7">
-        <View
-          className="px-5 pt-3 pb-4"
-          style={{
-            backgroundColor: colors.surfaceContainerLow,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.outlineVariant,
-          }}
-        >
-          <Text className="text-[24px] font-semibold text-ink tracking-tight">Profile</Text>
+  return <SafeAreaView edges={["top"]} style={s.screen}>
+    <View style={s.header}><Text variant="screenTitle" accessibilityRole="header" style={s.pageTitle}>Profile</Text></View>
+    <ScrollView style={s.content} showsVerticalScrollIndicator={false} contentContainerStyle={s.body}>
+      <View style={s.identityCard}>
+        <View style={s.identity}>
+          <View style={s.avatar}>{initials ? <Text style={s.initials}>{initials}</Text> : <Ionicons name="person-outline" size={26} color={colors.primary} />}</View>
+          <View style={{ flex: 1, minWidth: 0 }}><Text style={s.name}>{name}</Text><Text style={s.resident}>Resident account</Text></View>
         </View>
+        <View style={s.details}>
+          <InfoRow icon="call-outline" label="Mobile number" value={profile?.phone || "Hindi pa nakatala"} />
+          <View style={s.detailDivider} />
+          <InfoRow icon="location-outline" label="Purok / address" value={profile?.purok || "Hindi pa nakatala"} />
+        </View>
+      </View>
 
-        {/* Wrapped in a real ScrollView now - the old layout had none at
-            all, meaning content taller than one screen would have simply
-            been clipped with no way to reach it (e.g. on smaller devices
-            or with a longer name/address). */}
-        <ScrollView
-          className="flex-1 px-5"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingTop: 24, paddingBottom: 110 }}
-        >
-          {/* ORGANIZATION FIX, not a restyle: identity data was split
-              across two cards - name and phone up here, but "Purok /
-              address" orphaned down in a settings list next to
-              Notifications and Help & support, which aren't identity at
-              all. All three facts about WHO this resident is now live in
-              one card; the list below is purely settings.
+      <Text accessibilityRole="header" style={s.sectionTitle}>Barangay ID</Text>
+      <View style={s.verificationCard}>
+        <View style={s.verificationHeading}>
+          <View style={[s.statusIcon, { backgroundColor: verification.background }]}><Ionicons name={verification.icon} size={21} color={verification.foreground} /></View>
+          <Text style={[s.statusLabel, { color: verification.foreground }]}>{verification.label}</Text>
+          {status === "pb_authorized" && <Ionicons name="checkmark-circle" size={19} color={verification.foreground} />}
+        </View>
+        <Text style={s.description}>{verification.description}</Text>
+        {status !== "pb_authorized" && <Pressable accessibilityRole="button" onPress={() => router.push("/(resident)/verify-id")} android_ripple={{ color: "#DFE7FC" }} style={s.verifyAction}><Text style={s.verifyText}>{status === "secretary_verified" ? "Tingnan ang verification" : "I-verify ang Barangay ID"}</Text><Ionicons name="arrow-forward" size={17} color={colors.primary} /></Pressable>}
+      </View>
 
-              Zone structure (per the component-hierarchy discipline):
-                Top    - avatar + name (primary) + verification status
-                         (the one label/badge on this screen)
-                Middle - the supporting facts, as label/value rows:
-                         phone, purok
-                Bottom - the single action, and only when it's actually
-                         actionable (hidden entirely once verified, so a
-                         verified resident isn't shown a CTA for something
-                         already done)
+      <Text accessibilityRole="header" style={s.sectionTitle}>Settings</Text>
+      <View style={s.settingsCard}>
+        <SettingsRow icon="settings-outline" label="Settings" onPress={() => router.push("/(resident)/settings")} />
+        <SettingsRow icon="help-circle-outline" label="Help & support" last />
+      </View>
 
-              Deliberately NOT highlighted: phone and purok are plain
-              label/value text. Only verification status gets a badge -
-              per the rule that if more than two things are highlighted,
-              nothing is. */}
-          <Card className="px-5 pt-6 pb-2 mb-6">
-            <View className="flex-row items-center pb-6">
-              <View
-                className="rounded-full bg-brand items-center justify-center"
-                style={{ width: 52, height: 52, marginRight: 14 }}
-              >
-                <Text className="text-white text-[18px] font-medium">
-                  {(profile?.fullName ?? "R").charAt(0)}
-                </Text>
-              </View>
-              <View className="flex-1" style={{ minWidth: 0 }}>
-                <Text className="text-[18px] font-semibold text-ink" numberOfLines={1}>
-                  {profile?.fullName ?? "Resident"}
-                </Text>
-                <Text className="text-[13px] text-ink-faint mt-1" numberOfLines={1}>
-                  Resident
-                </Text>
-              </View>
-              <IdStatusPill status={idStatus} />
-            </View>
-
-            {/* Two-column field grid instead of two stacked label/value
-                rows - "Numero" and "Purok" were reading as a repeated
-                list item pattern (same shape, same divider, twice) when
-                they're really two short facts that belong side by side,
-                the way a real ID's data fields are laid out. One hairline
-                on top of the pair, not one per row. */}
-            <View
-              className="flex-row py-4"
-              style={{ borderTopWidth: 1, borderTopColor: colors.outlineVariant }}
-            >
-              <View className="flex-1">
-                <Text className="text-[11px] text-ink-faint uppercase" style={{ letterSpacing: 0.5 }}>
-                  Numero
-                </Text>
-                <Text className="text-[14px] text-ink font-medium mt-1" numberOfLines={1}>
-                  {profile?.phone || "—"}
-                </Text>
-              </View>
-              <View className="w-px mx-4" style={{ backgroundColor: colors.outlineVariant }} />
-              <View className="flex-1">
-                <Text className="text-[11px] text-ink-faint uppercase" style={{ letterSpacing: 0.5 }}>
-                  Purok / address
-                </Text>
-                <Text className="text-[14px] text-ink font-medium mt-1" numberOfLines={1}>
-                  {profile?.purok || "—"}
-                </Text>
-              </View>
-            </View>
-
-            {idStatus !== "pb_authorized" && (
-              <Pressable
-                onPress={() => router.push("/(resident)/verify-id")}
-                className="active:opacity-60"
-              >
-                <View
-                  className="flex-row items-center justify-between py-4"
-                  style={{ borderTopWidth: 1, borderTopColor: colors.outlineVariant }}
-                >
-                  <Text className="text-[14px] font-medium" style={{ color: colors.primary }}>
-                    I-verify ang Barangay ID
-                  </Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-                </View>
-              </Pressable>
-            )}
-          </Card>
-
-          <SectionLabel>Settings</SectionLabel>
-          <Card className="px-5 mb-8">
-            <AccountRow icon="notifications-outline" label="Notifications" comingSoon />
-            <AccountRow icon="help-circle-outline" label="Help & support" comingSoon isLast />
-          </Card>
-
-          {/* Back to the native convention - iOS grouped Settings, Gmail,
-              WhatsApp all put Sign Out as a full-width row in its own
-              grouped section at the bottom, not a shrink-wrapped centered
-              button. Full-width gives it a real touch target (Fitts's
-              Law - a small centered pill was actually harder to hit
-              reliably for a one-way, deliberate action), and keeping it
-              in its own Card - separate from Settings, no SectionLabel
-              needed since a lone red row is self-evident - still reads
-              as visually distinct without switching UI patterns at the
-              very end of the screen. */}
-          <Card className="px-5 mb-6">
-            <Pressable
-              onPress={handleLogout}
-              className="flex-row items-center py-4 active:opacity-60"
-            >
-              <Ionicons name="log-out-outline" size={18} color={colors.error} style={{ width: 28 }} />
-              <Text className="flex-1 text-[15px] font-medium" style={{ color: colors.error }}>
-                Log out
-              </Text>
-            </Pressable>
-          </Card>
-        </ScrollView>
-      </ScreenBackground>
-    </SafeAreaView>
-  );
+      <Pressable accessibilityRole="button" accessibilityState={{ disabled: loggingOut, busy: loggingOut }} disabled={loggingOut} onPress={handleLogout} android_ripple={{ color: "#FBE4E6" }} style={s.logout}>
+        <View style={s.logoutIcon}>{loggingOut ? <ActivityIndicator size="small" color={colors.error} /> : <Ionicons name="log-out-outline" size={21} color={colors.error} />}</View><Text style={s.logoutText}>{loggingOut ? "Nagla-log out…" : "Log out"}</Text>
+      </Pressable>
+    </ScrollView>
+  </SafeAreaView>;
 }
+function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  return <View style={s.infoRow}><Ionicons name={icon} size={18} color="#64748B" style={{ marginTop: 2 }} /><View style={{ flex: 1, minWidth: 0 }}><Text style={s.fieldLabel}>{label}</Text><Text selectable style={s.fieldValue}>{value}</Text></View></View>;
+}
+function SettingsRow({ icon, label, onPress, last = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress?: () => void; last?: boolean }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={onPress ? label : `${label}, malapit na`} accessibilityState={{ disabled: !onPress }} disabled={!onPress} onPress={onPress} android_ripple={{ color: "rgba(2,31,148,0.04)" }} style={[s.settingsRow, !last && s.settingsDivider]}>
+    <View style={s.settingsIcon}><Ionicons name={icon} size={20} color={onPress ? colors.primary : "#64748B"} /></View><Text style={[s.settingsLabel, onPress && { color: "#172033" }]}>{label}</Text>{onPress ? <Ionicons name="chevron-forward" size={17} color="#64748B" /> : <Text style={s.comingSoon}>Malapit na</Text>}
+  </Pressable>;
+}
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: "#FFFFFF" }, header: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14, backgroundColor: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }, pageTitle: { fontSize: 28, lineHeight: 36, fontWeight: "700", color: "#14244B", letterSpacing: -0.6 }, content: { flex: 1, backgroundColor: colors.residentBackground }, body: { padding: 20, paddingBottom: 110 },
+  identityCard: { ...homeStyles.card, padding: 20, marginBottom: 26 }, identity: { flexDirection: "row", alignItems: "center", gap: 14 }, avatar: { width: 60, height: 60, borderRadius: 20, backgroundColor: colors.residentTint, alignItems: "center", justifyContent: "center" }, initials: { fontSize: 21, lineHeight: 28, fontWeight: "600", color: colors.primary }, name: { fontSize: 21, lineHeight: 29, fontWeight: "600", color: "#172033", letterSpacing: -0.3 }, resident: { fontSize: 12, lineHeight: 19, color: "#64748B", marginTop: 4 },
+  details: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E3E8F0", marginTop: 20, paddingTop: 18 }, infoRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 }, fieldLabel: { fontSize: 11, lineHeight: 18, color: "#64748B", marginBottom: 3 }, fieldValue: { fontSize: 14, lineHeight: 22, color: "#172033", fontWeight: "500" }, detailDivider: { height: 16 },
+  sectionTitle: { ...homeStyles.sectionTitle, marginBottom: 12 }, verificationCard: { ...homeStyles.card, padding: 18, marginBottom: 26 }, verificationHeading: { flexDirection: "row", alignItems: "center", gap: 10 }, statusIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" }, statusLabel: { flex: 1, fontSize: 14, lineHeight: 22, fontWeight: "600" }, description: { fontSize: 13, lineHeight: 21, color: "#64748B", marginTop: 12 }, verifyAction: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 48, paddingHorizontal: 14, marginTop: 16, borderRadius: 13, backgroundColor: colors.residentTint, overflow: "hidden" }, verifyText: { flex: 1, fontSize: 13, lineHeight: 20, fontWeight: "600", color: colors.primary },
+  settingsCard: { ...homeStyles.card, paddingHorizontal: 16, marginBottom: 20 }, settingsRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 16 }, settingsDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E3E8F0" }, settingsIcon: { ...homeStyles.itemIcon, backgroundColor: "#F1F3F7" }, settingsLabel: { flex: 1, fontSize: 14, lineHeight: 22, color: "#64748B" }, comingSoon: { fontSize: 10, lineHeight: 16, fontWeight: "500", color: "#64748B", backgroundColor: "#F1F3F7", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7 },
+  logout: { ...homeStyles.card, flexDirection: "row", alignItems: "center", gap: 12, padding: 16, overflow: "hidden" }, logoutIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.errorContainer, alignItems: "center", justifyContent: "center" }, logoutText: { fontSize: 14, lineHeight: 22, fontWeight: "600", color: colors.error },
+});

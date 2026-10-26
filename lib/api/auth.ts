@@ -1,8 +1,10 @@
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { getMiddleNameError } from "@/lib/validation";
 
 export type ResidentProfile = {
   id: string;
   firstName: string;
+  middleName?: string;
   lastName: string;
   fullName: string;
   phone: string;
@@ -20,7 +22,7 @@ export const MOCK_OTP = "123456";
 // Temporary in-memory cache to hold pending registration data during the OTP step
 const pendingRegistrations: Record<
   string,
-  { firstName: string; lastName: string; phone: string; purok: string; password: string }
+  { firstName: string; middleName: string; lastName: string; phone: string; purok: string; password: string }
 > = {};
 
 export function normalizePhone(phone: string) {
@@ -107,9 +109,12 @@ export async function signUpUser(input: {
   phone: string;
   password: string;
   firstName: string;
+  middleName?: string;
   lastName: string;
   purok?: string;
 }): Promise<{ ok: true; normalizedPhone: string }> {
+  const middleNameError = getMiddleNameError(input.middleName ?? "");
+  if (middleNameError) throw new Error(middleNameError);
   const normalized = normalizePhone(input.phone);
 
   // Re-check at submit time even though the live check on register.tsx
@@ -125,7 +130,8 @@ export async function signUpUser(input: {
 
   // Store user registration inputs temporarily until OTP is entered
   pendingRegistrations[normalized] = {
-    firstName: input.firstName,
+    firstName: input.firstName.trim(),
+    middleName: input.middleName?.trim() ?? "",
     lastName: input.lastName,
     phone: normalized,
     purok: input.purok ?? "Purok 1",
@@ -172,6 +178,7 @@ export async function verifyPhoneCode(
   // Retrieve sign-up data from local memory or fallback
   const pending = pendingRegistrations[normalized] || {
     firstName: "Juan",
+    middleName: "",
     lastName: "Dela Cruz",
     phone: normalized,
     purok: "Purok 1",
@@ -193,6 +200,7 @@ export async function verifyPhoneCode(
       options: {
         data: {
           first_name: pending.firstName,
+      middle_name: pending.middleName || null,
           last_name: pending.lastName,
           phone: normalized,
           purok: pending.purok,
@@ -240,6 +248,7 @@ export async function verifyPhoneCode(
     const { error: dbError } = await supabase.from("users").upsert({
       id: userId,
       first_name: pending.firstName,
+      middle_name: pending.middleName || null,
       last_name: pending.lastName,
       mobile_number: normalized,
       email: fakeEmail,
@@ -272,8 +281,9 @@ export async function verifyPhoneCode(
   const profile: ResidentProfile = {
     id: userId!,
     firstName: pending.firstName,
+    middleName: pending.middleName,
     lastName: pending.lastName,
-    fullName: `${pending.firstName} ${pending.lastName}`.trim(),
+    fullName: [pending.firstName, pending.middleName, pending.lastName].filter(Boolean).join(" "),
     phone: normalized,
     purok: pending.purok,
     // TEMPORARY: forced to fully verified regardless of actual ID review
@@ -356,14 +366,16 @@ export async function logInUser(
   }
 
   const firstName = dbUser.first_name ?? "";
+  const middleName = dbUser.middle_name?.trim() ?? "";
   const lastName = dbUser.last_name ?? "";
   return {
     ok: true,
     profile: {
       id: dbUser.id,
       firstName,
+      middleName,
       lastName,
-      fullName: `${firstName} ${lastName}`.trim() || "Resident",
+      fullName: [firstName, middleName, lastName].filter(Boolean).join(" ") || "Resident",
       phone: dbUser.mobile_number ?? normalized,
       purok: dbUser.address ?? "",
       // TEMPORARY: see the matching note in verifyPhoneCode above - ignores

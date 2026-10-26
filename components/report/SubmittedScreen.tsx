@@ -1,7 +1,10 @@
+import { Text } from "@/components/AppText";
+import { ReportPrimaryLabel } from "./ReportPrimaryLabel";
+import { reportStyles } from "./reportStyles";
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, Alert, ActivityIndicator } from "react-native";
+import { View, Pressable, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -14,10 +17,11 @@ import { colors } from "@/lib/theme";
 import { CLOSING_COPY } from "@/lib/reportQuestions";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
-import { Card } from "@/components/Card";
+import { ReportCard as Card } from "./ReportCard";
 import { DraftBadge } from "./DraftBadge";
 
 type SubmittedScreenProps = {
+  kind?: "blotter" | "serviceComplaint";
   referenceNo: string;
   onViewReports: () => void;
   /** Leaves the flow entirely, back to Home - replaces the old
@@ -82,7 +86,7 @@ type SubmittedScreenProps = {
  * and "leave" are both "I'm done here, in one way or another," so they
  * read as a pair, not two more decisions stacked under the real one.
  */
-export function SubmittedScreen({ referenceNo, onViewReports, onGoHome }: SubmittedScreenProps) {
+export function SubmittedScreen({ kind = "blotter", referenceNo, onViewReports, onGoHome }: SubmittedScreenProps) {
   // Single mount-in animation driving both the ring's fade and its scale -
   // one shared value, not two, since they move together (there's no
   // moment where one should lag the other). Starts at 0.6 rather than 0 so
@@ -136,13 +140,13 @@ export function SubmittedScreen({ referenceNo, onViewReports, onGoHome }: Submit
   }
 
   return (
-    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: colors.surface }}>
-      <ScreenBackground>
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: colors.residentBackground }}>
+      <ScreenBackground backgroundColor={colors.residentBackground}>
         <View className="flex-1 items-center justify-center px-8">
           <View ref={snapshotRef} collapsable={false} className="w-full items-center">
             <Animated.View
               style={badgeStyle}
-              className="w-20 h-20 rounded-full bg-green-50 items-center justify-center mb-6"
+              className="w-20 h-20 rounded-[28px] bg-green-50 border border-green-100 items-center justify-center mb-6"
             >
               <View className="w-14 h-14 rounded-full bg-green-700 items-center justify-center">
                 <Ionicons name="checkmark" size={26} color="white" />
@@ -153,7 +157,7 @@ export function SubmittedScreen({ referenceNo, onViewReports, onGoHome }: Submit
               {CLOSING_COPY.thanks} Naipasa na ang report.
             </Text>
             <Text className={`${REPORT_TYPE.subtitle} text-center max-w-[290px] mb-8`}>
-              {CLOSING_COPY.body}
+              {kind === "serviceComplaint" ? "Na-save na ang inyong service complaint para sa pagsusuri. Makikita ang status nito sa Aking Reports." : CLOSING_COPY.body}
             </Text>
 
             <Card className="w-full px-5 py-5 mb-8">
@@ -167,17 +171,16 @@ export function SubmittedScreen({ referenceNo, onViewReports, onGoHome }: Submit
                   />
                   <Text className={REPORT_TYPE.fieldLabel}>Reference Number</Text>
                 </View>
-                <DraftBadge compact />
+                {kind === "serviceComplaint" ? <View className="bg-brand-50 rounded-full px-2.5 py-1"><Text className="text-[12px] font-semibold text-brand">Under Review</Text></View> : <DraftBadge compact />}
               </View>
-              <Text className="text-[28px] font-bold text-brand" style={{ letterSpacing: 2 }}>
+              <Text selectable className="text-[28px] font-bold text-brand" style={{ letterSpacing: 1, lineHeight: 38, fontVariant: ["tabular-nums"] }}>
                 {referenceNo}
               </Text>
 
               <View className="h-px bg-gray-100 my-4" />
 
               <Text className={REPORT_TYPE.caption}>
-                Gamitin ang numerong ito kapag pumunta kayo sa barangay hall para pumirma, o para
-                mag-follow up sa inyong report.
+                {kind === "serviceComplaint" ? "Gamitin ang numerong ito para mag-follow up sa inyong service complaint." : "Gamitin ang numerong ito kapag pumunta kayo sa barangay hall para pumirma, o para mag-follow up sa inyong report."}
               </Text>
             </Card>
           </View>
@@ -189,7 +192,7 @@ export function SubmittedScreen({ referenceNo, onViewReports, onGoHome }: Submit
                   <Pressable
                     onPress={handleSaveSnapshot}
                     disabled={saving}
-                    className="flex-row items-center py-1 active:opacity-70"
+                    accessibilityRole="button" className="flex-row items-center py-3 active:opacity-70"
                   >
                     {saving ? (
                       <ActivityIndicator size="small" color={colors.onSurfaceVariant} />
@@ -213,7 +216,7 @@ export function SubmittedScreen({ referenceNo, onViewReports, onGoHome }: Submit
                       one row instead of two more full-width blocks. */}
                   <View className="w-px h-4 bg-gray-300 mx-3" />
 
-                  <Pressable onPress={onGoHome} className="py-1 active:opacity-70">
+                  <Pressable onPress={onGoHome} accessibilityRole="button" className="py-3 active:opacity-70">
                     <Text className="text-[15px] font-medium text-ink-soft">Bumalik sa Home</Text>
                   </Pressable>
                 </View>
@@ -221,9 +224,10 @@ export function SubmittedScreen({ referenceNo, onViewReports, onGoHome }: Submit
             >
               <Pressable
                 onPress={onViewReports}
+                style={reportStyles.primaryAction}
                 className="bg-brand rounded-2xl py-4 items-center overflow-hidden active:opacity-85"
               >
-                <Text className={REPORT_TYPE.buttonPrimary}>Tingnan ang aking reports</Text>
+                <ReportPrimaryLabel icon="reader-outline">Tingnan ang aking reports</ReportPrimaryLabel>
               </Pressable>
             </AuthActionGroup>
           </View>

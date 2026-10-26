@@ -1,10 +1,12 @@
+import { Ionicons } from "@/components/AppIcon";
+import { Text } from "@/components/AppText";
 import { useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, Pressable, ActivityIndicator, Alert, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { ScreenBackground } from "@/components/ScreenBackground";
+import { AuthScreenFrame as ScreenBackground, AuthFormCard, authStyles } from "@/components/auth/AuthScreenFrame";
 
 export default function PendingScreen() {
   const { profile, signOut } = useAuth();
@@ -55,14 +57,13 @@ export default function PendingScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
       <ScreenBackground>
-      <View className="flex-1 px-8 justify-center items-center">
-        <View className="w-20 h-20 rounded-full bg-orange-100 items-center justify-center mb-8">
-          <Text className="text-[34px]">⏳</Text>
-        </View>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 20, paddingBottom: 32 }}><AuthFormCard>
+      <View style={{ alignItems: "center" }}>
+        <View style={authStyles.pendingIcon}><Ionicons name="time-outline" size={30} color="#8A5C12" /></View>
 
-        <Text className="text-[28px] font-semibold text-ink tracking-tight mb-3 text-center">
+        <Text variant="screenTitle" className="text-[28px] font-semibold text-ink tracking-tight mb-3 text-center">
           Sinusuri pa ang Account
         </Text>
 
@@ -78,12 +79,12 @@ export default function PendingScreen() {
         <Pressable
           onPress={handleCheckStatus}
           disabled={loading}
-          className={`w-full rounded-2xl py-4 items-center mb-4 overflow-hidden ${loading ? "bg-gray-300" : "bg-brand active:opacity-85"}`}
+          className={`w-full rounded-2xl py-4 items-center mb-4 overflow-hidden ${loading ? "bg-[#647392]" : "bg-brand active:opacity-95"}`}
         >
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-white font-semibold text-[18px]">
+            <Text variant="body" className="text-white font-semibold text-[18px]">
               I-check ang Status
             </Text>
           )}
@@ -95,6 +96,7 @@ export default function PendingScreen() {
           </Text>
         </Pressable>
       </View>
+      </AuthFormCard></ScrollView>
       </ScreenBackground>
     </SafeAreaView>
   );

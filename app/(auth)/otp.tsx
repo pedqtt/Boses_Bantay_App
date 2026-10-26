@@ -1,13 +1,15 @@
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { Text, TextInput } from "@/components/AppText";
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, Pressable, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 
 // ✅ Import our custom bypass function here
 import { verifyPhoneCode, MOCK_OTP } from "@/lib/api/auth";
 import { useAuth } from "@/lib/auth-context";
-import { BackButton } from "@/components/BackButton";
-import { ScreenBackground } from "@/components/ScreenBackground";
+import { AuthBackButton as BackButton } from "@/components/auth/AuthScreenFrame";
+import { AuthScreenFrame as ScreenBackground, AuthFormCard, authStyles } from "@/components/auth/AuthScreenFrame";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
 import { colors } from "@/lib/theme";
 
@@ -74,26 +76,24 @@ export default function OtpScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
       <ScreenBackground>
       <View style={{ flex: 1 }}>
-        {/* No ScrollView here on purpose - this screen has one field and
-            fits without scrolling, so it's a static View. Fields don't
-            move, scroll, or get chased by the keyboard; focus is shown by
-            the field's own border highlight only. */}
+
         {/* Same structure as the rest of the auth flow, and switched to
             Tagalog + the shared BackButton - this screen had been left
             behind in English with the old "← Back" text link while
             login/register moved over. */}
         {/* Same 24 top as forgot-password.tsx - both have a back
             button, so they share the smaller top value. */}
-        <View className="flex-1 px-8" style={{ paddingTop: 24 }}>
-            <View className="mb-8 self-start">
+        <KeyboardAwareScrollView className="flex-1" keyboardShouldPersistTaps="handled" bottomOffset={24} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32 }}>
+          <AuthFormCard>
+            <View className="mb-5 self-start">
               <BackButton onPress={() => router.back()} />
             </View>
 
             <View>
-              <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
+              <Text variant="screenTitle" className="text-[28px] font-semibold text-ink tracking-tight mb-2">
                 I-verify ang Numero
               </Text>
               <Text className="text-[15px] text-ink-soft leading-7">
@@ -107,7 +107,7 @@ export default function OtpScreen() {
               </Text>
             </View>
 
-            <View className="flex-1 justify-center py-8">
+            <View className="pt-6">
               <TextInput
                 value={code}
                 onChangeText={(t) => setCode(t.replace(/[^0-9]/g, "").slice(0, 6))}
@@ -118,11 +118,12 @@ export default function OtpScreen() {
                 autoFocus
                 returnKeyType="done"
                 onSubmitEditing={handleVerify}
-                className="text-[34px] font-semibold text-ink tracking-[12px] text-center border-b border-gray-200 pb-4"
+                className="text-[32px] font-semibold text-ink text-center"
+                style={{ borderWidth: 1, borderColor: "#DCE3EF", borderRadius: 16, backgroundColor: "#FAFBFD", paddingHorizontal: 12, paddingVertical: 16, letterSpacing: 6 }}
               />
             </View>
 
-            <View className="mt-8" style={{ paddingBottom: 56 }}>
+            <View className="mt-2" style={{ paddingBottom: 0 }}>
               <AuthActionGroup
                 secondary={
                   <Pressable onPress={handleResend} hitSlop={8}>
@@ -135,17 +136,18 @@ export default function OtpScreen() {
                 <Pressable
                   onPress={handleVerify}
                   disabled={loading}
-                  className={`rounded-2xl py-4 items-center overflow-hidden ${loading ? "bg-gray-300" : "bg-brand active:opacity-85"}`}
+                  className={`rounded-2xl py-4 items-center overflow-hidden ${loading ? "bg-[#647392]" : "bg-brand active:opacity-95"}`}
                 >
                   {loading ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text className="text-white font-semibold text-[18px]">I-verify</Text>
+                    <Text variant="body" className="text-white font-semibold text-[18px]">I-verify</Text>
                   )}
                 </Pressable>
               </AuthActionGroup>
             </View>
-        </View>
+        </AuthFormCard>
+        </KeyboardAwareScrollView>
       </View>
       </ScreenBackground>
     </SafeAreaView>

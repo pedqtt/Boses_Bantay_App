@@ -13,14 +13,9 @@
 // statement, which is exactly today's paper experience - no worse.
 
 import type { ReportFieldKey, ChunkKey } from "@/lib/reportQuestions";
+import { isSpeechConfigured, speechBackend } from "@/lib/api/speechBackend";
 
-const LLM_API_URL = (
-  process.env.EXPO_PUBLIC_WHISPER_API_URL?.trim() ||
-  "https://disloyal-snorkel-clapped.ngrok-free.dev"
-).replace(/\/+$/, "");
-const LLM_API_KEY = process.env.EXPO_PUBLIC_WHISPER_API_KEY ?? "";
-
-export const isLlmConfigured = Boolean(LLM_API_URL);
+export const isLlmConfigured = isSpeechConfigured;
 
 /** Extraction should feel instant relative to the transcription that just
  *  finished. If it doesn't come back quickly, the resident is better served
@@ -41,10 +36,6 @@ export type OfficerBrief = {
   generatedAt: string;
 };
 
-function authHeaders(): Record<string, string> {
-  return LLM_API_KEY ? { "X-API-Key": LLM_API_KEY } : {};
-}
-
 async function postJson<T>(path: string, body: unknown, timeoutMs: number): Promise<T | null> {
   if (!isLlmConfigured) return null;
 
@@ -52,9 +43,10 @@ async function postJson<T>(path: string, body: unknown, timeoutMs: number): Prom
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${LLM_API_URL}${path}`, {
+    const { url, key } = speechBackend();
+    const res = await fetch(`${url}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json", ...(key ? { "X-API-Key": key } : {}) },
       body: JSON.stringify(body),
       signal: controller.signal,
     });

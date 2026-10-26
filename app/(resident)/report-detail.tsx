@@ -1,13 +1,14 @@
+import { Text } from "@/components/AppText";
 import { useAuth } from "@/lib/auth-context";
 import { scopeAccountQuery } from "@/lib/api/myReports";
 import { isKnownReportStatus, reportDate, type ReportSource } from "@/lib/myReports";
 import { ReportStatusBadge } from "@/components/reports/ReportStatusBadge";
 import { SavedComplaintPhotos } from "@/components/report/SavedComplaintPhotos";
 import { useEffect, useState } from "react";
-import { View, Text, ScrollView, ActivityIndicator, Image } from "react-native";
+import { View, ScrollView, ActivityIndicator, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { relativeTime } from "@/lib/relativeTime";
 import { Card } from "@/components/Card";
@@ -282,7 +283,7 @@ export default function ReportDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
-      <ScreenBackground backgroundColor="#FAF8F7">
+      <ScreenBackground backgroundColor={colors.residentBackground}>
         <View style={{ flex: 1 }}>
           <BahagiHeader
             label={data?.referenceNo ?? "Detalye ng Report"}

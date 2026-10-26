@@ -1,5 +1,6 @@
+import { Text, TextInput } from "@/components/AppText";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView, Keyboard } from "react-native";
+import { View, Pressable, ScrollView, Keyboard } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -15,12 +16,15 @@ import Animated, {
 import { useKeyboardHandler } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect, useNavigation } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { sendBotMessage, createBotSession, CHAT_CATEGORIES, CHAT_GREETING, CHAT_CLOSING, type ChatMessage } from "@/lib/api/chat";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { colors } from "@/lib/theme";
 import { ChatResponse } from "@/components/chat/ChatResponse";
 import { answerForDisplay, unwrapExcerpt } from "@/lib/chat/citation-presentation";
+
+
+const AnimatedAppText = Animated.createAnimatedComponent(Text);
 
 // UPDATED - this used to be its own page-local palette (Imperial Blue /
 // White Convolvulus), scoped to bot.tsx only. That reference palette is
@@ -30,7 +34,7 @@ import { answerForDisplay, unwrapExcerpt } from "@/lib/chat/citation-presentatio
 // one place to change either color from now on, not two.
 const BOT_COLORS = {
   accent: colors.primary,
-  accentTint: colors.primaryContainer,
+  accentTint: colors.residentTint,
   // Lighter than the app-wide colors.surface (#F5F2F3) on purpose - now
   // that the header above is pure white with a hairline border, the
   // shared surface tone read as noticeably dull/gray by comparison, and
@@ -39,7 +43,7 @@ const BOT_COLORS = {
   // denser card-based screens. ScreenBackground's `backgroundColor` prop
   // exists specifically for this - a per-screen override, not a change
   // to the shared token.
-  surface: "#FAF8F7",
+  surface: colors.residentBackground,
 };
 
 // 40px, not the old 24px - big enough to actually anchor the row as "a
@@ -49,14 +53,14 @@ const BOT_COLORS = {
 function BotAvatar() {
   return (
     <View
-      className="w-10 h-10 rounded-full items-center justify-center mr-3"
-      style={{ backgroundColor: BOT_COLORS.accentTint, borderWidth: 1, borderColor: "rgba(2,31,148,0.08)" }}
+      className="items-center justify-center"
+      style={{ width: 32, height: 32, borderRadius: 11, marginRight: 10, backgroundColor: colors.residentTint }}
     >
       {/* Sparkles instead of a chat bubble - a chat-bubble icon inside a
           chat screen is redundant (the screen already says what it is);
           sparkles is the more legible "this reply is AI-generated" mark,
           the same shorthand Claude/ChatGPT's own apps use. */}
-      <Ionicons name="sparkles" size={18} color={BOT_COLORS.accent} />
+      <Ionicons name="sparkles" size={16} color={BOT_COLORS.accent} />
     </View>
   );
 }
@@ -138,16 +142,16 @@ function TypingDots() {
 /** Opening screen: the existing greeting and six vertical category options. */
 function ChatEmptyState({ onPickPrompt }: { onPickPrompt: (text: string) => void }) {
   return (
-    <View style={{ width: "100%", maxWidth: 560, alignSelf: "center", paddingTop: 28, paddingBottom: 28 }}>
+    <View style={{ width: "100%", maxWidth: 560, alignSelf: "center", paddingTop: 24, paddingBottom: 28 }}>
       <Animated.View entering={FadeIn.duration(300)} style={{ alignItems: "center", marginBottom: 16 }}>
         <View style={{ width: 52, height: 52, borderRadius: 18, backgroundColor: BOT_COLORS.accentTint, alignItems: "center", justifyContent: "center" }}>
           <Ionicons name="sparkles" size={25} color={BOT_COLORS.accent} />
         </View>
       </Animated.View>
-      <Animated.Text entering={FadeInUp.duration(300).easing(Easing.out(Easing.cubic))}
+      <AnimatedAppText entering={FadeInUp.duration(300).easing(Easing.out(Easing.cubic))}
         style={{ fontSize: 24, lineHeight: 32, fontWeight: "600", letterSpacing: -.4, textAlign: "center", color: colors.onSurface, paddingHorizontal: 12 }}>
         {CHAT_GREETING}
-      </Animated.Text>
+      </AnimatedAppText>
       <Text style={{ fontSize: 14, lineHeight: 21, color: colors.onSurfaceVariant, textAlign: "center", marginTop: 8, marginBottom: 24, paddingHorizontal: 12 }}>
         {CHAT_CLOSING}
       </Text>
@@ -161,8 +165,8 @@ function ChatEmptyState({ onPickPrompt }: { onPickPrompt: (text: string) => void
           <Animated.View key={category.id} entering={FadeInUp.duration(260).delay(80 + i * 32).easing(Easing.out(Easing.cubic))}>
             <Pressable onPress={() => onPickPrompt(category.label)} accessibilityRole="button" accessibilityLabel={`${i + 1}. ${category.label}`}
               className="active:opacity-70"
-              style={{ width: "100%", flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 16, backgroundColor: BOT_COLORS.accentTint, borderWidth: 1, borderColor: "rgba(2,31,148,0.08)", paddingVertical: 14, paddingHorizontal: 14 }}>
-              <View style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.75)" }}>
+              style={{ width: "100%", flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, backgroundColor: colors.residentTint, borderWidth: 1, borderColor: "#DCE5F8", paddingVertical: 16, paddingHorizontal: 16 }}>
+              <View style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" }}>
                 <Text style={{ fontSize: 13, fontWeight: "600", color: BOT_COLORS.accent }}>{i + 1}</Text>
               </View>
               <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
@@ -227,7 +231,7 @@ export default function BotScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.push("/(resident)/home");
+      router.replace("/(resident)/home");
     }
   }
 
@@ -375,90 +379,19 @@ export default function BotScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: colors.surfaceContainerLow }}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
       <ScreenBackground backgroundColor={BOT_COLORS.surface}>
-        {/* Back button now has a real circular tap target (44px, MD3's own
-            touch-target minimum) instead of a bare icon floating in
-            space - easier to hit accurately, and the filled circle makes
-            it visibly a button before it's even pressed. The AI mark
-            moved to sit right next to the title, as a small identity tag
-            (it's not interactive, so it doesn't belong in the toolbar
-            with real actions). "Bagong Chat" is the toolbar's only
-            control now, and it's a real labeled button - icon plus text,
-            not an icon alone - at the same 44px minimum height, so it's
-            both easier to hit and unambiguous about what it does without
-            requiring a resident to already know what a pencil icon means.
-            White fill + a flat bottom border, not the same surface color
-            as the body - the header used to be visually indistinguishable
-            from the message list behind it (both colors.surface, with only
-            a near-invisible 0.04-opacity shadow separating them). Now it
-            reads as its own distinct surface sitting above the chat, the
-            same white-panel-on-surface-background language cards use
-            throughout the rest of the app. */}
-        <View
-          className="flex-row items-center justify-between px-5 py-4"
-          style={{
-            backgroundColor: colors.surfaceContainerLow,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.outlineVariant,
-          }}
-        >
-          {/* Identity zone - allowed to shrink (title truncates) so the
-              toolbar on the right never gets pushed off-screen. */}
-          <View className="flex-row items-center flex-1 mr-3" style={{ minWidth: 0 }}>
-            {/* No fill behind it - back to a bare glyph, no tinted disc. */}
-            <Pressable
-              onPress={goBack}
-              accessibilityRole="button"
-              accessibilityLabel="Bumalik"
-              hitSlop={16}
-              className="active:opacity-50"
-            >
-              <Ionicons name="chevron-back" size={24} color={colors.onSurfaceVariant} />
+        <View style={{ backgroundColor: "#FFFFFF", paddingHorizontal: 20, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Bumalik" android_ripple={{ color: "#DFE6F5" }} style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: "#F1F3F8", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              <Ionicons name="chevron-back" size={22} color={colors.primary} />
             </Pressable>
-
-            <View className="w-px h-7 mx-4" style={{ backgroundColor: colors.outlineVariant }} />
-
-            <View className="flex-row items-center flex-1" style={{ minWidth: 0 }}>
-              <Text
-                numberOfLines={1}
-                className="text-[22px] font-semibold text-ink tracking-tight mr-2"
-                style={{ flexShrink: 1 }}
-              >
-                Barangay-Bot
-              </Text>
-              {/* No badge/disc behind it - back to a bare sparkle glyph. */}
-              <Ionicons name="sparkles" size={14} color={colors.primary} />
-            </View>
+            <Text variant="screenTitle" accessibilityRole="header" style={{ flex: 1, fontSize: 24, lineHeight: 32, fontWeight: "700", color: "#14244B", letterSpacing: -0.5 }}>Barangay Bot</Text>
+            <Pressable onPress={handleNewChat} disabled={busy || isEmpty} accessibilityRole="button" accessibilityLabel="Bagong chat" accessibilityHint="Simulan muli ang usapan at bumalik sa mga kategorya" accessibilityState={{ disabled: busy || isEmpty }} style={{ minWidth: 64, minHeight: 48, alignItems: "center", justifyContent: "center", gap: 3, opacity: busy || isEmpty ? 0.45 : 1 }}>
+              <Ionicons name="create-outline" size={22} color={colors.primary} />
+              <Text style={{ fontSize: 10, lineHeight: 15, fontWeight: "600", color: colors.primary }}>Bagong Chat</Text>
+            </Pressable>
           </View>
-
-          {/* New chat - upgraded from a near-invisible hairline (the old
-              border color was the light tint itself, ~1:1 with white and
-              basically undetectable) to a real tonal button: filled with
-              the light brand tint, primary-colored icon and label, so it
-              actually reads as an accented action instead of a ghost
-              outline that happened to also have text in it. */}
-          <Pressable
-            onPress={handleNewChat}
-            disabled={busy || isEmpty}
-            accessibilityRole="button"
-            accessibilityLabel="Bagong chat"
-            hitSlop={4}
-            className="flex-row items-center active:opacity-70"
-            style={{
-              height: 40,
-              paddingHorizontal: 14,
-              borderRadius: 20,
-              backgroundColor: colors.primaryContainer,
-              opacity: isEmpty ? 0 : busy ? 0.4 : 1,
-              gap: 6,
-            }}
-          >
-            <Ionicons name="create-outline" size={15} color={colors.primary} />
-            <Text className="text-[13px] font-semibold" style={{ color: colors.primary }}>
-              Bagong Chat
-            </Text>
-          </Pressable>
         </View>
 
         <View className="flex-1">
@@ -472,7 +405,7 @@ export default function BotScreen() {
             {isEmpty ? (
               <ChatEmptyState onPickPrompt={(text) => handleSend(text)} />
             ) : (
-              <View className="gap-7 pt-6 pb-8">
+              <View className="pt-6 pb-8" style={{ gap: 28 }}>
                 {messages.map((m) =>
                   m.from === "user" ? (
                     <Animated.View
@@ -504,7 +437,7 @@ export default function BotScreen() {
                       <BotAvatar />
                       {/* pt-2.5, not pt-0.5 - re-centered against the 40px
                           avatar (was tuned for the old 24px one). */}
-                      <View className="flex-1 pt-2.5" style={{ minWidth: 0 }}>
+                      <View className="flex-1" style={{ minWidth: 0, paddingTop: 4 }}>
                         <ChatResponse message={m} />
                         {m.suggestions?.length ? (
                           <View style={{ marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.outlineVariant, gap: 12 }}>
@@ -560,11 +493,11 @@ export default function BotScreen() {
                 page comes from the white fill and a flat 1.5px accent-tint
                 border alone, not simulated elevation. */}
             <View
-              className="flex-row items-end gap-2 bg-white mx-4 mb-1 px-3 py-2"
+              className="flex-row items-end gap-2 bg-white mx-5 mb-1 px-3 py-2"
               style={{
-                borderRadius: 26,
-                borderWidth: 1.5,
-                borderColor: composerFocused ? colors.primaryMuted : BOT_COLORS.accentTint,
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: composerFocused ? colors.primary : "#D9E1EF",
               }}
             >
               <TextInput
@@ -577,7 +510,7 @@ export default function BotScreen() {
                 maxLength={4000}
                 placeholderTextColor={colors.outline}
                 multiline
-                style={{ maxHeight: 120 }}
+                style={{ maxHeight: 120, minHeight: 44 }}
                 className="flex-1 px-2 py-2 text-[15px] leading-6 text-ink"
               />
               <SendButton onPress={() => handleSend()} disabled={busy || !input.trim()} />

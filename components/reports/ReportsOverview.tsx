@@ -1,5 +1,6 @@
-import { View, Text, Pressable, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text } from "@/components/AppText";
+import { View, Pressable, StyleSheet } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import { colors } from "@/lib/theme";
 
 type StatusFilter = "all" | "active" | "closed";
@@ -32,7 +33,7 @@ const styles = StyleSheet.create({
   column: { flex: 1, paddingHorizontal: 4 },
   separator: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: "#E5E9F1" },
   metric: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 10, alignItems: "center", justifyContent: "center", minHeight: 112 },
-  selected: { backgroundColor: "#EDF1FC" },
+  selected: { backgroundColor: colors.residentTint },
   count: { color: colors.onSurface, fontSize: 28, lineHeight: 36, fontWeight: "600", fontVariant: ["tabular-nums"], marginTop: 8 },
   label: { color: colors.onSurfaceVariant, fontSize: 12, lineHeight: 18, marginTop: 3, fontWeight: "500", textAlign: "center" },
   selectedLabel: { color: colors.primary, fontWeight: "600" },

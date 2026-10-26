@@ -1,12 +1,14 @@
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { Text } from "@/components/AppText";
 import { useState } from "react";
-import { View, Text, ActivityIndicator, Pressable } from "react-native";
+import { View, ActivityIndicator, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { isPhoneRegistered, normalizePhone } from "@/lib/api/auth";
 import { getPhoneError, PHONE_FORMAT_HINT } from "@/lib/validation";
 import { PhoneInput } from "@/components/PhoneInput";
-import { BackButton } from "@/components/BackButton";
-import { ScreenBackground } from "@/components/ScreenBackground";
+import { AuthBackButton as BackButton } from "@/components/auth/AuthScreenFrame";
+import { AuthScreenFrame as ScreenBackground, AuthFormCard, authStyles } from "@/components/auth/AuthScreenFrame";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
 
 /**
@@ -23,8 +25,7 @@ export default function ForgotPasswordScreen() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
 
-  // FIXED - no ScrollView, no spacer, same as login.tsx/otp.tsx: fully
-  // static layout, only the focused field's border highlight changes.
+  // Scrollable form content keeps large accessibility text reachable.
 
   async function handleSendCode() {
     const formatError = getPhoneError(phone);
@@ -54,22 +55,23 @@ export default function ForgotPasswordScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
       <ScreenBackground>
       <View style={{ flex: 1 }}>
-        {/* No ScrollView - fully static, same as login.tsx/otp.tsx. */}
+
         {/* Nav + heading act as the header at top, the field group is
             centered in the space below it, the action cluster as the
             last item. */}
         {/* 24 top - the back button supplies its own visual offset from
             the edge. */}
-        <View className="flex-1 px-8" style={{ paddingTop: 24 }}>
-            <View className="mb-8 self-start">
+        <KeyboardAwareScrollView className="flex-1" keyboardShouldPersistTaps="handled" bottomOffset={24} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32 }}>
+          <AuthFormCard>
+            <View className="mb-5 self-start">
               <BackButton onPress={() => router.back()} />
             </View>
 
             <View>
-              <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
+              <Text variant="screenTitle" className="text-[28px] font-semibold text-ink tracking-tight mb-2">
                 Nakalimutan ang Password
               </Text>
               <Text className="text-[15px] text-ink-soft leading-7">
@@ -78,8 +80,8 @@ export default function ForgotPasswordScreen() {
               </Text>
             </View>
 
-            <View className="flex-1 justify-center py-8">
-              <PhoneInput
+            <View className="pt-6">
+              <PhoneInput appearance="boxed"
                 label="Numero ng Mobile"
                 digits={phone}
                 onChangeDigits={(d) => {
@@ -94,7 +96,7 @@ export default function ForgotPasswordScreen() {
               <Text className="text-[13px] text-ink-faint mt-1.5">{PHONE_FORMAT_HINT}</Text>
             </View>
 
-            <View className="mt-8" style={{ paddingBottom: 56 }}>
+            <View className="mt-2" style={{ paddingBottom: 0 }}>
               <AuthActionGroup
                 secondary={
                   <Pressable onPress={() => router.replace("/(auth)/login")} hitSlop={8}>
@@ -105,17 +107,18 @@ export default function ForgotPasswordScreen() {
                 <Pressable
                   onPress={handleSendCode}
                   disabled={checking}
-                  className={`rounded-2xl py-4 items-center overflow-hidden ${checking ? "bg-gray-300" : "bg-brand active:opacity-85"}`}
+                  className={`rounded-2xl py-4 items-center overflow-hidden ${checking ? "bg-[#647392]" : "bg-brand active:opacity-95"}`}
                 >
                   {checking ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text className="text-white font-semibold text-[18px]">Magpadala ng Code</Text>
+                    <Text variant="body" className="text-white font-semibold text-[18px]">Magpadala ng Code</Text>
                   )}
                 </Pressable>
               </AuthActionGroup>
             </View>
-        </View>
+        </AuthFormCard>
+        </KeyboardAwareScrollView>
       </View>
       </ScreenBackground>
     </SafeAreaView>

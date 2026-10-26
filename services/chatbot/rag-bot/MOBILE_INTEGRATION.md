@@ -86,3 +86,29 @@ reused. The launcher refreshes the local Wi-Fi API address before Expo starts.
 If Expo is already running after an IP change, restart Expo to reload its env.
 `Start Boses Bantay.cmd --check` checks setup without starting anything.
 Startup logs are in `services/chatbot/rag-bot/.private/startup-*.log`.
+
+## Voice transcription on the shared address
+
+The launcher now also starts the existing local Whisper worker automatically.
+Transcription and report helper requests use the same mobile URL/key as chat.
+See [TRANSCRIPTION.md](TRANSCRIPTION.md) for the service folder, startup,
+configuration, upload handling, and verification.
+
+## Local server control panel
+
+Open `Boses Bantay Controls.cmd` on the Desktop or in the project root, or visit
+http://127.0.0.1:8504 while the panel is running. Opening the panel starts only
+its own localhost UI; it does not start or stop the application services.
+
+Expo, Chatbot API, Whisper, and Ollama each have separate Start and Stop buttons.
+Start all and Stop all are available. Stopping one service does not stop the
+other services. Stop all leaves the panel open for starting services again.
+Stopping interrupts active requests; stopping Ollama also affects other local
+AI features using that same Ollama server.
+
+Controls verify project paths and process creation times before termination,
+include the selected service's child processes, and leave unidentified port
+owners alone. They do not kill every Node or Python process. Stop all also stops
+an in-progress project startup launcher so it cannot relaunch the servers.
+The panel binds only to 127.0.0.1 on port 8504. Recent local logs redact configured
+keys, and no environment-secret editor or external tunnel is provided here.

@@ -1,5 +1,8 @@
+import { Text, TextInput } from "@/components/AppText";
+import { ReportPrimaryLabel } from "./ReportPrimaryLabel";
+import { reportStyles } from "./reportStyles";
 import { useRef } from "react";
-import { View, Text, TextInput, Pressable } from "react-native";
+import { View, Pressable } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import {
@@ -10,9 +13,9 @@ import {
 } from "@/lib/reportQuestions";
 import { isFieldApplicable } from "@/lib/reportFlow";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
-import { FormField } from "@/components/FormField";
-import { FormChoiceField } from "@/components/FormChoiceField";
-import { PhoneInput } from "@/components/PhoneInput";
+import { FormField } from "./ReportFormFields";
+import { FormChoiceField } from "./ReportFormFields";
+import { PhoneInput } from "./ReportFormFields";
 import {
   toLocalPhoneDigits,
   normalizeAgeDigits,
@@ -94,11 +97,11 @@ export function ConfirmYouScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 56 }}
       >
-        <View className="mb-10">
-          <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
+        <View className="mb-8">
+          <Text className="text-[27px] leading-9 font-semibold text-ink tracking-tight mb-2">
             {IDENTITY_CONFIRM_COPY.heading}
           </Text>
-          <Text className="text-[15px] text-ink-soft leading-7">
+          <Text className="text-[15px] text-ink-soft leading-6">
             {IDENTITY_CONFIRM_COPY.body}
           </Text>
         </View>
@@ -139,7 +142,7 @@ export function ConfirmYouScreen({
           // signup shouldn't see it work differently here.
           if (key === "complainantContact") {
             return (
-              <View key={key} className="mb-7">
+              <View key={key}>
                 <PhoneInput
                   ref={(el) => {
                     refs.current[key] = el;
@@ -187,18 +190,17 @@ export function ConfirmYouScreen({
         })}
       </KeyboardAwareScrollView>
 
-      <View className="px-8" style={{ paddingBottom: 32 }}>
+      <View style={reportStyles.actionBar}>
         <AuthActionGroup>
           <Pressable
             onPress={onNext}
             disabled={!canAdvance}
+            style={reportStyles.primaryAction}
             className={`rounded-2xl py-4 items-center overflow-hidden ${
               canAdvance ? "bg-brand active:opacity-85" : "bg-gray-300"
             }`}
           >
-            <Text className="text-white font-semibold text-[18px]">
-              {IDENTITY_CONFIRM_COPY.confirm}
-            </Text>
+            <ReportPrimaryLabel icon="arrow-forward">{IDENTITY_CONFIRM_COPY.confirm}</ReportPrimaryLabel>
           </Pressable>
         </AuthActionGroup>
       </View>

@@ -1,3 +1,5 @@
+import { TEXT_ROLES } from "@/lib/typography";
+
 // theme.ts — single source of truth for spacing, type, color-role, radius,
 // and elevation tokens, per the android-expo-ui skill (Material Design 3
 // principles: 8dp grid, MD3 type scale, WCAG AA contrast, MD3 elevation).
@@ -32,30 +34,24 @@ export const spacing = {
   xxl: 48, // hero areas, empty states
 } as const;
 
-// MD3 type scale. NOTE: the existing auth screens (login/register/otp/
-// forgot-password/reset-password) use their own hand-tuned sizes
-// (text-[19px], text-[28px], etc.) that were deliberately bumped up this
-// session for older-user legibility - those are a considered decision,
-// not a violation to silently overwrite. This scale is here for screens
-// built or reworked going forward (resident home/reports/directory,
-// GIS/voice-filing/RAG screens still to come), not a mandate to rewrite
-// the auth flow's already-tuned type sizes.
+// Compatibility aliases backed by the shared application text hierarchy.
+// AppText and AppTextInput apply the account preference and retain OS scaling.
 export const typography = {
-  displayLarge: { fontSize: 57, lineHeight: 64, fontWeight: "400" },
-  displayMedium: { fontSize: 45, lineHeight: 52, fontWeight: "400" },
-  displaySmall: { fontSize: 36, lineHeight: 44, fontWeight: "400" },
-  headlineLarge: { fontSize: 32, lineHeight: 40, fontWeight: "400" },
-  headlineMedium: { fontSize: 28, lineHeight: 36, fontWeight: "400" },
-  headlineSmall: { fontSize: 24, lineHeight: 32, fontWeight: "400" },
-  titleLarge: { fontSize: 22, lineHeight: 28, fontWeight: "500" },
-  titleMedium: { fontSize: 16, lineHeight: 24, fontWeight: "600", letterSpacing: 0.15 },
-  titleSmall: { fontSize: 14, lineHeight: 20, fontWeight: "600", letterSpacing: 0.1 },
-  bodyLarge: { fontSize: 16, lineHeight: 24, fontWeight: "400", letterSpacing: 0.5 },
-  bodyMedium: { fontSize: 14, lineHeight: 20, fontWeight: "400", letterSpacing: 0.25 },
-  bodySmall: { fontSize: 12, lineHeight: 16, fontWeight: "400", letterSpacing: 0.4 },
-  labelLarge: { fontSize: 14, lineHeight: 20, fontWeight: "500", letterSpacing: 0.1 },
-  labelMedium: { fontSize: 12, lineHeight: 16, fontWeight: "500", letterSpacing: 0.5 },
-  labelSmall: { fontSize: 11, lineHeight: 16, fontWeight: "500", letterSpacing: 0.5 },
+  displayLarge: { ...TEXT_ROLES.hero, fontWeight: "400" },
+  displayMedium: { ...TEXT_ROLES.hero, fontWeight: "400" },
+  displaySmall: { ...TEXT_ROLES.display, fontWeight: "400" },
+  headlineLarge: { ...TEXT_ROLES.display, fontWeight: "600" },
+  headlineMedium: { ...TEXT_ROLES.screenTitle, fontWeight: "600" },
+  headlineSmall: { ...TEXT_ROLES.heading, fontWeight: "600" },
+  titleLarge: { ...TEXT_ROLES.title, fontWeight: "600" },
+  titleMedium: { ...TEXT_ROLES.section, fontWeight: "600" },
+  titleSmall: { ...TEXT_ROLES.body, fontWeight: "600" },
+  bodyLarge: { ...TEXT_ROLES.body, fontWeight: "400" },
+  bodyMedium: { ...TEXT_ROLES.secondary, fontWeight: "400" },
+  bodySmall: { ...TEXT_ROLES.caption, fontWeight: "400" },
+  labelLarge: { ...TEXT_ROLES.label, fontWeight: "600" },
+  labelMedium: { ...TEXT_ROLES.caption, fontWeight: "500" },
+  labelSmall: { ...TEXT_ROLES.caption, fontWeight: "500" },
 } as const;
 
 // Semantic color roles, values pulled from tailwind.config.js's existing
@@ -67,16 +63,20 @@ export const typography = {
 // brand block for the full shade ramp derived from #021F94. Started scoped
 // to bot.tsx only, then applied app-wide at the resident's request.
 export const colors = {
-  primary: "#021F94", // brand.DEFAULT - Imperial Blue
+  primary: "#021C84", // brand.DEFAULT - Imperial Blue
   onPrimary: "#FFFFFF",
-  primaryContainer: "#E3E6F4", // brand.50 / brand.light
+  primaryContainer: "#DCE5F7", // brand.50 / brand.light
   onPrimaryContainer: "#011760", // brand.dark
   // A lighter step of primary for filled buttons/surfaces that don't need
   // (or don't want) the full DEFAULT navy's weight - directory.tsx's call
   // action was the first place `primary` at full strength read as too
   // heavy for a button meant to be tapped often, not a one-off emphasis
   // color. White text still clears WCAG AA on this (~4.85:1).
-  primaryMuted: "#5B6DB9", // brand.400
+  primaryMuted: "#5065AE", // brand.400
+  residentBackground: "#F9FAFD", // Near-white blue-gray background for resident modules.
+  residentTint: "#DCE5F7", // Deeper accent fill for resident options and supporting controls.
+  residentSelected: "#CCDAF4", // Selected controls need more emphasis than supporting fills.
+  residentAccentOutline: "#AFC4EA",
   surface: "#F5F2F3", // White Convolvulus - ScreenBackground's base color, app background
   onSurface: "#0B0F19", // ink.DEFAULT - primary text
   onSurfaceVariant: "#374151", // ink.soft - secondary text (never lighter than this)
@@ -94,9 +94,10 @@ export const colors = {
   // now the rule is: is there real content/interaction here, or not.
   outlineFaint: "#D1D5DB",
 
-  error: "#8B1220", // alert.DEFAULT - deepened to match brand's lightness/weight, see tailwind.config.js
+  error: "#80111E", // alert.DEFAULT - deepened to match brand's lightness/weight, see tailwind.config.js
   onError: "#FFFFFF",
-  errorContainer: "#FBDEDE", // alert.100
+  errorOutline: "#DEB5BC",
+  errorContainer: "#F5E0E4", // alert.100
   onErrorContainer: "#5C0C15", // alert.dark
 } as const;
 

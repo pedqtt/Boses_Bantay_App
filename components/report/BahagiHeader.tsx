@@ -1,5 +1,6 @@
-import { View, Text, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text } from "@/components/AppText";
+import { View, Pressable } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import { colors } from "@/lib/theme";
 
 type BahagiHeaderProps = {
@@ -29,7 +30,7 @@ type BahagiHeaderProps = {
  *  the same "how much is behind me" signal the bar did. */
 function Stepper({ total, current }: { total: number; current: number }) {
   return (
-    <View className="flex-row items-center">
+    <View accessible accessibilityRole="progressbar" accessibilityLabel="Progreso ng report" accessibilityValue={{ min: 0, max: total, now: current }} className="flex-row items-center">
       {Array.from({ length: total }).map((_, i) => {
         const step = i + 1;
         const isDone = step < current;
@@ -45,15 +46,15 @@ function Stepper({ total, current }: { total: number; current: number }) {
                 borderRadius: 999,
                 backgroundColor: isDone || isCurrent ? colors.primary : colors.outlineVariant,
                 borderWidth: isCurrent ? 2.5 : 0,
-                borderColor: colors.primaryContainer,
+                borderColor: colors.residentTint,
               }}
             />
             {!isLast && (
               <View
                 style={{
                   flex: 1,
-                  height: 2,
-                  marginHorizontal: 4,
+                  height: 3,
+                  marginHorizontal: 5,
                   borderRadius: 1,
                   backgroundColor: isDone ? colors.primary : colors.outlineVariant,
                 }}
@@ -122,7 +123,7 @@ export function BahagiHeader({
 
   return (
     <View
-      className={hasProgress ? "px-6 pt-5 pb-6" : "px-6 py-5"}
+      className={hasProgress ? "px-6 pt-3 pb-3" : "px-6 py-3"}
       // Same header/body contrast treatment as bot.tsx, profile.tsx,
       // directory.tsx, and reports.tsx: a genuinely white header
       // (surfaceContainerLow) with a flat 1px bottom border, not a header
@@ -139,29 +140,33 @@ export function BahagiHeader({
         borderBottomColor: colors.outlineVariant,
       }}
     >
-      <View className={`flex-row items-center ${hasProgress ? "mb-5" : ""}`}>
+      <View className={`flex-row items-center ${hasProgress ? "mb-4" : ""}`}>
         <Pressable
           onPress={onBack}
           disabled={backDisabled}
-          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Bumalik"
+          accessibilityState={{ disabled: Boolean(backDisabled) }}
+          style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: colors.residentTint, alignItems: "center", justifyContent: "center", opacity: backDisabled ? 0.4 : 1 }}
+          hitSlop={8}
           className="active:opacity-60"
         >
-          <Ionicons name="chevron-back" size={24} color={colors.onSurfaceVariant} />
+          <Ionicons name="chevron-back" size={21} color={colors.primary} />
         </Pressable>
 
         {/* Same thin-rule-as-separator pattern PhoneInput uses between
             "+63" and its digit field - a minimalist divider instead of
             pushing the back button and title to opposite ends of the row. */}
-        <View className="w-px h-7 bg-gray-300 mx-4" />
+        <View style={{ width: 14 }} />
 
-        <Text
+        <Text variant="title"
           numberOfLines={1}
-          className="flex-1 mr-3 text-[17px] font-bold text-ink tracking-tight"
+          className="flex-1 mr-3 text-[17px] font-semibold text-ink tracking-tight"
         >
           {label}
         </Text>
         {stepText && (
-          <View className="bg-brand-50 rounded-full px-3 py-1">
+          <View className="bg-brand-50 border border-brand-100 rounded-full px-3 py-1.5">
             <Text className="text-[13px] font-semibold text-brand-dark">{stepText}</Text>
           </View>
         )}

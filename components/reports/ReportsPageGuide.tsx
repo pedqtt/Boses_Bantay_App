@@ -1,7 +1,8 @@
+import { Text, TextInput } from "@/components/AppText";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Modal, View, Text, Pressable, ScrollView, TextInput, Keyboard, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { Modal, View, Pressable, ScrollView, Keyboard, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { colors } from "@/lib/theme";
 import { ReportsOverview } from "./ReportsOverview";
 import { ReportStatusBadge } from "./ReportStatusBadge";
@@ -79,7 +80,7 @@ export function ReportsPageGuide({ visible, onClose }: { visible: boolean; onClo
           </View>
           <View onLayout={event => { positions.current.scope = event.nativeEvent.layout.y; }}>
             <DemoTarget active={active.id === "scope"} style={{ marginBottom: 16 }}>
-              <View style={styles.scopes}>{[{ id: "all" as const, label: "Lahat" }, { id: "created" as const, label: "Ginawa ko" }, { id: "assigned" as const, label: "Nakatalaga" }].map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected: scope === item.id }} onPress={() => { setScope(item.id); done("scope", item.id === "assigned" ? "Nakatalaga sa iyo lang ang makikita." : item.id === "created" ? "Mga report na ginawa mo lang ang makikita." : "Lahat ng iyong report ang makikita."); }} style={[styles.scope, scope === item.id && { backgroundColor: "#EDF1FC" }]}><Text style={{ fontSize: 12, lineHeight: 18, fontWeight: "600", color: scope === item.id ? colors.primary : colors.onSurfaceVariant }}>{item.label}</Text></Pressable>)}</View>
+              <View style={styles.scopes}>{[{ id: "all" as const, label: "Lahat" }, { id: "created" as const, label: "Ginawa ko" }, { id: "assigned" as const, label: "Nakatalaga" }].map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected: scope === item.id }} onPress={() => { setScope(item.id); done("scope", item.id === "assigned" ? "Nakatalaga sa iyo lang ang makikita." : item.id === "created" ? "Mga report na ginawa mo lang ang makikita." : "Lahat ng iyong report ang makikita."); }} style={[styles.scope, scope === item.id && { backgroundColor: colors.residentTint }]}><Text style={{ fontSize: 12, lineHeight: 18, fontWeight: "600", color: scope === item.id ? colors.primary : colors.onSurfaceVariant }}>{item.label}</Text></Pressable>)}</View>
             </DemoTarget>
           </View>
           <View onLayout={event => { positions.current.card = event.nativeEvent.layout.y; }}>
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
   demoContent: { padding: 14, paddingBottom: 22 },
   demoHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 8, marginBottom: 12 },
   pageTitle: { fontSize: 22, lineHeight: 30, color: colors.onSurface, fontWeight: "600" },
-  refresh: { width: 44, height: 44, backgroundColor: "#EDF1FC", borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  refresh: { width: 44, height: 44, backgroundColor: colors.residentTint, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   search: { flexDirection: "row", alignItems: "center", backgroundColor: "white", borderRadius: 15, paddingLeft: 12 },
   searchInput: { flex: 1, fontSize: 13, lineHeight: 20, paddingHorizontal: 10, paddingVertical: 14, color: colors.onSurface },
   scopes: { flexDirection: "row", padding: 5, backgroundColor: "white", borderRadius: 15, gap: 4 },
@@ -154,7 +155,7 @@ const styles = StyleSheet.create({
   skip: { fontSize: 12, color: colors.onSurfaceVariant },
   coachTitle: { fontSize: 17, lineHeight: 24, color: colors.onSurface, fontWeight: "600", marginBottom: 5 },
   coachBody: { fontSize: 14, lineHeight: 22, color: colors.onSurfaceVariant },
-  hint: { flexDirection: "row", alignItems: "flex-start", gap: 7, marginTop: 10, backgroundColor: "#EDF2FF", padding: 10, borderRadius: 12 },
+  hint: { flexDirection: "row", alignItems: "flex-start", gap: 7, marginTop: 10, backgroundColor: colors.residentTint, padding: 10, borderRadius: 12 },
   hintText: { flex: 1, fontSize: 12, lineHeight: 18, color: colors.onPrimaryContainer },
   navigation: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10, gap: 6, flexWrap: "wrap" },
   back: { minHeight: 44, paddingHorizontal: 10, justifyContent: "center" },

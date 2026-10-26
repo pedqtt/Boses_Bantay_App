@@ -1,9 +1,11 @@
+import { Text, TextInput } from "@/components/AppText";
 import { forwardRef, useState } from "react";
-import { View, Text, TextInput, Pressable, type ReturnKeyTypeOptions } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, Pressable, type ReturnKeyTypeOptions } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import { colors, fieldBorderColor } from "@/lib/theme";
 
 export type FormFieldProps = {
+  appearance?: "line" | "boxed";
   label: string;
   value: string;
   onChangeText: (t: string) => void;
@@ -63,6 +65,7 @@ export type FormFieldProps = {
 export const FormField = forwardRef<TextInput, FormFieldProps>(function FormField(
   {
     label,
+    appearance = "line",
     value,
     onChangeText,
     onFocus,
@@ -91,15 +94,16 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
   // next, especially once "Next" starts jumping between fields without a
   // tap.
   const [focused, setFocused] = useState(false);
+  const boxed = appearance === "boxed";
 
   return (
-    <View className={wrapperClassName ?? "mb-7"}>
-      <Text className="text-[12px] font-semibold text-ink-faint mb-2 uppercase tracking-wider">
+    <View className={wrapperClassName ?? (boxed ? "mb-5" : "mb-7")}>
+      <Text variant={boxed ? "label" : "caption"} className={boxed ? "font-medium text-ink-soft mb-2" : "text-[12px] font-semibold text-ink-faint mb-2 uppercase tracking-wider"}>
         {label}
       </Text>
       <View
-        className="flex-row items-center border-b"
-        style={{ borderColor: fieldBorderColor({ error: !!error, focused }) }}
+        className={boxed ? "flex-row items-center border rounded-[14px] px-3" : "flex-row items-center border-b"}
+        style={{ borderColor: fieldBorderColor({ error: !!error, focused }), backgroundColor: boxed ? (focused ? "#FFFFFF" : "#FAFBFD") : undefined }}
       >
         {/* TextInput wrapped in its own flex-1 View instead of putting
             flex-1 on the TextInput directly - an ambiguous-width text
@@ -142,12 +146,12 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
             // otherwise applies the password font's wide character
             // spacing to the placeholder as well as the masked dots,
             // stretching it out past the field edge.
-            style={{ letterSpacing: 0 }}
-            className="text-[19px] text-ink pb-3"
+            style={{ letterSpacing: 0, paddingVertical: boxed ? 12 : undefined }}
+            className={boxed ? "text-[16px] text-ink" : "text-[19px] text-ink pb-3"}
           />
         </View>
         {isPassword && (
-          <Pressable onPress={() => setVisible((v) => !v)} hitSlop={14} className="pb-3 pl-2">
+          <Pressable onPress={() => setVisible((v) => !v)} hitSlop={boxed ? 4 : 14} className={boxed ? "items-center justify-center" : "pb-3 pl-2"} style={boxed ? { width: 40, minHeight: 48 } : undefined}>
             <Ionicons name={visible ? "eye-off-outline" : "eye-outline"} size={20} color={colors.outline} />
           </Pressable>
         )}

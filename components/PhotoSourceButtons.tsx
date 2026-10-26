@@ -1,5 +1,6 @@
-import { View, Text, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text } from "@/components/AppText";
+import { View, Pressable } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import { colors } from "@/lib/theme";
 
 type Props = {

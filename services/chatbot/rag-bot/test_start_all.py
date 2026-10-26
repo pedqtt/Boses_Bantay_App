@@ -20,6 +20,7 @@ class LauncherTests(unittest.TestCase):
 
     def ready(self,url):
         if url.endswith('/api/tags'): return json.dumps({'models':[{'name':'qwen3:8b'},{'name':'nomic-embed-text:latest'}]})
+        if ':8000/' in url: return json.dumps({'status':'ok','model':'large-v3'})
         if url.endswith('/health'): return json.dumps({'service':'boses-rag-mobile'})
         return 'packager-status:running'
 
@@ -61,5 +62,20 @@ class LauncherTests(unittest.TestCase):
         self.assertIn('--tunnel',arguments)
         self.assertIn('8082',arguments)
         self.assertNotIn('--clear',arguments)
+
+    def test_voice_starts_existing_worker_on_loopback_with_matching_key(self):
+        with patch('start_all.read_url',return_value=None),patch('start_all.wait_ready') as wait:
+            start_all.ensure_voice({},'shared-test-key')
+        arguments=self.mocks[5].call_args.args[0]
+        options=self.mocks[5].call_args.kwargs
+        self.assertEqual(arguments[-4:],['--host','127.0.0.1','--port','8000'])
+        self.assertEqual(options['cwd'],start_all.PROJECT.parent/'whisper-server')
+        self.assertEqual(options['env']['WHISPER_API_KEY'],'shared-test-key')
+        wait.assert_called_once()
+
+    def test_voice_reuses_ready_worker_without_starting_ngrok(self):
+        with patch('start_all.read_url',return_value='{"status":"ok","model":"large-v3"}'):
+            start_all.ensure_voice({},'shared-test-key')
+        self.mocks[5].assert_not_called()
 
 if __name__=='__main__': unittest.main()

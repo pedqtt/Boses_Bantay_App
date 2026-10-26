@@ -48,8 +48,8 @@ export function AuthActionGroup({
             style={{
               height: 1,
               backgroundColor: colors.outlineVariant,
-              marginTop: 20,
-              marginBottom: 20,
+              marginTop: 18,
+              marginBottom: 18,
             }}
           />
           <View className="items-center">{secondary}</View>

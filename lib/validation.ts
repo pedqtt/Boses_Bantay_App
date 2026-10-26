@@ -217,3 +217,14 @@ export function getAddressError(value: string): string | null {
   }
   return null;
 }
+
+/** Middle name is optional; initials and compound names are accepted. */
+export function getMiddleNameError(value: string): string | null {
+  const name = value.trim();
+  if (!name) return null;
+  if (name.length > 100) return "Hanggang 100 character lamang po.";
+  if (!/^[\p{L}\p{M}.'’\- ]+$/u.test(name) || !/\p{L}/u.test(name)) {
+    return "Titik lamang po para sa middle name.";
+  }
+  return null;
+}

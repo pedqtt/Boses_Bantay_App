@@ -1,6 +1,9 @@
-import { View, Text, Pressable } from "react-native";
+import { Text } from "@/components/AppText";
+import { ReportPrimaryLabel } from "./ReportPrimaryLabel";
+import { reportStyles } from "./reportStyles";
+import { View, Pressable } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { colors } from "@/lib/theme";
 import {
@@ -80,10 +83,10 @@ export function ChunkConfirmScreen({
             ConfirmYouScreen's, instead of REPORT_TYPE's 24px question /
             15px subtitle pairing - same two-line job ("Ito po ba ang
             tama?" here, "Kayo po ba ito?" there), same weight. */}
-        <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
+        <Text className="text-[27px] leading-9 font-semibold text-ink tracking-tight mb-2">
           {CONFIRM_COPY.heading}
         </Text>
-        <Text className="text-[15px] text-ink-soft leading-7 mb-8">{CONFIRM_COPY.body}</Text>
+        <Text className="text-[15px] text-ink-soft leading-6 mb-8">{CONFIRM_COPY.body}</Text>
 
         {found.map((key) => {
           const q = getQuestion(key);
@@ -137,19 +140,20 @@ export function ChunkConfirmScreen({
           stacked under the first. Still not hidden - a resident whose
           story got mis-heard needs this to be an obvious one-tap escape,
           just styled as the secondary action it actually is. */}
-      <View className="px-8" style={{ paddingBottom: 32 }}>
+      <View style={reportStyles.actionBar}>
         <AuthActionGroup
           secondary={
-            <Pressable onPress={onReRecord} className="py-1 items-center active:opacity-70">
+            <Pressable onPress={onReRecord} accessibilityRole="button" className="py-3 items-center active:opacity-70">
               <Text className="text-[15px] font-medium text-ink-soft">{CONFIRM_COPY.reRecord}</Text>
             </Pressable>
           }
         >
           <Pressable
             onPress={onConfirm}
+            style={reportStyles.primaryAction}
             className="bg-brand rounded-2xl py-4 items-center overflow-hidden active:opacity-85"
           >
-            <Text className="text-white font-semibold text-[18px]">{CONFIRM_COPY.confirm}</Text>
+            <ReportPrimaryLabel icon="checkmark">{CONFIRM_COPY.confirm}</ReportPrimaryLabel>
           </Pressable>
         </AuthActionGroup>
       </View>

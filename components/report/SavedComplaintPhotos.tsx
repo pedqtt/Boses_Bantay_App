@@ -1,7 +1,8 @@
+import { Text } from "@/components/AppText";
 import { useEffect, useState } from "react";
-import { View, Text, Image, Pressable, ActivityIndicator, Modal } from "react-native";
+import { View, Image, Pressable, ActivityIndicator, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
 

@@ -1,5 +1,6 @@
-import { View, Text } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text } from "@/components/AppText";
+import { View } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { BackButton } from "@/components/BackButton";
 

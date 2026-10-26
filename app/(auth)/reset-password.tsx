@@ -1,8 +1,10 @@
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { Text, TextInput } from "@/components/AppText";
 import { useRef, useState } from "react";
-import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, Pressable, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { resetPassword } from "@/lib/api/auth";
 import {
   getNewPasswordError,
@@ -10,7 +12,7 @@ import {
   PASSWORD_REQUIREMENTS_HINT,
   CONFIRM_PASSWORD_HINT,
 } from "@/lib/validation";
-import { ScreenBackground } from "@/components/ScreenBackground";
+import { AuthScreenFrame as ScreenBackground, AuthFormCard, authStyles } from "@/components/auth/AuthScreenFrame";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
 import { colors, fieldBorderColor } from "@/lib/theme";
 
@@ -45,8 +47,7 @@ export default function ResetPasswordScreen() {
   // "Done" on confirm submits, same as tapping I-save ang Password.
   const confirmRef = useRef<TextInput>(null);
 
-  // FIXED - no ScrollView, no spacer, same as login.tsx/otp.tsx: fully
-  // static layout, only the focused field's border highlight changes.
+  // Scrollable form content keeps large accessibility text reachable.
   const canSubmit = !getNewPasswordError(password) && !getConfirmPasswordError(password, confirmPassword);
 
   async function handleReset() {
@@ -70,17 +71,18 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
       <ScreenBackground>
       <View style={{ flex: 1 }}>
-        {/* No ScrollView - fully static, same as login.tsx/otp.tsx. */}
+
         {/* Heading as header at top, field group centered in the space
             below it, action cluster as the last item. */}
         {/* Padding via `style`, matching login.tsx: same 72 value on
             every auth screen that has no back button at the top. */}
-        <View className="flex-1 px-8" style={{ paddingTop: 72 }}>
+        <KeyboardAwareScrollView className="flex-1" keyboardShouldPersistTaps="handled" bottomOffset={24} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32 }}>
+          <AuthFormCard>
             <View>
-              <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
+              <Text variant="screenTitle" className="text-[28px] font-semibold text-ink tracking-tight mb-2">
                 Bagong Password
               </Text>
               <Text className="text-[15px] text-ink-soft leading-7">
@@ -88,14 +90,15 @@ export default function ResetPasswordScreen() {
               </Text>
             </View>
 
-            <View className="flex-1 justify-center py-8">
+            <View className="pt-6">
             <View className="mb-7">
               <Text className="text-[12px] font-semibold text-ink-faint mb-2 uppercase tracking-wider">
                 Bagong Password
               </Text>
               <View
-                className="flex-row items-center border-b"
+                className="flex-row items-center"
                 style={{
+                  ...authStyles.inputBox,
                   borderColor: fieldBorderColor({ error: !!passwordError, focused: passwordFocused }),
                 }}
               >
@@ -133,14 +136,14 @@ export default function ResetPasswordScreen() {
                     autoFocus
                     // See the confirm field below for why letterSpacing: 0
                     // is needed on every secureTextEntry input here.
-                    style={{ letterSpacing: 0 }}
-                    className="text-[19px] text-ink pb-3"
+                    style={{ letterSpacing: 0, paddingVertical: 12 }}
+                    className="text-[16px] text-ink"
                   />
                 </View>
                 {/* hitSlop 14, not 10 - a 20px icon at hitSlop 10 only
                     reaches a 40dp tap target, under the 48dp minimum
                     (android-expo-ui skill, rule 4 / MD3 touch targets). */}
-                <Pressable onPress={() => setVisible((v) => !v)} hitSlop={14} className="pb-3 pl-2">
+                <Pressable onPress={() => setVisible((v) => !v)} hitSlop={14} style={authStyles.passwordEye}>
                   <Ionicons name={visible ? "eye-off-outline" : "eye-outline"} size={20} color={colors.outline} />
                 </Pressable>
               </View>
@@ -153,8 +156,9 @@ export default function ResetPasswordScreen() {
                 Ulitin ang Password
               </Text>
               <View
-                className="flex-row items-center border-b"
+                className="flex-row items-center"
                 style={{
+                  ...authStyles.inputBox,
                   borderColor: fieldBorderColor({ error: !!confirmError, focused: confirmFocused }),
                 }}
               >
@@ -186,11 +190,11 @@ export default function ResetPasswordScreen() {
                     // rendered as "U l i t i n  a n g  p a s s w o" and
                     // ran off the end of the field. Setting it explicitly
                     // overrides that inherited spacing.
-                    style={{ letterSpacing: 0 }}
-                    className="text-[19px] text-ink pb-3"
+                    style={{ letterSpacing: 0, paddingVertical: 12 }}
+                    className="text-[16px] text-ink"
                   />
                 </View>
-                <Pressable onPress={() => setConfirmVisible((v) => !v)} hitSlop={14} className="pb-3 pl-2">
+                <Pressable onPress={() => setConfirmVisible((v) => !v)} hitSlop={14} style={authStyles.passwordEye}>
                   <Ionicons
                     name={confirmVisible ? "eye-off-outline" : "eye-outline"}
                     size={20}
@@ -203,7 +207,7 @@ export default function ResetPasswordScreen() {
             </View>
             </View>
 
-            <View className="mt-8" style={{ paddingBottom: 56 }}>
+            <View className="mt-2" style={{ paddingBottom: 0 }}>
               {/* No secondary link here - a resident mid-reset has no
                   sensible alternative action to offer, so this renders the
                   button alone rather than a divider with nothing under it. */}
@@ -212,18 +216,19 @@ export default function ResetPasswordScreen() {
                   onPress={handleReset}
                   disabled={loading || !canSubmit}
                   className={`rounded-2xl py-4 items-center overflow-hidden ${
-                    !canSubmit || loading ? "bg-gray-300" : "bg-brand active:opacity-85"
+                    !canSubmit || loading ? "bg-[#647392]" : "bg-brand active:opacity-95"
                   }`}
                 >
                   {loading ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text className="text-white font-semibold text-[18px]">I-save ang Password</Text>
+                    <Text variant="body" className="text-white font-semibold text-[18px]">I-save ang Password</Text>
                   )}
                 </Pressable>
               </AuthActionGroup>
             </View>
-        </View>
+        </AuthFormCard>
+        </KeyboardAwareScrollView>
       </View>
       </ScreenBackground>
     </SafeAreaView>

@@ -1,11 +1,15 @@
-import { View, Text, Pressable } from "react-native";
+import { Text } from "@/components/AppText";
+import { ReportPrimaryLabel } from "./ReportPrimaryLabel";
+import { reportStyles } from "./reportStyles";
+import { View, Pressable } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import { colors } from "@/lib/theme";
 import { CHUNKS, type Chunk } from "@/lib/reportQuestions";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
 import { RecordControls } from "./RecordControls";
+import { GuideCard } from "./GuideCard";
 import { AnswerEditor } from "./AnswerEditor";
 import type { ChunkState } from "./types";
 
@@ -20,6 +24,7 @@ type ChunkRecordScreenProps = {
   isPlaying: boolean;
   canAdvance: boolean;
   onChangeTranscript: (text: string) => void;
+  onAppendRecording: () => void;
   onStartRecording: () => void;
   onStopRecording: () => void;
   onPauseRecording: () => void;
@@ -56,6 +61,7 @@ export function ChunkRecordScreen({
   isPlaying,
   canAdvance,
   onChangeTranscript,
+  onAppendRecording,
   onStartRecording,
   onStopRecording,
   onPauseRecording,
@@ -65,7 +71,7 @@ export function ChunkRecordScreen({
   onNext,
 }: ChunkRecordScreenProps) {
   const isLast = index === CHUNKS.length - 1;
-  const hasTranscript = Boolean(state.transcript.trim());
+
 
   return (
     <>
@@ -92,7 +98,7 @@ export function ChunkRecordScreen({
                 resident reads first on this screen, exactly the same job
                 "Kayo po ba ito?" does on Bahagi 1, so it gets the same
                 weight. */}
-            <Text className="text-[28px] font-semibold text-ink tracking-tight mb-4">
+            <Text className="text-[27px] leading-9 font-semibold text-ink tracking-tight mb-4">
               {chunk.question}
             </Text>
             {(chunk.hint || chunk.hintItems) && (
@@ -102,27 +108,21 @@ export function ChunkRecordScreen({
               // plain numerals rather than filled circle chips, tighter
               // spacing, no extra visual machinery beyond what identifies
               // and orders the checklist.
-              <View className="bg-brand-50 border border-brand-100 rounded-2xl px-4 py-3.5 mb-4">
-                <View className="flex-row items-center mb-2">
-                  <Ionicons name="bulb-outline" size={15} color={colors.primary} style={{ marginRight: 5 }} />
-                  <Text className="text-[12px] font-bold uppercase tracking-wide text-brand-dark">
-                    Gabay
-                  </Text>
-                </View>
-
+              <View className="mb-5">
+              <GuideCard>
                 {chunk.hint && (
                   <Text className="text-[14px] leading-5 text-brand-dark mb-2">{chunk.hint}</Text>
                 )}
 
                 {chunk.hintItems && (
-                  <View style={{ gap: 6 }}>
+                  <View style={{ gap: 12 }}>
                     {chunk.hintItems.map((item, i) => (
                       <View key={i} className="flex-row items-start">
                         <Text
-                          className="text-[16px] leading-6 text-brand font-semibold"
-                          style={{ width: 20 }}
+                          className="text-[13px] text-brand font-bold text-center"
+                          style={{ width: 26, height: 26, lineHeight: 26, borderRadius: 8, backgroundColor: "#FFFFFFB3", marginRight: 10 }}
                         >
-                          {i + 1}.
+                          {i + 1}
                         </Text>
                         <Text className="text-[16px] leading-6 text-ink flex-1">{item}</Text>
                       </View>
@@ -131,8 +131,11 @@ export function ChunkRecordScreen({
                 )}
 
                 {chunk.example && (
-                  <Text className="text-[13px] leading-5 text-ink-faint mt-2">{chunk.example}</Text>
+                  <View className="mt-4 pt-3 border-t border-brand-100">
+                    <Text className="text-[13px] leading-5 text-ink-soft">{chunk.example}</Text>
+                  </View>
                 )}
+              </GuideCard>
               </View>
             )}
 
@@ -147,10 +150,11 @@ export function ChunkRecordScreen({
                 isPaused={isPaused}
                 durationMillis={durationMillis}
                 metering={metering}
-                answerStatus={state.status === "extracting" ? "done" : state.status}
+                answerStatus={state.status}
                 hasRecording={Boolean(state.uri)}
                 isPlaying={isPlaying}
                 onStart={onStartRecording}
+                onAppend={onAppendRecording}
                 onStop={onStopRecording}
                 onPause={onPauseRecording}
                 onResume={onResumeRecording}
@@ -161,7 +165,7 @@ export function ChunkRecordScreen({
             {/* Always editable - the fastest fix for a small transcription
                 error is typing over it, not re-recording the whole story. */}
             <View>
-              <Text className={`${REPORT_TYPE.fieldLabel} mb-2`}>Inyong salaysay</Text>
+              <Text className={`${REPORT_TYPE.fieldLabel} mb-3`}>Inyong salaysay</Text>
               <AnswerEditor
                 value={state.transcript}
                 onChangeText={onChangeTranscript}
@@ -172,14 +176,6 @@ export function ChunkRecordScreen({
                 errorMessage={state.status === "error" ? state.error : undefined}
                 onRetry={state.uri ? onRetryTranscription : undefined}
               />
-              {state.status === "extracting" && hasTranscript && (
-                <View className="flex-row items-center mt-2">
-                  <Ionicons name="sparkles-outline" size={14} color={colors.primary} />
-                  <Text className={`${REPORT_TYPE.caption} ml-1.5`}>
-                    Hinahanap ang mga detalye sa inyong salaysay...
-                  </Text>
-                </View>
-              )}
             </View>
           </View>
       </KeyboardAwareScrollView>
@@ -188,18 +184,17 @@ export function ChunkRecordScreen({
           AuthActionGroup, no border-t divider (the divider was a
           report-flow-only convention; Bahagi 1 has none, so this
           shouldn't either), 18px button label. */}
-      <View className="px-8" style={{ paddingBottom: 32 }}>
+      <View style={reportStyles.actionBar}>
         <AuthActionGroup>
           <Pressable
             onPress={onNext}
             disabled={isRecording || !canAdvance}
+            style={reportStyles.primaryAction}
             className={`rounded-2xl py-4 items-center overflow-hidden active:opacity-85 ${
               isRecording || !canAdvance ? "bg-gray-300" : "bg-brand"
             }`}
           >
-            <Text className="text-white font-semibold text-[18px]">
-              {isLast ? "Magpatuloy" : "Susunod"}
-            </Text>
+            <ReportPrimaryLabel>{isLast ? "Magpatuloy" : "Susunod"}</ReportPrimaryLabel>
           </Pressable>
         </AuthActionGroup>
       </View>

@@ -1,12 +1,33 @@
-import { useRef, useState } from "react";
+import { useTypography } from "@/lib/typography-context";
+import { Text } from "@/components/AppText";
+import { ComplaintCameraRecovery } from "@/components/report/ComplaintCameraRecovery";
+import { useEffect, useRef, useState } from "react";
 import { Tabs, router, usePathname } from "expo-router";
-import { View, Text, Pressable, Animated, PanResponder, Dimensions, type ColorValue } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, Pressable, Animated, PanResponder, Dimensions, Easing, useWindowDimensions, type ColorValue } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
 import { colors } from "@/lib/theme";
+import { useAppPreferences } from "@/lib/app-preferences";
 
 type IconName = keyof typeof Ionicons.glyphMap;
+
+function SubtleTabButton(props: Pick<BottomTabBarButtonProps, "onPress" | "onLongPress" | "onPressIn" | "onPressOut" | "disabled" | "testID" | "aria-label" | "accessibilityLabel" | "aria-selected" | "style" | "children">) {
+  return <Pressable
+    onPress={props.onPress}
+    onLongPress={props.onLongPress}
+    onPressIn={props.onPressIn}
+    onPressOut={props.onPressOut}
+    disabled={props.disabled}
+    testID={props.testID}
+    accessibilityRole="tab"
+    accessibilityLabel={props["aria-label"] || props.accessibilityLabel}
+    accessibilityState={{ selected: props["aria-selected"] === true, disabled: props.disabled ?? false }}
+    android_ripple={{ color: "transparent", borderless: false }}
+    style={props.style}
+  >{props.children}</Pressable>;
+}
+
 
 // Active tab gets a pill behind its icon — still a second signal beyond
 // color alone (shape, not just hue, changes on selection), but a soft
@@ -25,11 +46,19 @@ function TabIcon({
   filled: IconName;
   color: ColorValue;
 }) {
+  const { scale } = useTypography();
+  const { fontScale } = useWindowDimensions();
+  const extraHeight = Math.max(0, Math.ceil(18 * scale * Math.max(1, fontScale)) - 18);
+  const highlight = useRef(new Animated.Value(focused ? 1 : 0)).current;
+  useEffect(() => {
+    const animation = Animated.timing(highlight, { toValue: focused ? 1 : 0, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true });
+    animation.start();
+    return () => animation.stop();
+  }, [focused, highlight]);
   return (
-    <View
-      className={`w-12 h-8 rounded-full items-center justify-center ${focused ? "bg-brand-50" : ""}`}
-    >
-      <Ionicons name={focused ? filled : outline} size={22} color={focused ? colors.primary : color} />
+    <View style={{ width: 46, height: 30, alignItems: "center", justifyContent: "center" }}>
+      <Animated.View pointerEvents="none" style={{ position: "absolute", top: -6, width: 62, height: 60 + extraHeight, borderRadius: 19, backgroundColor: colors.residentSelected, borderWidth: 1, borderColor: colors.residentAccentOutline, opacity: highlight, transform: [{ scale: highlight.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1] }) }] }} />
+      <Ionicons name={focused ? filled : outline} size={22} color={focused ? colors.primary : color} style={{ fontStyle: "normal", fontWeight: "normal" }} />
     </View>
   );
 }
@@ -38,12 +67,15 @@ function TabIcon({
 // larger, so hierarchy still reads even with all six labels present.
 function TabLabel({ focused, color, children }: { focused: boolean; color: ColorValue; children: string }) {
   return (
-    <Text
+    <Text variant="navigation" preserveTruncation numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
       style={{
         color,
-        fontSize: focused ? 11 : 10.5,
-        fontWeight: focused ? "700" : "500",
-        marginTop: 3,
+        fontSize: 11,
+        fontWeight: focused ? "600" : "500",
+        marginTop: 4,
+        lineHeight: 15,
+        textAlign: "center",
+        fontStyle: "normal",
       }}
     >
       {children}
@@ -86,20 +118,26 @@ function ReportFabButton({
   accessibilityState,
 }: Pick<BottomTabBarButtonProps, "onPress" | "accessibilityState">) {
   const focused = Boolean(accessibilityState?.selected);
+  const pressScale = useRef(new Animated.Value(1)).current;
+  function animatePress(pressed: boolean) {
+    Animated.timing(pressScale, { toValue: pressed ? 0.97 : 1, duration: pressed ? 90 : 150, useNativeDriver: true }).start();
+  }
   return (
-    <View style={{ flex: 1, alignItems: "center" }}>
+    <Animated.View style={{ flex: 1, alignItems: "center", transform: [{ scale: pressScale }] }}>
       <Pressable
         onPress={onPress}
+        onPressIn={() => animatePress(true)}
+        onPressOut={() => animatePress(false)}
         accessibilityRole="button"
         accessibilityLabel="Report"
         accessibilityState={accessibilityState}
-        className="items-center justify-center bg-brand active:opacity-85"
+        className="items-center justify-center bg-brand"
         style={{
-          width: 60,
-          height: 60,
-          borderRadius: 30,
-          marginTop: -26,
-          borderWidth: 4,
+          width: 56,
+          height: 56,
+          borderRadius: 20,
+          marginTop: -20,
+          borderWidth: 3,
           borderColor: "white",
           // Toned down from the original (0.28 opacity, radius 8,
           // elevation 6) — enough was still a genuine depth cue that
@@ -109,28 +147,29 @@ function ReportFabButton({
           // BotFab already uses, just slightly stronger since this one's
           // the higher-stakes control (Fitts's Law still applies to
           // depth cues, not just size).
-          shadowColor: colors.primary,
+          shadowColor: "#172033",
           shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.14,
-          shadowRadius: 5,
-          elevation: 3,
+          shadowOpacity: 0.06,
+          shadowRadius: 4,
+          elevation: 2,
         }}
       >
-        <Ionicons name="mic" size={24} color="white" />
+        <Ionicons name="mic-outline" size={23} color="white" style={{ fontStyle: "normal", fontWeight: "normal" }} />
       </Pressable>
-      <Text
+      <Text variant="navigation" preserveTruncation numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
         style={{
-          marginTop: 4,
+          marginTop: 5,
           // Same `ink-faint` (#4B5563) inactive color as the rest of the
           // bar — see the tabBarInactiveTintColor comment below for why.
           color: focused ? colors.primary : colors.onSurfaceFaint,
-          fontSize: focused ? 11 : 10.5,
-          fontWeight: focused ? "700" : "500",
+          fontSize: 11,
+          lineHeight: 15,
+          fontWeight: focused ? "600" : "500",
         }}
       >
         Report
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -192,6 +231,9 @@ function BotFab({
   onPositionChange: (pos: FabPosition) => void;
 }) {
   const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  const { preferences } = useAppPreferences();
+  const fadeEnabled = useRef(preferences.fadeBotWhenIdle);
+  fadeEnabled.current = preferences.fadeBotWhenIdle;
 
   const minX = FAB_EDGE_MARGIN;
   const maxX = screenWidth - FAB_EDGE_MARGIN - FAB_SIZE;
@@ -206,6 +248,29 @@ function BotFab({
 
   const pan = useRef(new Animated.ValueXY(startPosition)).current;
   const currentValue = useRef<FabPosition>(startPosition);
+  const opacity = useRef(new Animated.Value(1)).current;
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragging = useRef(false);
+  function wakeFab() {
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+    idleTimer.current = null;
+    opacity.stopAnimation();
+    Animated.timing(opacity, { toValue: 1, duration: 120, useNativeDriver: false }).start();
+  }
+  function scheduleFade() {
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+    if (!fadeEnabled.current) { opacity.stopAnimation(); opacity.setValue(1); return; }
+    if (dragging.current) return;
+    idleTimer.current = setTimeout(() => {
+      idleTimer.current = null;
+      Animated.timing(opacity, { toValue: 0.55, duration: 300, useNativeDriver: false }).start();
+    }, 3500);
+  }
+  useEffect(() => {
+    wakeFab(); scheduleFade();
+    return () => { if (idleTimer.current) clearTimeout(idleTimer.current); opacity.stopAnimation(); };
+  }, [preferences.fadeBotWhenIdle]);
+
 
   const panResponder = useRef(
     PanResponder.create({
@@ -213,6 +278,7 @@ function BotFab({
       onMoveShouldSetPanResponder: (_evt, gesture) =>
         Math.abs(gesture.dx) > DRAG_THRESHOLD || Math.abs(gesture.dy) > DRAG_THRESHOLD,
       onPanResponderGrant: () => {
+        dragging.current = true; wakeFab();
         pan.setOffset(currentValue.current);
         pan.setValue({ x: 0, y: 0 });
       },
@@ -223,10 +289,12 @@ function BotFab({
       // requested for a per-frame gesture callback like this. Kept on the
       // JS thread instead — the actual smoothness win here is the
       // edge-snap logic and velocity-fed spring below, not the driver.
+      onPanResponderTerminate: () => { dragging.current = false; pan.flattenOffset(); scheduleFade(); },
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
         useNativeDriver: false,
       }),
       onPanResponderRelease: (_evt, gesture) => {
+        dragging.current = false; scheduleFade();
         pan.flattenOffset();
         const rawX = currentValue.current.x + gesture.dx;
         const rawY = currentValue.current.y + gesture.dy;
@@ -270,9 +338,13 @@ function BotFab({
       // either way (driver mode is JS either way, see above), but this
       // avoids RN having to recompute layout on every frame the way a
       // changing left/top would, which transform does not trigger.
-      style={{ transform: [{ translateX: pan.x }, { translateY: pan.y }] }}
+      style={{ opacity, transform: [{ translateX: pan.x }, { translateY: pan.y }] }}
     >
       <Pressable
+        onPressIn={wakeFab}
+        onPressOut={scheduleFade}
+        onFocus={wakeFab}
+        onBlur={scheduleFade}
         onPress={() => router.push("/(resident)/bot")}
         accessibilityRole="button"
         // No visible text label anymore (removed per explicit request), so
@@ -280,7 +352,7 @@ function BotFab({
         // still spelled out — screen readers still announce "Ask the Bot,"
         // even though sighted users now rely on the icon alone.
         accessibilityLabel="Ask the Bot. Draggable — you can move it anywhere on screen."
-        className="items-center justify-center bg-brand active:opacity-85"
+        className="items-center justify-center bg-brand"
         style={{
           width: FAB_SIZE,
           height: FAB_SIZE,
@@ -301,6 +373,10 @@ function BotFab({
 }
 
 export default function ResidentLayout() {
+  const { scale } = useTypography();
+  const { fontScale } = useWindowDimensions();
+  const textHeightExtra = Math.max(0, Math.ceil(18 * scale * Math.max(1, fontScale)) - 18);
+  const { preferences } = useAppPreferences();
   // Android's gesture/3-button nav bar sits in this inset — without adding
   // it to the tab bar's own height, the system nav bar overlaps and covers
   // the last few pixels of the bar instead of sitting cleanly below it.
@@ -322,18 +398,21 @@ export default function ResidentLayout() {
     pathname === "/report" ||
     pathname === "/bot" ||
     pathname === "/verify-id" ||
-    pathname === "/service-complaint";
-  const tabBarHeight = 64 + insets.bottom;
+    pathname === "/service-complaint" || pathname === "/change-password";
+  const tabBarHeight = 72 + insets.bottom + textHeightExtra;
   // Lifted out of BotFab itself — see the comment on BotFab for why: it's
   // conditionally rendered, so state local to it would reset every time
   // the resident leaves and returns to a screen where it's shown.
   const [botFabPosition, setBotFabPosition] = useState<{ x: number; y: number } | null>(null);
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: colors.residentBackground }}>
+      <ComplaintCameraRecovery />
     <Tabs
+      backBehavior="fullHistory"
       screenOptions={{
         headerShown: false,
+        tabBarButton: (props) => <SubtleTabButton {...props} />,
         tabBarActiveTintColor: colors.primary,
         // This is the app's `ink-faint` token (#4B5563), not an arbitrary
         // gray — reused here rather than a fresh hex value so the tab
@@ -343,26 +422,25 @@ export default function ResidentLayout() {
         // borderline-AA than genuinely safe at this label's small size —
         // "legible under stress" (skill constraint 6) means erring toward
         // more contrast, not the minimum that technically passes.
-        tabBarInactiveTintColor: colors.onSurfaceFaint,
+        tabBarInactiveTintColor: "#586579",
+        tabBarItemStyle: { paddingHorizontal: 2 },
+        sceneStyle: { backgroundColor: colors.residentBackground },
+        // One rounded background layer; keep the outer bar unclipped for the raised report action.
+        tabBarBackground: () => <View pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#FFFFFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden" }} />,
         tabBarStyle: {
-          height: 64 + insets.bottom,
-          paddingBottom: insets.bottom + 6,
-          paddingTop: 8,
-          backgroundColor: "white",
-          // A soft shadow instead of a hard 1px border — separates the bar
-          // from content with the same "this is a raised surface" cue as
-          // the two FABs above it, rather than a drawn rule. Subtle on
-          // purpose (low opacity, small radius): minimalism here means one
-          // quiet depth signal for the whole bar, not a heavy card-style
-          // shadow competing with the FABs for attention. This, the two
-          // FABs above, and no other surface in the app are the deliberate
-          // exception to Card.tsx's flat/no-shadow rule — see the
-          // ReportFabButton comment above for the full reasoning.
-          shadowColor: "#000000",
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          elevation: 8,
+          height: tabBarHeight,
+          paddingBottom: insets.bottom + 8,
+          paddingTop: 11,
+          paddingHorizontal: 6,
+          backgroundColor: "transparent",
+          borderWidth: 0,
+          borderTopWidth: 0,
+          borderBottomWidth: 0,
+          borderLeftWidth: 0,
+          borderRightWidth: 0,
+          shadowOpacity: 0,
+          shadowRadius: 0,
+          elevation: 0,
         },
       }}
     >
@@ -423,6 +501,9 @@ export default function ResidentLayout() {
         a button for it at all.
       */}
       <Tabs.Screen name="bot" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="change-password" options={{ href: null }} />
       {/* Same href: null treatment — verify-id and pending are pushed to
           directly (from the Profile tab, or the report-flow gate) and
           aren't meant to be one of the five visible tabs. */}
@@ -464,7 +545,7 @@ export default function ResidentLayout() {
         }}
       />
     </Tabs>
-    {!hideBotFab && (
+    {!hideBotFab && preferences.showBot && (
       <BotFab
         bottom={tabBarHeight + 20}
         insetTop={insets.top}

@@ -70,6 +70,9 @@ export const EMPTY_ANSWER: AnswerState = { text: "", status: "empty", source: "t
  *  authoritative layer and must survive any later edit to an extracted
  *  field - see the three-layer record model in the redesign plan. */
 export type ChunkState = {
+  /** Ordered clips; older drafts fall back to uri. */
+  clips?: string[];
+  transcriptionBase?: string;
   key: ChunkKey;
   transcript: string;
   uri?: string;

@@ -1,5 +1,7 @@
+import { Text } from "@/components/AppText";
+import { colors } from "@/lib/theme";
 import { useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, Pressable, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -67,7 +69,7 @@ export default function PendingScreen() {
 
   return (
     <SafeAreaView className="flex-1">
-      <ScreenBackground>
+      <ScreenBackground backgroundColor={colors.residentBackground}>
       <View className="flex-1 px-8 justify-center items-center">
         <View className="w-20 h-20 rounded-full bg-orange-100 items-center justify-center mb-8">
           <Text className="text-[34px]">⏳</Text>

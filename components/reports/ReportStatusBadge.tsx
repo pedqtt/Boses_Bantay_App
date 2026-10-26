@@ -1,4 +1,5 @@
-import { View, Text } from "react-native";
+import { Text } from "@/components/AppText";
+import { View } from "react-native";
 import { StatusPill } from "@/components/StatusPill";
 import { isKnownReportStatus } from "@/lib/myReports";
 const softPalette: Record<string, { bg: string; fg: string }> = {

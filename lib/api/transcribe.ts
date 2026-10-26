@@ -1,180 +1,45 @@
-// Voice-report transcription. Same mock/real pattern as lib/api/auth.ts —
-// this function is the ONLY thing screens call, never fetch() directly, so
-// wiring up the real Whisper server later is a one-file change.
-
 import type { ReportFieldKey } from "@/lib/reportQuestions";
 import { File } from "expo-file-system";
+import { isSpeechConfigured, speechBackend } from "@/lib/api/speechBackend";
 
-const DEFAULT_WHISPER_API_URL = "https://disloyal-snorkel-clapped.ngrok-free.dev";
-const WHISPER_API_URL = (
-  process.env.EXPO_PUBLIC_WHISPER_API_URL?.trim() || DEFAULT_WHISPER_API_URL
-).replace(/\/+$/, "");
-// Only needed once the server is reachable from the open internet (see
-// whisper-server/README.md's tunnel setup) — empty is fine for same-Wi-Fi
-// local dev, where the server has no WHISPER_API_KEY set either.
-const WHISPER_API_KEY = process.env.EXPO_PUBLIC_WHISPER_API_KEY ?? "";
-
-// True once EXPO_PUBLIC_WHISPER_API_URL points at a running server (see
-// ../../whisper-server). Until then, transcribeVoiceReport() returns a fake
-// transcript after a short delay so the recording flow is fully clickable
-// with zero backend — same idea as mock auth mode.
-export const isWhisperConfigured = Boolean(WHISPER_API_URL);
-
-// A silent fallback to fake transcripts is exactly the kind of bug that
-// looks like "the app is broken" instead of "the app is unconfigured" —
-// this makes the distinction loud and impossible to miss in logs, instead
-// of only being discoverable by reading this file's source.
-if (!isWhisperConfigured) {
-  console.warn(
-    "[transcribe] EXPO_PUBLIC_WHISPER_API_URL is not set in this build — " +
-      "every voice answer will return a canned mock transcript instead of a real one. " +
-      "If this is an installed APK, the .env values weren't present when it was built " +
-      "(EAS Build does not read a gitignored .env by default — set the vars with " +
-      "`eas env:create` instead, then rebuild)."
-  );
-}
-
-console.log(`[transcribe] server configured: ${WHISPER_API_URL}`);
-
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// Per-field mock answers so the guided flow is realistic to click through
-// without a server — each one is a plausible answer to that specific
-// question, not a generic blob, which makes the review screen actually
-// useful to design and test against.
-// Only "voice" questions ever actually reach this function (choice/checkbox
-// questions are answered by tapping a chip, not recording — see
-// components/report/ChoiceStep.tsx), but the type stays exhaustive over
-// every ReportFieldKey so adding a field to reportQuestions.ts without
-// updating this file is a compile error, not a silent runtime gap.
-const MOCK_ANSWERS: Record<ReportFieldKey, string> = {
-  complainantName: "Maria Santos",
-  complainantAddress: "Purok 3, Blok 7 Lote 12, dito po sa barangay.",
-  complainantAge: "34 anyos po.",
-  complainantContact: "09171234567",
-  complainantGender: "",
-  filedByGuardian: "",
-  guardianName: "",
-  incidentAt: "Kagabi po, mga alas-onse ng gabi hanggang madaling araw.",
-  location: "Sa tapat po ng bahay namin sa Purok 3, malapit sa sari-sari store ni Aling Nena.",
-  respondentName: "Si Mang Rudy po, yung kapitbahay namin sa katabing bahay.",
-  description:
-    "Sobrang lakas po ng videoke nila kagabi, hindi po kami makatulog. Pangatlong beses na po ito ngayong buwan. Nakiusap na po ako noong isang linggo pero hindi po nila pinansin. Yung mga bata po namin, may klase pa kinabukasan at hindi po nakatulog nang maayos.",
-  witnesses: "Meron po, si Aling Nena at yung pamilya po sa kabilang bahay, nakarinig din po sila.",
-  evidence: "May video po ako sa cellphone ko na kinunan ko kagabi, madadala ko po.",
-  blotterType: "",
-  incidentCategory: "",
-  requestCctv: "",
-};
-
-const GENERIC_MOCK =
-  "Gusto ko po sanang i-report ang nangyari kagabi sa amin dito sa Purok 3.";
-
+export const isWhisperConfigured = isSpeechConfigured;
 export type TranscribeResult = { text: string };
 
-/**
- * Transcribes one recorded answer.
- *
- * `field` tells the server which of the 7 interview questions this clip
- * answers, so it can prime Whisper with vocabulary specific to that answer
- * type (names for the identity question, dates/times for the when question,
- * and so on). Omitting it still works — the server falls back to generic
- * Taglish tuning.
- */
-export async function transcribeVoiceReport(
-  audioUri: string,
-  field?: ReportFieldKey
-): Promise<TranscribeResult> {
-  if (!isWhisperConfigured) {
-    await delay(1200);
-    const text = field ? MOCK_ANSWERS[field] : GENERIC_MOCK;
-    console.log(`[mock] "Transcribed" ${field ?? "report"} -> ${text.slice(0, 40)}...`);
-    return { text };
-  }
-
+/** Upload the real recording to the same base URL/key as the chatbot. */
+export async function transcribeVoiceReport(audioUri: string, field?: ReportFieldKey): Promise<TranscribeResult> {
+  const { url, key } = speechBackend();
   const formData = new FormData();
-  // Expo Go's current Android FormData implementation rejects the legacy
-  // React Native `{ uri, name, type }` object with "Unsupported FormDataPart
-  // implementation". Expo's native File implements Blob and is accepted as
-  // a real multipart file part.
-  formData.append("file", new File(audioUri));
+  const audioFile = new File(audioUri);
+  if (!audioFile.exists || audioFile.size <= 0) {
+    throw new Error("Hindi makita o walang laman ang recording. Mag-record po muli; hindi na ma-retry ang nawawalang audio.");
+  }
+  // Expo File is a Blob; let fetch generate the multipart boundary itself.
+  formData.append("file", audioFile, audioFile.name || "recording.m4a");
   if (field) formData.append("field", field);
-
-  // Long recordings take real time to transcribe on the server (large-v3 is
-  // not instant), and the app has no way to know if the request is just slow
-  // or truly stuck — so give it a generous ceiling and fail loudly rather
-  // than hang forever with the spinner never resolving.
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min
-
-  let res: Response;
+  const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000);
   try {
-    const endpoint = `${WHISPER_API_URL}/transcribe`;
-    console.log(`[transcribe] uploading ${field ?? "report"} to ${endpoint}`);
-    res = await fetch(endpoint, {
-      method: "POST",
-      body: formData,
-      signal: controller.signal,
-      // NOTE: do NOT set Content-Type manually here. fetch/FormData needs to
-      // generate its own header with the multipart boundary included — a
-      // hardcoded "multipart/form-data" (no boundary) means the server can't
-      // parse the body at all and silently fails on every real (non-mock)
-      // request.
-      headers: WHISPER_API_KEY ? { "X-API-Key": WHISPER_API_KEY } : undefined,
+    const response = await fetch(`${url}/transcribe`, {
+      method: "POST", body: formData, signal: controller.signal,
+      headers: key ? { "X-API-Key": key } : undefined,
     });
-  } catch (err: any) {
-    if (err?.name === "AbortError") {
-      throw new Error(
-        "Masyadong matagal ang pag-transcribe. Subukan pong mag-record ng mas maikli."
-      );
+    if (!response.ok) {
+      if (response.status === 401) throw new Error("Hindi tugma ang API key ng server. Kontakin po ang admin ng app.");
+      if (response.status === 404) throw new Error("Hindi updated ang transcription endpoint. Buksan muli ang Start Boses Bantay.");
+      if (response.status === 413) throw new Error("Masyadong malaki ang recording. Subukan pong mag-record ng mas maikli.");
+      if (response.status === 422 || response.status === 415 || response.status === 400) throw new Error("Hindi mabasa ang recording. Subukan pong mag-record muli.");
+      if (response.status === 503) throw new Error("Hindi pa handa o may pinoproseso pa ang transcription service. Pakisubukan muli sandali.");
+      throw new Error("Nagka-problema ang transcription server. Subukan po muli.");
     }
-    console.error("[transcribe] request failed", {
-      name: err?.name,
-      message: err?.message,
-      audioUri,
-      endpoint: `${WHISPER_API_URL}/transcribe`,
-    });
-    throw new Error(
-      `Hindi maabot ang server (${err?.message ?? "network error"}). Tiyakin pong may internet ang telepono, naka-on ang ngrok, at gumagana ang server.`
-    );
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  console.log(`[transcribe] server response: ${res.status} ${res.statusText}`);
-
-  if (!res.ok) {
-    // 401 specifically means the app and server disagree on the API key —
-    // a config problem, not a transient network/server issue, so it gets
-    // its own message instead of the generic "(status) + raw body" dump,
-    // which would otherwise show a resident a JSON error blob.
-    if (res.status === 401) {
-      throw new Error(
-        "Hindi tugma ang API key ng server. Kontakin po ang admin ng app."
-      );
-    }
-    if (res.status >= 500) {
-      throw new Error(
-        "Nagka-problema ang transcription server. Subukan po muli pagkalipas ng ilang saglit."
-      );
-    }
-    const detail = await res.text().catch(() => "");
-    throw new Error(
-      `Hindi na-transcribe (${res.status}). ${detail.slice(0, 120) || "Tingnan po kung tumatakbo pa ang server."}`
-    );
-  }
-
-  const data = await res.json();
-  const text = String(data.text ?? "").trim();
-
-  // A successful request that comes back empty means Whisper heard nothing
-  // usable — silence, or the mic caught only background noise. That's a
-  // different failure from a network/server error and needs different
-  // recovery copy, so surface it distinctly instead of setting an empty
-  // answer and letting the resident think it worked.
-  if (!text) {
-    throw new Error("Walang narinig na sagot. Subukan po muling mag-record.");
-  }
-
-  return { text };
+    let data: unknown;
+    try { data = await response.json(); }
+    catch { throw new Error("Hindi wastong sagot ang natanggap mula sa transcription server. Subukan po muli."); }
+    const text = typeof (data as { text?: unknown } | null)?.text === "string" ? (data as { text: string }).text.trim() : "";
+    if (!text) throw new Error("Walang narinig na sagot. Subukan po muling mag-record.");
+    return { text };
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("Masyadong matagal ang pag-transcribe. Subukan pong mag-record ng mas maikli.");
+    if (error instanceof TypeError) throw new Error("Hindi maabot ang transcription server. Tiyaking naka-on ang backend at nasa parehong Wi-Fi ang telepono at laptop.");
+    throw error;
+  } finally { clearTimeout(timeout); }
 }

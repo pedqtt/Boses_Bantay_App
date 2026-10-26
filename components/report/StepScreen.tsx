@@ -1,4 +1,5 @@
-import { View, Text, Pressable, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { Text } from "@/components/AppText";
+import { View, Pressable, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 import type { ReportQuestion } from "@/lib/reportQuestions";

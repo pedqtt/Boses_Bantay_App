@@ -1,3 +1,4 @@
+import { TypographyProvider } from "@/lib/typography-context";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
@@ -80,8 +81,10 @@ export default function RootLayout() {
     // exactly one KeyboardProvider instance at the root.
     <KeyboardProvider>
       <AuthProvider>
+        <TypographyProvider>
         <StatusBar style="dark" />
         <InitialLayout />
+        </TypographyProvider>
       </AuthProvider>
     </KeyboardProvider>
   );

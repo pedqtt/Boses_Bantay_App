@@ -7,17 +7,17 @@ module.exports = {
       colors: {
         // Primary accent — navigation, primary actions, links. NOT used for
         // status/urgency, so "what to tap" and "what needs attention" never
-        // collide in the same color. Imperial Blue (#021F94) - the
+        // collide in the same color. Imperial Blue (#021C84) - the
         // resident-provided reference palette, rolled out app-wide (it had
         // been scoped to bot.tsx only at first). Shades below are tints/
         // shades derived from that one hex, not independently chosen.
         brand: {
-          50: "#E3E6F4",
-          100: "#C7CCEA",
-          400: "#5B6DB9",
-          DEFAULT: "#021F94",
-          dark: "#011760",
-          light: "#E3E6F4",
+          50: "#DCE5F7",
+          100: "#BECEEE",
+          400: "#5065AE",
+          DEFAULT: "#021C84",
+          dark: "#01165C",
+          light: "#DCE5F7",
         },
         // Reserved urgency/alert color — active incidents, urgent contacts
         // (directory.tsx), and the Emergency quick-access icon (home.tsx)
@@ -33,10 +33,10 @@ module.exports = {
         // weight as a pair, the way they're actually used together
         // (PrimaryEmergencyBar vs. ContactRow's call segment).
         alert: {
-          50: "#FEF2F2",
-          100: "#FBDEDE",
-          DEFAULT: "#8B1220",
-          dark: "#5C0C15",
+          50: "#FAECEE",
+          100: "#F5E0E4",
+          DEFAULT: "#80111E",
+          dark: "#600D17",
         },
         // Darker than typical "muted text" grays on purpose — high
         // contrast over softness, per direction: flat, not washed out.

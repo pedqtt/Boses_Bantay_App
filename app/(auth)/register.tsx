@@ -1,15 +1,17 @@
+import { Text, TextInput } from "@/components/AppText";
 import { useEffect, useRef, useState } from "react";
-import { View, Text, TextInput, Pressable, ActivityIndicator, Alert, ScrollView } from "react-native";
+import { View, Pressable, ActivityIndicator, Alert, ScrollView } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { signUpUser, isPhoneRegistered } from "@/lib/api/auth";
 import { useKeyboardHeight } from "@/lib/useKeyboardHeight";
 import {
   getPhoneError,
   getNewPasswordError,
   getNameError,
+  getMiddleNameError,
   getAddressError,
   PASSWORD_REQUIREMENTS_HINT,
   PHONE_REQUIREMENTS_HINT,
@@ -17,14 +19,16 @@ import {
   ADDRESS_REQUIREMENTS_HINT,
 } from "@/lib/validation";
 import { PhoneInput } from "@/components/PhoneInput";
-import { BackButton } from "@/components/BackButton";
-import { ScreenBackground } from "@/components/ScreenBackground";
+import { AuthBackButton as BackButton } from "@/components/auth/AuthScreenFrame";
+import { AuthScreenFrame as ScreenBackground, AuthFormCard, authStyles } from "@/components/auth/AuthScreenFrame";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
 import { FormField as Field } from "@/components/FormField";
 import { colors } from "@/lib/theme";
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [middleNameError, setMiddleNameError] = useState<string | null>(null);
   const [lastName, setLastName] = useState("");
   const [purok, setPurok] = useState("");
   // 11 raw digits, leading "0" included (e.g. "09171234567"). See components/PhoneInput.tsx.
@@ -117,9 +121,10 @@ export default function RegisterScreen() {
   }, [phone]);
 
   // "Next" on the keyboard walks straight down the form in the same order
-  // a resident would fill it in by tapping - Pangalan, Apelyido, Address,
+  // a resident would fill it in by tapping - Pangalan, Middle name, Apelyido, Address,
   // phone, then Password, which submits. Each ref is only used to call
   // .focus() on the next field; it never reads state.
+  const middleNameRef = useRef<TextInput>(null);
   const lastNameRef = useRef<TextInput>(null);
   const addressRef = useRef<TextInput>(null);
   const phoneRef = useRef<TextInput>(null);
@@ -145,6 +150,7 @@ export default function RegisterScreen() {
   // on verify-id.tsx.
   const canSubmit =
     !getNameError(firstName, "pangalan") &&
+    !getMiddleNameError(middleName) &&
     !getNameError(lastName, "apelyido") &&
     !getAddressError(purok) &&
     !getPhoneError(phone) &&
@@ -159,6 +165,8 @@ export default function RegisterScreen() {
     // immediately - still gets an inline error instead of the generic
     // signup-failed alert that used to be the only feedback.
     const nextFirstNameError = getNameError(firstName, "pangalan");
+    const nextMiddleNameError = getMiddleNameError(middleName);
+    setMiddleNameError(nextMiddleNameError);
     const nextLastNameError = getNameError(lastName, "apelyido");
     const nextAddressError = getAddressError(purok);
     // Computed straight from the raw checks here, not the touched-gated
@@ -176,6 +184,7 @@ export default function RegisterScreen() {
 
     if (
       nextFirstNameError ||
+      nextMiddleNameError ||
       nextLastNameError ||
       nextAddressError ||
       nextPhoneError ||
@@ -207,6 +216,7 @@ export default function RegisterScreen() {
         phone,
         password: password.trim(),
         firstName: firstName.trim(),
+        middleName: middleName.trim(),
         lastName: lastName.trim(),
         purok: purok.trim(),
       });
@@ -223,7 +233,7 @@ export default function RegisterScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
       <ScreenBackground>
       <View style={{ flex: 1 }}>
         {/* One whole scrollable page - consent, submit, and the "already
@@ -234,12 +244,13 @@ export default function RegisterScreen() {
             comment above `spacerStyle` for why. */}
         <ScrollView
           style={{ flex: 1 }}
-          className="px-8"
+          className="px-5"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingTop: 24, paddingBottom: 56 }}
+          contentContainerStyle={{ paddingTop: 24, paddingBottom: 32 }}
         >
-          <View className="mb-8 self-start">
+          <AuthFormCard>
+          <View className="mb-5 self-start">
             <BackButton onPress={() => router.back()} />
           </View>
 
@@ -247,8 +258,8 @@ export default function RegisterScreen() {
               belong together as one block, separated from the fields
               below by a single larger gap rather than each carrying its
               own margin. */}
-          <View className="mb-10">
-            <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
+          <View className="mb-6">
+            <Text variant="screenTitle" className="text-[28px] font-semibold text-ink tracking-tight mb-2">
               Gumawa ng Account
             </Text>
             {/* Sets the expectation once, up top, instead of only implying it
@@ -268,10 +279,9 @@ export default function RegisterScreen() {
               keystroke re-validates immediately, so the warning updates or
               disappears in step with what's actually typed - it only goes
               away once the requirement is genuinely satisfied. The shared
-              rule for both name fields is stated once below the row, not
-              repeated per column - same rule, same line, side by side. */}
-          <View className="flex-row gap-3">
-            <Field
+              name format reminder is stated once below the name fields. */}
+          <View style={{ flexDirection: "column", gap: 12 }}>
+            <Field appearance="boxed"
               label="Pangalan"
               value={firstName}
               onChangeText={(t) => {
@@ -282,11 +292,29 @@ export default function RegisterScreen() {
               placeholder="Juan"
               autoFocus
               error={firstNameError}
-              wrapperClassName="flex-1 mb-1.5"
+              wrapperClassName="mb-1.5"
+              returnKeyType="next"
+              onSubmitEditing={() => middleNameRef.current?.focus()}
+            />
+            <Field appearance="boxed"
+              ref={middleNameRef}
+              label="Middle name (opsyonal)"
+              value={middleName}
+              onChangeText={(text) => {
+                setMiddleName(text);
+                if (middleNameError) setMiddleNameError(getMiddleNameError(text));
+              }}
+              onBlur={() => setMiddleNameError(getMiddleNameError(middleName))}
+              placeholder="Santos"
+              autoCapitalize="words"
+              maxLength={100}
+              error={middleNameError}
+              hint="Iwanang blangko kung walang middle name."
+              wrapperClassName="mb-1.5"
               returnKeyType="next"
               onSubmitEditing={() => lastNameRef.current?.focus()}
             />
-            <Field
+            <Field appearance="boxed"
               ref={lastNameRef}
               label="Apelyido"
               value={lastName}
@@ -297,13 +325,13 @@ export default function RegisterScreen() {
               onBlur={() => setLastNameError(getNameError(lastName, "apelyido"))}
               placeholder="Dela Cruz"
               error={lastNameError}
-              wrapperClassName="flex-1 mb-1.5"
+              wrapperClassName="mb-1.5"
               returnKeyType="next"
               onSubmitEditing={() => addressRef.current?.focus()}
             />
           </View>
           <Text className="text-[13px] text-ink-faint mb-7">{NAME_REQUIREMENTS_HINT}</Text>
-          <Field
+          <Field appearance="boxed"
             ref={addressRef}
             label="Address"
             value={purok}
@@ -319,7 +347,7 @@ export default function RegisterScreen() {
             onSubmitEditing={() => phoneRef.current?.focus()}
           />
           <View className="mb-8">
-            <PhoneInput
+            <PhoneInput appearance="boxed"
               ref={phoneRef}
               label="Numero ng Mobile"
               digits={phone}
@@ -333,7 +361,7 @@ export default function RegisterScreen() {
               {checkingPhone && !phoneError ? "Sinusuri ang numero..." : PHONE_REQUIREMENTS_HINT}
             </Text>
           </View>
-          <Field
+          <Field appearance="boxed"
             ref={passwordRef}
             label="Password"
             value={password}
@@ -412,16 +440,17 @@ export default function RegisterScreen() {
               onPress={handleRegister}
               disabled={loading || !canSubmit}
               className={`rounded-2xl py-4 items-center overflow-hidden ${
-                !canSubmit || loading ? "bg-gray-300" : "bg-brand active:opacity-85"
+                !canSubmit || loading ? "bg-[#647392]" : "bg-brand active:opacity-95"
               }`}
             >
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-white font-semibold text-[18px]">Magpatuloy</Text>
+                <Text variant="body" className="text-white font-semibold text-[18px]">Magpatuloy</Text>
               )}
             </Pressable>
           </AuthActionGroup>
+          </AuthFormCard>
           <Animated.View style={spacerStyle} />
         </ScrollView>
       </View>

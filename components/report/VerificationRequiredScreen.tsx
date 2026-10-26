@@ -1,6 +1,9 @@
-import { View, Text, Pressable } from "react-native";
+import { Text } from "@/components/AppText";
+import { reportStyles } from "./reportStyles";
+import { ReportPrimaryLabel } from "./ReportPrimaryLabel";
+import { View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { REPORT_TYPE } from "@/lib/reportTypeScale";
 
 type BarangayIdStatus = "unverified" | "secretary_verified" | "pb_authorized";
@@ -57,10 +60,12 @@ export function VerificationRequiredScreen({ status, onGoVerify, onGoBack }: Ver
         <Text className={`${REPORT_TYPE.hint} text-center max-w-[290px] mb-8`}>{copy.body}</Text>
 
         <Pressable
+          accessibilityRole="button"
+          style={reportStyles.primaryAction}
           onPress={onGoVerify}
           className="bg-brand rounded-2xl py-4 px-8 items-center active:opacity-85 mb-3 w-full"
         >
-          <Text className={REPORT_TYPE.buttonPrimary}>{copy.ctaLabel}</Text>
+          <ReportPrimaryLabel icon="arrow-forward">{copy.ctaLabel}</ReportPrimaryLabel>
         </Pressable>
         <Pressable onPress={onGoBack} className="py-3 px-8 items-center active:opacity-70">
           <Text className={REPORT_TYPE.buttonSecondary}>Bumalik sa Home</Text>

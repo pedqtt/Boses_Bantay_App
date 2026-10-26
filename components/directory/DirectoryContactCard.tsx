@@ -1,6 +1,7 @@
+import { Text } from "@/components/AppText";
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, Linking, Alert, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, Pressable, Linking, Alert, StyleSheet } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import * as Clipboard from "expo-clipboard";
 import { colors } from "@/lib/theme";
 export type DirectoryContact = { id: string; name: string; role: string; phone: string; urgent: boolean };
@@ -56,11 +57,11 @@ export function PrimaryDirectoryHotline({ contact }: { contact: DirectoryContact
 export function DirectoryContactCard({ contact }: { contact: DirectoryContact }) {
   const { copied, copy } = useCopyNumber(contact.phone);
   const hasPhone = Boolean(contact.phone.replace(/[^0-9+]/g, ""));
-  const accent = contact.urgent ? "#B42332" : colors.primary;
+  const accent = contact.urgent ? colors.error : colors.primary;
   return <View style={styles.card}>
     <View style={styles.contactBody}>
       <View style={styles.identity}>
-        <View style={[styles.categoryBadge, { backgroundColor: contact.urgent ? "#FFF0F1" : "#EDF1FC" }]}><Ionicons name={contactIcon(contact)} size={18} color={accent} /></View>
+        <View style={[styles.categoryBadge, { backgroundColor: contact.urgent ? colors.errorContainer : colors.residentTint }]}><Ionicons name={contactIcon(contact)} size={18} color={accent} /></View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.name}>{contact.name}</Text>
           {contact.role ? <Text style={styles.role}>{contact.role}</Text> : null}
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
   call: { width: 44, minHeight: 46, paddingVertical: 6, borderRadius: 13, borderWidth: 1, borderColor: "#FFFFFF26", overflow: "hidden", alignItems: "center", justifyContent: "center", gap: 2 },
   callText: { color: "white", fontSize: 11, lineHeight: 15, fontWeight: "600" },
   copy: { width: 44, minHeight: 46, paddingVertical: 6, borderRadius: 13, borderWidth: 1, overflow: "hidden", alignItems: "center", justifyContent: "center", gap: 2 },
-  hotline: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.error, borderWidth: 1, borderColor: "#B42332", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 14 },
+  hotline: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.error, borderWidth: 1, borderColor: colors.error, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 14 },
   hotlineIdentity: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12 },
   hotlineDetails: { flex: 1, minWidth: 0, borderLeftWidth: 1, borderLeftColor: "#FFFFFF35", paddingLeft: 12 },
   hotlineNumber: { color: "white", fontSize: 34, lineHeight: 42, letterSpacing: -0.8, fontWeight: "700", fontVariant: ["tabular-nums"] },

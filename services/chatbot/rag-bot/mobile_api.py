@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import secrets
 import threading
+import time
 
 import config
 from chat_runtime import runtime_logger
@@ -22,6 +23,7 @@ from citations import UNVERIFIED
 from menu_flow import load_kb, localized, opening
 from session_chat import stream_session_message
 from sessions import SQLiteSessionStore
+from voice_gateway import VoiceGateway, VoiceFailure
 
 
 class APIError(Exception):
@@ -93,27 +95,33 @@ class MobileChat:
             self.lock.release()
 
 
-def handler_for(engine, api_key):
+def handler_for(engine, api_key, voice_gateway=None):
     class Handler(BaseHTTPRequestHandler):
         def setup(self):
             super().setup()
             self.connection.settimeout(15)
+            self.request_started=time.perf_counter()
+            self.request_id=secrets.token_hex(4)
 
         def log_message(self, *args):
             pass  # Do not persist questions, IP addresses, keys, or tokens.
 
         def respond(self, status, body):
+            route=self.path if self.path in {'/health','/api/session','/api/chat','/transcribe','/extract','/summarize'} else '[unknown]'
+            runtime_logger().info('http request_id=%s method=%s route=%s status=%d duration_ms=%.1f',
+                self.request_id,self.command,route,status,(time.perf_counter()-self.request_started)*1000)
             data = json.dumps(body, ensure_ascii=False).encode('utf-8')
             self.send_response(status)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.send_header('Content-Length', str(len(data)))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('X-Request-ID', self.request_id)
             self.end_headers()
             self.wfile.write(data)
 
         def do_GET(self):
-            self.respond(200, {'status':'ok','service':'boses-rag-mobile'}) if self.path == '/health' else self.respond(404, {'error':'Not found'})
+            self.respond(200, {'status':'ok','service':'boses-rag-mobile', 'capabilities':['chat', *(['transcription','extraction','summarization'] if voice_gateway else [])]}) if self.path == '/health' else self.respond(404, {'error':'Not found'})
 
         def do_POST(self):
             try:
@@ -124,11 +132,20 @@ def handler_for(engine, api_key):
                 provided = self.headers.get('X-API-Key', '')
                 if not hmac.compare_digest(provided.encode(), api_key.encode()):
                     raise APIError(401, 'Hindi tinanggap ang chatbot API key.')
-                if self.path not in {'/api/session','/api/chat'}:
+                voice_route = self.path in {'/transcribe','/extract','/summarize'}
+                if self.path not in {'/api/session','/api/chat'} and not voice_route:
                     raise APIError(404, 'Not found')
                 if self.headers.get('Transfer-Encoding'):
                     raise APIError(400, 'Transfer encoding is not supported.')
                 length = int(self.headers.get('Content-Length','0'))
+                if voice_route:
+                    if voice_gateway is None:
+                        raise APIError(503, 'Hindi pa naka-configure ang speech service. Buksan muli ang Start Boses Bantay.')
+                    if self.path != '/transcribe' and self.headers.get_content_type() != 'application/json':
+                        raise APIError(415, 'Use application/json.')
+                    result = voice_gateway.forward(self.path, self.rfile, length, self.headers.get('Content-Type',''))
+                    self.respond(200, result)
+                    return
                 if not 0 < length <= 32768:
                     raise APIError(413, 'Request is empty or too large.')
                 if self.headers.get_content_type() != 'application/json':
@@ -138,7 +155,7 @@ def handler_for(engine, api_key):
                     raise APIError(400, 'Expected a JSON object.')
                 body = engine.new_session() if self.path == '/api/session' else engine.reply(payload)
                 self.respond(200, body)
-            except APIError as error:
+            except (APIError, VoiceFailure) as error:
                 self.respond(error.status, {'answer':error.message, 'retryable':error.status == 503,'status':'service_failure'})
             except (ValueError, UnicodeError):
                 self.respond(400, {'answer':'Invalid request. Please retry.','status':'service_failure'})
@@ -202,7 +219,8 @@ def main():
         while not stopped.wait(60):
             store.purge_expired()
     threading.Thread(target=cleanup,daemon=True).start()
-    server = BoundedServer((args.host,args.port),handler_for(engine,key))
+    voice = VoiceGateway(os.environ.get('VOICE_UPSTREAM_URL','http://127.0.0.1:8000'), os.environ.get('VOICE_UPSTREAM_API_KEY') or key)
+    server = BoundedServer((args.host,args.port),handler_for(engine,key,voice))
     print(f'Mobile chatbot listening on {args.host}:{args.port}',flush=True)
     try:
         server.serve_forever()

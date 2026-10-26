@@ -1,5 +1,6 @@
+import { Text, TextInput } from "@/components/AppText";
 import { forwardRef, useState } from "react";
-import { View, Text, TextInput, type ReturnKeyTypeOptions } from "react-native";
+import { View, type ReturnKeyTypeOptions } from "react-native";
 import { normalizePhoneDigits, formatPhoneDisplay } from "@/lib/validation";
 import { colors, fieldBorderColor } from "@/lib/theme";
 
@@ -11,6 +12,7 @@ import { colors, fieldBorderColor } from "@/lib/theme";
 const MAX_FORMATTED_LENGTH = 13;
 
 type PhoneInputProps = {
+  appearance?: "line" | "boxed";
   label: string;
   /** The 11-digit local number, leading "0" included (e.g. "09171234567"). */
   digits: string;
@@ -66,6 +68,7 @@ type PhoneInputProps = {
 export const PhoneInput = forwardRef<TextInput, PhoneInputProps>(function PhoneInput(
   {
     label,
+    appearance = "line",
     digits,
     onChangeDigits,
     onFocus,
@@ -79,6 +82,7 @@ export const PhoneInput = forwardRef<TextInput, PhoneInputProps>(function PhoneI
   ref
 ) {
   const formatted = formatPhoneDisplay(digits);
+  const boxed = appearance === "boxed";
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>(undefined);
   // Tracks focus purely for the border color - a focused-but-not-yet-wrong
   // field should look distinct from both its resting state and an error,
@@ -99,14 +103,14 @@ export const PhoneInput = forwardRef<TextInput, PhoneInputProps>(function PhoneI
 
   return (
     <View>
-      <Text className="text-[12px] font-semibold text-ink-faint mb-2 uppercase tracking-wider">
+      <Text variant={boxed ? "label" : "caption"} className={boxed ? "font-medium text-ink-soft mb-2" : "text-[12px] font-semibold text-ink-faint mb-2 uppercase tracking-wider"}>
         {label}
       </Text>
       <View
-        className="flex-row items-center border-b pb-3"
-        style={{ borderColor: fieldBorderColor({ error: !!error, focused }) }}
+        className={boxed ? "flex-row items-center border rounded-[14px] px-3" : "flex-row items-center border-b pb-3"}
+        style={{ borderColor: fieldBorderColor({ error: !!error, focused }), backgroundColor: boxed ? (focused ? "#FFFFFF" : "#FAFBFD") : undefined }}
       >
-        <Text className="text-[19px] text-gray-400">+63</Text>
+        <Text variant="body" className="text-[19px] text-ink-soft">+63</Text>
         <View className="w-px h-4 bg-gray-300 mx-2.5" />
         {/* Wrapped in its own flex-1 View - see the same fix in
             register.tsx's Field component for why flex-1 shouldn't sit
@@ -143,8 +147,8 @@ export const PhoneInput = forwardRef<TextInput, PhoneInputProps>(function PhoneI
             // Explicit so the grouped number ("0917 123 4567") always
             // renders at normal spacing, matching every other input in
             // the auth screens rather than inheriting anything.
-            style={{ letterSpacing: 0 }}
-            className="text-[19px] text-ink"
+            style={{ letterSpacing: 0, paddingVertical: boxed ? 12 : undefined }}
+            className={boxed ? "text-[16px] text-ink" : "text-[19px] text-ink"}
           />
         </View>
       </View>

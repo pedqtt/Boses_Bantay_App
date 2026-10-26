@@ -1,8 +1,11 @@
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { Text } from "@/components/AppText";
+import { ReportPrimaryLabel } from "./ReportPrimaryLabel";
+import { reportStyles } from "./reportStyles";
+import { View, Pressable, ScrollView } from "react-native";
 import { DETAILS_FIELD_ORDER, getQuestion, type ReportFieldKey } from "@/lib/reportQuestions";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
-import { FormChoiceField } from "@/components/FormChoiceField";
-import { FormCheckboxField } from "@/components/FormCheckboxField";
+import { FormChoiceField } from "./ReportFormFields";
+import { FormCheckboxField } from "./ReportFormFields";
 import type { AnswersMap } from "./types";
 
 type DetailsScreenProps = {
@@ -62,11 +65,11 @@ export function DetailsScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 56 }}
       >
-        <View className="mb-10">
-          <Text className="text-[28px] font-semibold text-ink tracking-tight mb-2">
+        <View className="mb-8">
+          <Text className="text-[27px] leading-9 font-semibold text-ink tracking-tight mb-2">
             Kaunti na lang po.
           </Text>
-          <Text className="text-[15px] text-ink-soft leading-7">
+          <Text className="text-[15px] text-ink-soft leading-6">
             Tukuyin na lang ang klase ng report - hindi na kailangang mag-record.
           </Text>
         </View>
@@ -107,16 +110,17 @@ export function DetailsScreen({
         />
       </ScrollView>
 
-      <View className="px-8" style={{ paddingBottom: 32 }}>
+      <View style={reportStyles.actionBar}>
         <AuthActionGroup>
           <Pressable
             onPress={onNext}
             disabled={!canAdvance}
+            style={reportStyles.primaryAction}
             className={`rounded-2xl py-4 items-center overflow-hidden ${
               canAdvance ? "bg-brand active:opacity-85" : "bg-gray-300"
             }`}
           >
-            <Text className="text-white font-semibold text-[18px]">Suriin ang report</Text>
+            <ReportPrimaryLabel icon="arrow-forward">Suriin ang report</ReportPrimaryLabel>
           </Pressable>
         </AuthActionGroup>
       </View>

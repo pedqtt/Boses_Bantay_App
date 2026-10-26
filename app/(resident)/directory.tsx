@@ -1,7 +1,8 @@
+import { Text, TextInput } from "@/components/AppText";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, RefreshControl } from "react-native";
+import { View, ScrollView, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { DirectoryContactCard, PrimaryDirectoryHotline, type DirectoryContact } from "@/components/directory/DirectoryContactCard";
@@ -48,27 +49,16 @@ export default function DirectoryScreen() {
   }, [contacts, query, filter]);
   const urgent = filtered.filter(contact => contact.urgent);
   const routine = filtered.filter(contact => !contact.urgent);
-  return <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: "#FAF8F7" }}>
-    <ScreenBackground backgroundColor="#FAF8F7">
-      <View className="bg-white px-5 pt-4 pb-3 border-b border-gray-200">
-        <View className="flex-row items-center mb-3" style={{ gap: 8 }}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text accessibilityRole="header" className="text-[24px] leading-8 font-semibold text-ink tracking-tight">Directory</Text>
-          </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="I-refresh ang directory"
-            accessibilityState={{ disabled: loading || refreshing, busy: loading || refreshing }}
-            disabled={loading || refreshing} onPress={() => { void fetchContacts(true); }}
-            className="bg-brand-50 rounded-[14px] items-center justify-center active:opacity-70"
-            style={{ width: 44, height: 44, flexShrink: 0 }}>
-            {loading || refreshing ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name="refresh-outline" size={20} color={colors.primary} />}
-          </Pressable>
-        </View>
+  return <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: "#FFFFFF" }}>
+    <ScreenBackground backgroundColor={colors.residentBackground}>
+      <View style={{ backgroundColor: "#FFFFFF", paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+        <Text variant="screenTitle" accessibilityRole="header" className="text-[24px] leading-8 font-semibold text-ink tracking-tight" style={{ marginBottom: 12 }}>Directory</Text>
         <View className="flex-row items-center rounded-xl pl-3 pr-1" style={{ backgroundColor: "#F3F5FA", minHeight: 46 }}>
           <Ionicons name="search-outline" size={18} color={colors.onSurfaceVariant} />
           <TextInput accessibilityLabel="Hanapin ang contact o serbisyo" value={query} onChangeText={setQuery} placeholder="Sino ang tatawagan?" placeholderTextColor={colors.outline} returnKeyType="search" autoCorrect={false} className="flex-1 text-[14px] text-ink px-3 py-3" />
           {query ? <Pressable accessibilityRole="button" accessibilityLabel="Burahin ang paghahanap" onPress={() => setQuery("")} style={{ padding: 12 }}><Ionicons name="close-circle" size={18} color={colors.outline} /></Pressable> : null}
         </View>
-        <View className="flex-row mt-2" style={{ gap: 6 }}>{categories.map(category => <Pressable key={category.id} accessibilityRole="button" accessibilityState={{ selected: filter === category.id }} onPress={() => setFilter(category.id)} className="flex-1 items-center justify-center rounded-lg active:opacity-70" style={{ minHeight: 40, backgroundColor: filter === category.id ? "#EDF1FC" : "white" }}><Text style={{ fontSize: 12, lineHeight: 18, fontWeight: filter === category.id ? "600" : "400", color: filter === category.id ? colors.primary : colors.onSurfaceVariant }}>{category.label}</Text></Pressable>)}</View>
+        <View className="flex-row" style={{ gap: 8, marginTop: 10 }}>{categories.map(category => <Pressable key={category.id} accessibilityRole="button" accessibilityState={{ selected: filter === category.id }} onPress={() => setFilter(category.id)} className="flex-1 items-center justify-center rounded-lg active:opacity-70" style={{ minHeight: 40, backgroundColor: filter === category.id ? colors.residentSelected : "white" }}><Text style={{ fontSize: 12, lineHeight: 18, fontWeight: filter === category.id ? "600" : "400", color: filter === category.id ? colors.primary : colors.onSurfaceVariant }}>{category.label}</Text></Pressable>)}</View>
       </View>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void fetchContacts(true); }} tintColor={colors.primary} />}>
         <PrimaryDirectoryHotline contact={QC_HELPLINE} />
@@ -82,8 +72,8 @@ export default function DirectoryScreen() {
   </SafeAreaView>;
 }
 function ContactSection({ title, count, urgent = false, children }: { title: string; count: number; urgent?: boolean; children: import("react").ReactNode }) {
-  const accent = urgent ? "#B42332" : colors.primary;
-  const tint = urgent ? "#FFF0F1" : "#EDF1FC";
+  const accent = urgent ? colors.error : colors.primary;
+  const tint = urgent ? colors.errorContainer : colors.residentTint;
   return <View className="mb-5">
     <View className="flex-row items-center mb-2.5" style={{ gap: 8 }}>
       <Text accessibilityRole="header" style={{ flex: 1, fontSize: 13, lineHeight: 20, fontWeight: "600", color: accent }}>{title}</Text>

@@ -1,8 +1,10 @@
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { Text, TextInput } from "@/components/AppText";
 import { useRef, useState } from "react";
-import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, Pressable, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@/components/AppIcon";
 
 // ✅ Import our custom bypass function and Auth Context
 import { logInUser } from "@/lib/api/auth";
@@ -14,7 +16,7 @@ import {
   LOGIN_PASSWORD_HINT,
 } from "@/lib/validation";
 import { PhoneInput } from "@/components/PhoneInput";
-import { ScreenBackground } from "@/components/ScreenBackground";
+import { AuthScreenFrame as ScreenBackground, AuthFormCard, authStyles } from "@/components/auth/AuthScreenFrame";
 import { AuthActionGroup } from "@/components/AuthActionGroup";
 import { colors, fieldBorderColor } from "@/lib/theme";
 
@@ -40,11 +42,7 @@ export default function LoginScreen() {
   // ✅ Get signIn from our context so the app knows we are logged in
   const { signIn } = useAuth();
 
-  // FIXED - no ScrollView at all now, not even one with a spacer: two
-  // fields fit on screen without it, and any scrolling (even passive,
-  // non-auto-focus scrolling) still read as the layout being unstable.
-  // Fully static View - the only thing that changes on focus is the
-  // field's own border highlight (fieldBorderColor below).
+  // Scrollable form content keeps large accessibility text reachable.
 
   async function handleLogin() {
     const nextPhoneError = getPhoneError(phone);
@@ -59,7 +57,7 @@ export default function LoginScreen() {
 
     try {
       // ✅ Call OUR bypass wrapper instead of supabase directly!
-      // phone is already the full local format ("09171234567")  - 
+      // phone is already the full local format ("09171234567")  -
       // logInUser's normalizePhone converts the leading 0 to +63 itself.
       const response = await logInUser(phone, password.trim());
 
@@ -77,13 +75,10 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: "#FFFFFF" }}>
       <ScreenBackground>
       <View style={{ flex: 1 }}>
-        {/* No ScrollView - fully static. The button lives at the bottom of
-            this same View as its last item (register.tsx's pattern for
-            where the button sits, just without any scrolling container
-            around it). */}
+
         {/* Two vertical zones (header, then centered fields), plus the
             action cluster as a third. */}
         {/* Padding set via `style`, not className: NativeWind utility
@@ -91,11 +86,12 @@ export default function LoginScreen() {
             values weren't taking effect visually, so these are passed
             as plain RN style values where there's no compilation step
             between what's written and what renders. */}
-        <View className="flex-1 px-8" style={{ paddingTop: 72 }}>
+        <KeyboardAwareScrollView className="flex-1" keyboardShouldPersistTaps="handled" bottomOffset={24} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32 }}>
+          <AuthFormCard>
             {/* Zone 1: header - title + one-line description, anchored
                 at the top of the screen. */}
             <View>
-              <Text className="text-[28px] font-bold text-ink tracking-tight mb-2">
+              <Text variant="screenTitle" className="text-[28px] font-bold text-ink tracking-tight mb-2">
                 Mag-login
               </Text>
               <Text className="text-[15px] text-ink-soft leading-7">
@@ -108,13 +104,13 @@ export default function LoginScreen() {
                 (rather than on the whole screen) is what keeps the two
                 fields reading as one balanced cluster instead of
                 sticking to the header. */}
-            <View className="flex-1 justify-center py-8">
+            <View className="pt-6">
             {/* Same persistence rule as register.tsx: once an error is
                 showing, every keystroke re-validates instead of blanking
                 it out, so it only clears when what's typed actually fixes
                 it - not just because the resident started typing again. */}
             <View className="mb-6">
-              <PhoneInput
+              <PhoneInput appearance="boxed"
                 label="Numero ng Mobile"
                 digits={phone}
                 onChangeDigits={(d) => {
@@ -134,8 +130,9 @@ export default function LoginScreen() {
                 Password
               </Text>
               <View
-                className="flex-row items-center border-b"
+                className="flex-row items-center"
                 style={{
+                  ...authStyles.inputBox,
                   borderColor: fieldBorderColor({ error: !!passwordError, focused: passwordFocused }),
                 }}
               >
@@ -176,13 +173,13 @@ export default function LoginScreen() {
                     // well as the masked dots, stretching it out and
                     // running it past the field edge. Setting
                     // letterSpacing explicitly overrides that.
-                    style={{ letterSpacing: 0 }}
-                    className="text-[19px] text-ink pb-3"
+                    style={{ letterSpacing: 0, paddingVertical: 12 }}
+                    className="text-[16px] text-ink"
                   />
                 </View>
                 {/* hitSlop 14, not 10 - reaches the 48dp touch-target
                     minimum for a 20px icon (android-expo-ui skill). */}
-                <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={14} className="pb-3 pl-2">
+                <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={14} style={authStyles.passwordEye}>
                   <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.outline} />
                 </Pressable>
               </View>
@@ -201,13 +198,8 @@ export default function LoginScreen() {
             </View>
             </View>
 
-            {/* Back inside the scroll content, as its last item - see the
-                comment above the scroll view for why. Static bottom padding
-                (56, matching the old footer's base value) instead of a
-                keyboard-tracking one - it doesn't need to dodge the
-                keyboard itself; KeyboardAwareScrollView already keeps
-                whichever field is focused clear of it. */}
-            <View className="mt-8" style={{ paddingBottom: 56 }}>
+
+            <View className="mt-2" style={{ paddingBottom: 0 }}>
               <AuthActionGroup
                 secondary={
                   <View className="flex-row flex-wrap justify-center items-center">
@@ -221,17 +213,18 @@ export default function LoginScreen() {
                 <Pressable
                   onPress={handleLogin}
                   disabled={loading}
-                  className={`rounded-2xl py-4 items-center overflow-hidden ${loading ? "bg-gray-300" : "bg-brand active:opacity-85"}`}
+                  className={`rounded-2xl py-4 items-center overflow-hidden ${loading ? "bg-[#647392]" : "bg-brand active:opacity-95"}`}
                 >
                   {loading ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text className="text-white font-semibold text-[18px]">Mag-login</Text>
+                    <Text variant="body" className="text-white font-semibold text-[18px]">Mag-login</Text>
                   )}
                 </Pressable>
               </AuthActionGroup>
             </View>
-        </View>
+        </AuthFormCard>
+        </KeyboardAwareScrollView>
       </View>
       </ScreenBackground>
     </SafeAreaView>

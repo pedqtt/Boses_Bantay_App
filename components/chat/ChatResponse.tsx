@@ -1,6 +1,7 @@
+import { Text } from "@/components/AppText";
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Pressable, View } from "react-native";
+import { Ionicons } from "@/components/AppIcon";
 import type { ChatMessage } from "@/lib/api/chat";
 import { colors } from "@/lib/theme";
 import { answerBlocks, answerForDisplay, unwrapExcerpt } from "@/lib/chat/citation-presentation";
@@ -54,7 +55,7 @@ export function ChatResponse({ message }: { message: ChatMessage }) {
                   accessibilityState={excerpt ? { expanded: open } : undefined}
                   accessibilityLabel={`${tagalog ? "Pinagmulan" : "Source"} ${id}: ${citation.documentTitle}${citation.section ? ", " + citation.section : ""}`}
                   style={{ padding: 12, flexDirection: "row", alignItems: "flex-start", gap: 10, minHeight: 52 }}>
-                  <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: colors.primaryContainer, alignItems: "center", justifyContent: "center" }}>
+                  <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: colors.residentTint, alignItems: "center", justifyContent: "center" }}>
                     <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>{id}</Text>
                   </View>
                   <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
