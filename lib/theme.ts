@@ -76,7 +76,7 @@ export const colors = {
   residentBackground: "#F9FAFD", // Near-white blue-gray background for resident modules.
   residentTint: "#DCE5F7", // Deeper accent fill for resident options and supporting controls.
   residentSelected: "#CCDAF4", // Selected controls need more emphasis than supporting fills.
-  residentAccentOutline: "#AFC4EA",
+  residentAccentOutline: "#9BB1DA",
   surface: "#F5F2F3", // White Convolvulus - ScreenBackground's base color, app background
   onSurface: "#0B0F19", // ink.DEFAULT - primary text
   onSurfaceVariant: "#374151", // ink.soft - secondary text (never lighter than this)
@@ -127,4 +127,12 @@ export const elevation = {
   level1: { elevation: 1, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 2, shadowOffset: { width: 0, height: 1 } },
   level2: { elevation: 3, shadowColor: "#000", shadowOpacity: 0.14, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } },
   level3: { elevation: 6, shadowColor: "#000", shadowOpacity: 0.14, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+} as const;
+
+// Header colors are shared independently of each action's established dimensions.
+export const headerActionColors = {
+  primary: { backgroundColor: colors.residentTint, borderColor: colors.residentAccentOutline },
+  secondary: { backgroundColor: "#F1F3F8", borderColor: "#C5D2E8" },
+  primaryPressed: "#CCDAF4",
+  secondaryPressed: "#E4EAF5",
 } as const;

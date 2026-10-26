@@ -78,7 +78,7 @@ function SectionHeader({
   return (
     <View className="flex-row items-center justify-between mb-3">
       <Text style={{ flex: 1, marginRight: 12 }} className={REPORT_TYPE.eyebrowBrand}>{label}</Text>
-      <Pressable onPress={onToggle} accessibilityRole="button" className="flex-row items-center bg-brand-50 border border-brand-100 rounded-xl px-3 py-2 active:opacity-70" hitSlop={8}>
+      <Pressable onPress={onToggle} accessibilityRole="button" className="flex-row items-center bg-brand-50 border border-brand-outline rounded-xl px-3 py-2 active:opacity-70" hitSlop={8}>
         <Ionicons
           name={editing ? "checkmark-circle" : "pencil-outline"}
           size={15}
@@ -348,7 +348,7 @@ export function ReviewScreen({
 
                         <Pressable
                           onPress={() => onJumpToChunk(index)}
-                          accessibilityRole="button" className="flex-row items-center self-start mt-3 bg-brand-50 border border-brand-100 rounded-full px-3 py-2.5 active:opacity-70"
+                          accessibilityRole="button" className="flex-row items-center self-start mt-3 bg-brand-50 border border-brand-outline rounded-full px-3 py-2.5 active:opacity-70"
                         >
                           <Ionicons name="mic-outline" size={13} color={colors.onSurfaceVariant} />
                           <Text className="text-[13px] font-medium text-ink-soft ml-1.5">

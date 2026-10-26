@@ -1,3 +1,4 @@
+import { useNavbarScroll } from "@/lib/navbar-scroll";
 import { Text } from "@/components/AppText";
 import { useState } from "react";
 import { View, Pressable, ScrollView, StyleSheet, ActivityIndicator, Alert } from "react-native";
@@ -16,6 +17,7 @@ const STATUS = {
 } as const;
 
 export default function ProfileScreen() {
+  const navbarScroll = useNavbarScroll();
   const { profile, signOut: clearSession } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
   const status = profile?.barangayIdStatus ?? "unverified";
@@ -31,7 +33,7 @@ export default function ProfileScreen() {
   }
   return <SafeAreaView edges={["top"]} style={s.screen}>
     <View style={s.header}><Text variant="screenTitle" accessibilityRole="header" style={s.pageTitle}>Profile</Text></View>
-    <ScrollView style={s.content} showsVerticalScrollIndicator={false} contentContainerStyle={s.body}>
+    <ScrollView onScroll={navbarScroll.onScroll} onScrollBeginDrag={navbarScroll.onScrollBeginDrag} scrollEventThrottle={16} style={s.content} showsVerticalScrollIndicator={false} contentContainerStyle={[s.body, { paddingBottom: navbarScroll.bottomPadding }]}>
       <View style={s.identityCard}>
         <View style={s.identity}>
           <View style={s.avatar}>{initials ? <Text style={s.initials}>{initials}</Text> : <Ionicons name="person-outline" size={26} color={colors.primary} />}</View>

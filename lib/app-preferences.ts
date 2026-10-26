@@ -1,8 +1,18 @@
 import { useEffect, useSyncExternalStore } from "react";
 import * as SecureStore from "expo-secure-store";
 
-type Preferences = { showBot: boolean; fadeBotWhenIdle: boolean; notificationsEnabled: boolean };
-export const DEFAULT_PREFERENCES: Preferences = { showBot: true, fadeBotWhenIdle: true, notificationsEnabled: true };
+export const BOT_BUTTON_SIZES = [
+  { id: "small", label: "Maliit", size: 56 },
+  { id: "standard", label: "Karaniwan", size: 72 },
+  { id: "large", label: "Malaki", size: 88 },
+] as const;
+export type BotButtonSize = typeof BOT_BUTTON_SIZES[number]["id"];
+export function getBotButtonSize(id: BotButtonSize): number {
+  return BOT_BUTTON_SIZES.find(option => option.id === id)?.size ?? 72;
+}
+
+type Preferences = { botButtonSize: BotButtonSize; showBot: boolean; fadeBotWhenIdle: boolean; notificationsEnabled: boolean };
+export const DEFAULT_PREFERENCES: Preferences = { showBot: true, fadeBotWhenIdle: true, notificationsEnabled: true, botButtonSize: "standard" };
 type Snapshot = { preferences: Preferences; loaded: boolean; error: string };
 let snapshot: Snapshot = { preferences: DEFAULT_PREFERENCES, loaded: false, error: "" };
 const listeners = new Set<() => void>();
@@ -19,6 +29,7 @@ async function load() {
     const raw = await SecureStore.getItemAsync(key);
     const saved = raw ? JSON.parse(raw) : {};
     publish({ loaded: true, error: "", preferences: {
+      botButtonSize: BOT_BUTTON_SIZES.some(option => option.id === saved?.botButtonSize) ? saved.botButtonSize : "standard",
       notificationsEnabled: typeof saved?.notificationsEnabled === "boolean" ? saved.notificationsEnabled : true,
       showBot: typeof saved?.showBot === "boolean" ? saved.showBot : true,
       fadeBotWhenIdle: typeof saved?.fadeBotWhenIdle === "boolean" ? saved.fadeBotWhenIdle : true,

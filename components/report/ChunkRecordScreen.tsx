@@ -131,7 +131,7 @@ export function ChunkRecordScreen({
                 )}
 
                 {chunk.example && (
-                  <View className="mt-4 pt-3 border-t border-brand-100">
+                  <View className="mt-4 pt-3 border-t border-brand-outline">
                     <Text className="text-[13px] leading-5 text-ink-soft">{chunk.example}</Text>
                   </View>
                 )}

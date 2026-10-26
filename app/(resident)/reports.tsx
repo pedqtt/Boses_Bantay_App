@@ -1,3 +1,4 @@
+import { useNavbarScroll } from "@/lib/navbar-scroll";
 import { Text, TextInput } from "@/components/AppText";
 import { ReportsPageGuide } from "@/components/reports/ReportsPageGuide";
 import { ReportListCard } from "@/components/reports/ReportListCard";
@@ -12,12 +13,13 @@ import { useAuth } from "@/lib/auth-context";
 import { fetchAccountReports } from "@/lib/api/myReports";
 import { isClosedReport, type AccountReport } from "@/lib/myReports";
 import { ScreenBackground } from "@/components/ScreenBackground";
-import { colors } from "@/lib/theme";
+import { colors, headerActionColors } from "@/lib/theme";
 export type { ReportSummary } from "@/lib/sampleReports";
 
 type Filter = "all" | "active" | "closed";
 type Scope = "all" | "created" | "assigned";
 export default function ReportsScreen() {
+  const navbarScroll = useNavbarScroll();
   const { profile } = useAuth();
   const [records, setRecords] = useState<{ owner: string; reports: AccountReport[] }>({ owner: "", reports: [] });
   const [loading, setLoading] = useState(true);
@@ -29,10 +31,12 @@ export default function ReportsScreen() {
   const [search, setSearch] = useState("");
   const [guideOpen, setGuideOpen] = useState(false);
   const generation = useRef(0);
+  const loadedOwner = useRef<string | null>(null);
   const load = useCallback(async (refresh = false) => {
     const request = ++generation.current;
-    if (refresh) setRefreshing(true); else setLoading(true);
-    setError(""); setPartial(false);
+    setRefreshing(refresh);
+    setLoading(loadedOwner.current !== (profile?.id ?? ""));
+    setError("");
     try {
       if (!isSupabaseConfigured || !supabase) throw Error("Hindi pa naka-configure ang report service.");
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -44,7 +48,7 @@ export default function ReportsScreen() {
       if (generation.current !== request) return;
       setRecords({ owner: profile?.id ?? "", reports: [] });
       setError(err instanceof Error ? err.message : "Hindi ma-load ang mga report. Pakisubukan muli.");
-    } finally { if (generation.current === request) { setLoading(false); setRefreshing(false); } }
+    } finally { if (generation.current === request) { loadedOwner.current = profile?.id ?? ""; setLoading(false); setRefreshing(false); } }
   }, [profile?.id]);
   useFocusEffect(useCallback(() => { setFilter("all"); setScope("all"); setSearch(""); void load(); return () => { generation.current++; }; }, [load]));
   const reports = records.owner === profile?.id ? records.reports : [];
@@ -68,22 +72,12 @@ export default function ReportsScreen() {
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text variant="screenTitle" accessibilityRole="header" style={{ fontSize: 28, lineHeight: 36, fontWeight: "700", color: "#14244B", letterSpacing: -0.6 }}>My Reports</Text>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Buksan ang gabay sa My Reports" accessibilityHint="Nagbubukas ng interactive demo na may naka-highlight na controls"
-            onPress={() => setGuideOpen(true)} android_ripple={{ color: "#DCE4F5" }}
-            style={{ width: 48, height: 48, flexShrink: 0, borderRadius: 16, backgroundColor: "#F1F3F8", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-            <Ionicons name="help-circle-outline" size={23} color={colors.primary} />
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="I-refresh ang reports"
-            accessibilityState={{ disabled: loading || refreshing, busy: loading || refreshing }}
-            disabled={loading || refreshing} onPress={() => { void load(true); }}
-            android_ripple={{ color: "#DCE4F5" }}
-            style={{ width: 48, height: 48, flexShrink: 0, borderRadius: 16, backgroundColor: colors.residentTint, alignItems: "center", justifyContent: "center", overflow: "hidden", opacity: loading || refreshing ? 0.65 : 1 }}>
-            {loading || refreshing ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name="refresh-outline" size={20} color={colors.primary} />}
-          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Buksan ang gabay sa My Reports" accessibilityHint="Nagbubukas ng interactive demo na may naka-highlight na controls" onPress={() => setGuideOpen(true)} android_ripple={{ color: "#DCE4F5" }} style={{ width: 48, height: 48, flexShrink: 0, borderRadius: 16, borderWidth: 1, ...headerActionColors.secondary, alignItems: "center", justifyContent: "center", overflow: "hidden" }}><Ionicons name="help-circle-outline" size={23} color={colors.primary} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="I-refresh ang reports" accessibilityState={{ disabled: loading || refreshing, busy: loading || refreshing }} disabled={loading || refreshing} onPress={() => { void load(true); }} android_ripple={{ color: "#DCE4F5" }} style={{ width: 48, height: 48, flexShrink: 0, borderRadius: 16, borderWidth: 1, ...headerActionColors.primary, alignItems: "center", justifyContent: "center", overflow: "hidden", opacity: refreshing ? 0.65 : 1 }}>{refreshing ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name="refresh-outline" size={20} color={colors.primary} />}</Pressable>
         </View>
       </View>
-      <FlatList data={loading ? [] : visible} keyExtractor={report => `${report.source}:${report.id}`}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 110 }} showsVerticalScrollIndicator={false}
+      <FlatList onScroll={navbarScroll.onScroll} onScrollBeginDrag={navbarScroll.onScrollBeginDrag} scrollEventThrottle={16} data={loading ? [] : visible} keyExtractor={report => `${report.source}:${report.id}`}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: navbarScroll.bottomPadding }} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void load(true); }} tintColor={colors.primary} />}
         ListHeaderComponent={<View>
           <ReportsOverview total={reports.length} active={active} closed={closed} unavailable={loading || Boolean(error)} partial={partial} selected={filter} onSelect={setFilter} />
@@ -121,7 +115,7 @@ export default function ReportsScreen() {
           <Ionicons name={error ? "cloud-offline-outline" : "documents-outline"} size={32} color={colors.primary} />
           <Text className="text-[17px] font-semibold text-ink text-center mt-4">{error ? "Hindi ma-load ang reports" : reports.length ? "Walang tumugmang report" : "Wala ka pang report"}</Text>
           <Text className="text-[14px] leading-6 text-ink-soft text-center mt-2">{error || (reports.length ? "Baguhin ang paghahanap o filter." : "Dito lalabas ang mga report na ginawa mo o nakatalaga sa iyo.")}</Text>
-          <Pressable accessibilityRole="button" onPress={() => { if (error) void load(); else if (reports.length) { setSearch(""); setFilter("all"); setScope("all"); } else router.push("/(resident)/report"); }} className="bg-brand-50 rounded-xl px-5 py-3 mt-5 active:opacity-70"><Text className="text-brand font-semibold">{error ? "Subukan muli" : reports.length ? "Ipakita lahat" : "Gumawa ng report"}</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={() => { if (error) void load(true); else if (reports.length) { setSearch(""); setFilter("all"); setScope("all"); } else router.push("/(resident)/report"); }} className="bg-brand-50 rounded-xl px-5 py-3 mt-5 active:opacity-70"><Text className="text-brand font-semibold">{error ? "Subukan muli" : reports.length ? "Ipakita lahat" : "Gumawa ng report"}</Text></Pressable>
         </View>}
         renderItem={({ item }) => <ReportListCard report={item} />} />
     </ScreenBackground>

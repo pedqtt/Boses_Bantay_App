@@ -61,7 +61,7 @@ export function AnswerEditor({
   return (
     <View>
       {isTranscribing ? (
-        <View className="flex-row items-center bg-brand-50 border border-brand-100 rounded-2xl px-4 py-5">
+        <View className="flex-row items-center bg-brand-50 border border-brand-outline rounded-2xl px-4 py-5">
           <ActivityIndicator size="small" color={colors.primary} />
           <Text className={`${REPORT_TYPE.helper} ml-3 flex-1`}>{transcribingLabel}</Text>
         </View>
@@ -92,7 +92,7 @@ export function AnswerEditor({
             <Pressable
               accessibilityRole="button"
               onPress={onRetry}
-              className="self-start bg-brand-50 border border-brand-100 rounded-xl px-4 py-2.5 mt-3 active:opacity-70"
+              className="self-start bg-brand-50 border border-brand-outline rounded-xl px-4 py-2.5 mt-3 active:opacity-70"
             >
               <Text className={REPORT_TYPE.linkBrand}>Subukan muli</Text>
             </Pressable>

@@ -1,3 +1,4 @@
+import { useNavbarScroll } from "@/lib/navbar-scroll";
 import { Text } from "@/components/AppText";
 import { homeStyles } from "@/components/home/homeStyles";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -21,6 +22,7 @@ function getHomeGreeting(now = new Date()) {
 }
 
 export default function ResidentHome() {
+  const navbarScroll = useNavbarScroll();
   const { profile } = useAuth();
   const [greeting, setGreeting] = useState(() => getHomeGreeting());
   useEffect(() => {
@@ -30,12 +32,16 @@ export default function ResidentHome() {
   useFocusEffect(useCallback(() => { setGreeting(getHomeGreeting()); }, []));
   const [records, setRecords] = useState<{ owner: string; reports: AccountReport[] }>({ owner: "", reports: [] });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [partial, setPartial] = useState(false);
   const generation = useRef(0);
-  const load = useCallback(async () => {
+  const loadedOwner = useRef<string | null>(null);
+  const load = useCallback(async (refresh = false) => {
     const request = ++generation.current;
-    setLoading(true); setError(""); setPartial(false);
+    setRefreshing(refresh);
+    setLoading(loadedOwner.current !== (profile?.id ?? ""));
+    setError("");
     try {
       if (!isSupabaseConfigured || !supabase) throw Error("Hindi pa available ang report service.");
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -48,12 +54,12 @@ export default function ResidentHome() {
       if (request !== generation.current) return;
       setRecords({ owner: profile?.id ?? "", reports: [] });
       setError(err instanceof Error ? err.message : "Hindi ma-load ang reports. Pakisubukan muli.");
-    } finally { if (request === generation.current) setLoading(false); }
+    } finally { if (request === generation.current) { loadedOwner.current = profile?.id ?? ""; setLoading(false); setRefreshing(false); } }
   }, [profile?.id]);
   useFocusEffect(useCallback(() => { void load(); return () => { generation.current++; }; }, [load]));
   const reports = records.owner === profile?.id ? records.reports : [];
-  const name = profile?.firstName?.trim() || "Resident";
-  return <ReportNotifications sample owner={profile?.id ?? ""} reports={reports} loading={loading} error={error} partial={partial} refresh={() => void load()}>{({ bell, preview }) => <SafeAreaView edges={["top"]} style={s.screen}>
+  const name = [profile?.firstName?.trim(), profile?.lastName?.trim()].filter(Boolean).join(" ") || "Resident";
+  return <ReportNotifications sample owner={profile?.id ?? ""} reports={reports} loading={loading} error={error} partial={partial} refreshing={refreshing} refresh={() => load(true)}>{({ bell, preview }) => <SafeAreaView edges={["top"]} style={s.screen}>
     <View style={s.header}>
       <View style={s.headerIdentity}>
         <Text style={s.greeting}>{greeting}</Text>
@@ -61,18 +67,18 @@ export default function ResidentHome() {
       </View>
       {bell}
     </View>
-    <ScrollView style={s.content} showsVerticalScrollIndicator={false} contentContainerStyle={s.body}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.primary} colors={[colors.primary]} />}>
+    <ScrollView onScroll={navbarScroll.onScroll} onScrollBeginDrag={navbarScroll.onScrollBeginDrag} scrollEventThrottle={16} style={s.content} showsVerticalScrollIndicator={false} contentContainerStyle={[s.body, { paddingBottom: navbarScroll.bottomPadding }]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={colors.primary} colors={[colors.primary]} />}>
       <View style={s.actionGroup}>
         <Pressable android_ripple={{ color: "#DCE4F5" }} accessibilityRole="button" onPress={() => router.push("/(resident)/report")} style={s.hero}>
           <View style={s.heroIcon}><Ionicons name="mic-outline" size={23} color="white" /></View>
           <View style={{ flex: 1, minWidth: 0 }}><Text style={s.heroTitle}>Blotter report</Text><Text style={s.heroDescription}>I-record ang inyong salaysay</Text></View>
           <Ionicons name="chevron-forward" size={18} color={colors.primary} />
         </Pressable>
-        <Pressable android_ripple={{ color: "#DCE4F5" }} accessibilityRole="button" onPress={() => router.push("/(resident)/service-complaint")} style={s.service}>
-          <View style={s.icon}><Ionicons name="construct-outline" size={22} color={colors.primary} /></View>
+        <Pressable android_ripple={{ color: "#F3E0A6" }} accessibilityRole="button" onPress={() => router.push("/(resident)/service-complaint")} style={s.service}>
+          <View style={s.serviceIcon}><Ionicons name="construct-outline" size={22} color="#FFFFFF" /></View>
           <View style={{ flex: 1, minWidth: 0 }}><Text style={s.actionTitle}>Service complaint</Text><Text style={s.actionDescription}>Mag-ulat ng problema sa inyong lugar</Text></View>
-          <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          <Ionicons name="chevron-forward" size={18} color="#805512" />
         </Pressable>
       </View>
       <View style={s.quickRow}>
@@ -84,7 +90,7 @@ export default function ResidentHome() {
         </Pressable>
       </View>
       {preview}
-      <View style={s.sectionHeader}><Text style={s.sectionTitle}>Mga ulat</Text><Pressable android_ripple={{ color: "#DCE4F5" }} accessibilityRole="button" accessibilityLabel="Tingnan lahat ng reports" onPress={() => router.push("/(resident)/reports")} style={s.link}><Text style={s.linkText}>Tingnan lahat</Text><Ionicons name="arrow-forward" size={15} color={colors.primary} /></Pressable></View>
+      <View style={s.sectionHeader}><Text style={s.sectionTitle}>Mga ulat</Text><Pressable android_ripple={{ color: "#DCE4F5" }} accessibilityRole="button" accessibilityLabel="Tingnan lahat ng reports" onPress={() => router.push("/(resident)/reports")} style={s.link}><Text style={s.linkText}>Tingnan lahat</Text><Ionicons name="chevron-forward" size={14} color={colors.primary} /></Pressable></View>
       {partial && !loading && <Text accessibilityRole="alert" style={s.notice}>May ilang report na hindi ma-load.</Text>}
       {loading ? <View accessibilityLabel="Kinukuha ang inyong reports" accessibilityState={{ busy: true }} style={s.reportGroup}>
           {[0, 1].map(index => <View key={index} accessible={false} importantForAccessibility="no-hide-descendants" style={[s.reportRow, index > 0 && s.reportDivider]}>
@@ -92,7 +98,7 @@ export default function ResidentHome() {
             <View style={[s.skeleton, { height: 22, width: 82, marginTop: 13 }]} />
           </View>)}
         </View>
-        : error ? <View style={s.empty}><Ionicons name="cloud-offline-outline" size={28} color={colors.primary} /><Text accessibilityRole="alert" style={s.emptyText}>{error}</Text><Pressable android_ripple={{ color: "#DCE4F5" }} accessibilityRole="button" onPress={() => void load()} style={s.retry}><Text style={s.linkText}>Subukan muli</Text></Pressable></View>
+        : error ? <View style={s.empty}><Ionicons name="cloud-offline-outline" size={28} color={colors.primary} /><Text accessibilityRole="alert" style={s.emptyText}>{error}</Text><Pressable android_ripple={{ color: "#DCE4F5" }} accessibilityRole="button" onPress={() => void load(true)} style={s.retry}><Text style={s.linkText}>Subukan muli</Text></Pressable></View>
         : reports.length === 0 ? <View style={s.empty}><View style={s.icon}><Ionicons name="document-text-outline" size={24} color={colors.primary} /></View><Text style={s.emptyTitle}>Wala pang ulat</Text><Text style={s.emptyText}>Lalabas dito ang inyong mga isinumiteng ulat.</Text></View>
         : <View style={s.reportGroup}>{reports.slice(0, 3).map((report, index) => <Pressable key={`${report.source}:${report.id}`} accessibilityRole="button" accessibilityLabel={`Buksan ${report.category}, ${report.referenceNo}`}
           onPress={() => router.push({ pathname: "/(resident)/report-detail", params: { id: report.id, source: report.source } })} style={[s.reportRow, index > 0 && s.reportDivider]}>
@@ -115,14 +121,15 @@ const s = StyleSheet.create({
   name: { fontSize: 32, lineHeight: 40, fontWeight: "700", color: "#14244B", letterSpacing: -0.8 },
   skeleton: { backgroundColor: "#EDF0F6", borderRadius: 6 },
   body: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 110 }, sectionTitle: homeStyles.sectionTitle,
-  actionGroup: { ...homeStyles.card, overflow: "hidden" },
-  hero: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 18, backgroundColor: colors.residentTint },
+  actionGroup: { gap: 10 },
+  hero: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 18, backgroundColor: colors.residentTint, borderWidth: 1, borderColor: colors.residentAccentOutline, borderRadius: 18, overflow: "hidden" },
   heroIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.primary, borderWidth: 1, borderColor: "#2445B5", alignItems: "center", justifyContent: "center" },
   heroTitle: { fontSize: 16, lineHeight: 24, fontWeight: "600", color: colors.primary }, heroDescription: { fontSize: 12, lineHeight: 19, color: "#596B94", marginTop: 4 },
-  service: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 18, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#DFE5EF" },
+  service: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 18, backgroundColor: "#FFF6DA", borderWidth: 1, borderColor: "#D4AB57", borderRadius: 18, overflow: "hidden" },
+  serviceIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#C78A19", borderWidth: 1, borderColor: "#A9700F", alignItems: "center", justifyContent: "center" },
   icon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.residentTint, alignItems: "center", justifyContent: "center" },
-  actionTitle: { fontSize: 16, lineHeight: 24, fontWeight: "600", color: "#172033" }, actionDescription: { fontSize: 12, lineHeight: 19, color: "#64748B", marginTop: 4 },
-  quickRow: { flexDirection: "row", gap: 12, marginTop: 16, marginBottom: 28 }, quickCard: { flex: 1, minWidth: 0, flexDirection: "row", justifyContent: "flex-start", paddingHorizontal: 12, paddingVertical: 14, alignItems: "center", gap: 8, backgroundColor: colors.residentTint, borderWidth: 1, borderColor: "#DDE6FA", borderRadius: 16 }, shortcutTitle: { flexShrink: 1, fontSize: 13, lineHeight: 20, fontWeight: "600", color: colors.primary }, emergency: { backgroundColor: colors.errorContainer, borderColor: colors.errorOutline },
+  actionTitle: { fontSize: 16, lineHeight: 24, fontWeight: "600", color: "#805512" }, actionDescription: { fontSize: 12, lineHeight: 19, color: "#806B45", marginTop: 4 },
+  quickRow: { flexDirection: "row", gap: 12, marginTop: 16, marginBottom: 28 }, quickCard: { flex: 1, minWidth: 0, flexDirection: "row", justifyContent: "flex-start", paddingHorizontal: 12, paddingVertical: 14, alignItems: "center", gap: 8, backgroundColor: colors.residentTint, borderWidth: 1, borderColor: colors.residentAccentOutline, borderRadius: 16 }, shortcutTitle: { flexShrink: 1, fontSize: 13, lineHeight: 20, fontWeight: "600", color: colors.primary }, emergency: { backgroundColor: colors.errorContainer, borderColor: colors.errorOutline },
   shortcutIcon: { width: 32, height: 32, borderRadius: 11, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   reportIcon: homeStyles.itemIcon,
   reportTitle: homeStyles.itemTitle,

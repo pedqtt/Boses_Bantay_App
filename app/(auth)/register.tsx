@@ -1,3 +1,4 @@
+import { AuthLink } from "@/components/auth/AuthLink";
 import { Text, TextInput } from "@/components/AppText";
 import { useEffect, useRef, useState } from "react";
 import { View, Pressable, ActivityIndicator, Alert, ScrollView } from "react-native";
@@ -428,11 +429,9 @@ export default function RegisterScreen() {
               the two screens a resident bounces between most. */}
           <AuthActionGroup
             secondary={
-              <View className="flex-row flex-wrap justify-center items-center">
-                <Text className="text-ink-soft text-[16px]">Meron nang account? </Text>
-                <Pressable onPress={() => router.replace("/(auth)/login")}>
-                  <Text className="text-brand font-semibold text-[16px]">Mag-login</Text>
-                </Pressable>
+              <View className="flex-row flex-wrap justify-center items-center" style={{ columnGap: 12, rowGap: 10, paddingVertical: 2 }}>
+                <Text variant="secondary" style={{ color: "#52617A" }}>Meron nang account?</Text>
+                <AuthLink label="Mag-login" onPress={() => router.replace("/(auth)/login")} />
               </View>
             }
           >

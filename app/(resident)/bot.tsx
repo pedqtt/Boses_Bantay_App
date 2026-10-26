@@ -1,6 +1,7 @@
+import { BackButton } from "@/components/BackButton";
 import { Text, TextInput } from "@/components/AppText";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Pressable, ScrollView, Keyboard } from "react-native";
+import { View, Pressable, ScrollView, Keyboard, type ScrollViewInstance } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -165,7 +166,7 @@ function ChatEmptyState({ onPickPrompt }: { onPickPrompt: (text: string) => void
           <Animated.View key={category.id} entering={FadeInUp.duration(260).delay(80 + i * 32).easing(Easing.out(Easing.cubic))}>
             <Pressable onPress={() => onPickPrompt(category.label)} accessibilityRole="button" accessibilityLabel={`${i + 1}. ${category.label}`}
               className="active:opacity-70"
-              style={{ width: "100%", flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, backgroundColor: colors.residentTint, borderWidth: 1, borderColor: "#DCE5F8", paddingVertical: 16, paddingHorizontal: 16 }}>
+              style={{ width: "100%", flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, backgroundColor: colors.residentTint, borderWidth: 1, borderColor: colors.residentAccentOutline, paddingVertical: 16, paddingHorizontal: 16 }}>
               <View style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" }}>
                 <Text style={{ fontSize: 13, fontWeight: "600", color: BOT_COLORS.accent }}>{i + 1}</Text>
               </View>
@@ -246,7 +247,7 @@ export default function BotScreen() {
   const [sending, setSending] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState("");
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const mountedRef = useRef(true);
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; generationRef.current += 1; }; }, []);
 
@@ -383,14 +384,9 @@ export default function BotScreen() {
       <ScreenBackground backgroundColor={BOT_COLORS.surface}>
         <View style={{ backgroundColor: "#FFFFFF", paddingHorizontal: 20, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Bumalik" android_ripple={{ color: "#DFE6F5" }} style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: "#F1F3F8", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-              <Ionicons name="chevron-back" size={22} color={colors.primary} />
-            </Pressable>
+            <BackButton showLabel={false} onPress={goBack} />
             <Text variant="screenTitle" accessibilityRole="header" style={{ flex: 1, fontSize: 24, lineHeight: 32, fontWeight: "700", color: "#14244B", letterSpacing: -0.5 }}>Barangay Bot</Text>
-            <Pressable onPress={handleNewChat} disabled={busy || isEmpty} accessibilityRole="button" accessibilityLabel="Bagong chat" accessibilityHint="Simulan muli ang usapan at bumalik sa mga kategorya" accessibilityState={{ disabled: busy || isEmpty }} style={{ minWidth: 64, minHeight: 48, alignItems: "center", justifyContent: "center", gap: 3, opacity: busy || isEmpty ? 0.45 : 1 }}>
-              <Ionicons name="create-outline" size={22} color={colors.primary} />
-              <Text style={{ fontSize: 10, lineHeight: 15, fontWeight: "600", color: colors.primary }}>Bagong Chat</Text>
-            </Pressable>
+            <Pressable onPress={handleNewChat} disabled={busy || isEmpty} accessibilityRole="button" accessibilityLabel="Bagong chat" accessibilityHint="Simulan muli ang usapan at bumalik sa mga kategorya" accessibilityState={{ disabled: busy || isEmpty }} style={{ minWidth: 64, minHeight: 48, alignItems: "center", justifyContent: "center", gap: 3, opacity: busy || isEmpty ? 0.45 : 1 }}><Ionicons name="create-outline" size={22} color={colors.primary} /><Text style={{ fontSize: 10, lineHeight: 15, fontWeight: "600", color: colors.primary }}>Bagong Chat</Text></Pressable>
           </View>
         </View>
 

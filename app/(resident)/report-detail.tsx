@@ -1,3 +1,4 @@
+import { useNavbarScroll } from "@/lib/navbar-scroll";
 import { Text } from "@/components/AppText";
 import { useAuth } from "@/lib/auth-context";
 import { scopeAccountQuery } from "@/lib/api/myReports";
@@ -206,6 +207,7 @@ function FieldRow({ label, value, isLast }: { label: string; value: string; isLa
  * answered twice in two different places.
  */
 export default function ReportDetailScreen() {
+  const navbarScroll = useNavbarScroll();
   const { id, source: sourceParam } = useLocalSearchParams<{ id: string; source?: string }>();
   const { profile } = useAuth();
   const source: ReportSource = sourceParam === "service_complaints" || sourceParam === "pre_blotters" ? sourceParam : "reports";
@@ -304,9 +306,9 @@ export default function ReportDetailScreen() {
               </Text>
             </View>
           ) : (
-            <ScrollView
+            <ScrollView onScroll={navbarScroll.onScroll} onScrollBeginDrag={navbarScroll.onScrollBeginDrag} scrollEventThrottle={16}
               className="flex-1 px-6"
-              contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}
+              contentContainerStyle={{ paddingTop: 16, paddingBottom: navbarScroll.bottomPadding }}
               showsVerticalScrollIndicator={false}
             >
               {/* Hero - what this report is, at a glance. */}

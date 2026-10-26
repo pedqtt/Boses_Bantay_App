@@ -1,9 +1,9 @@
 import { Text, TextInput } from "@/components/AppText";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Modal, View, Pressable, ScrollView, Keyboard, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { Modal, View, Pressable, ScrollView, Keyboard, KeyboardAvoidingView, Platform, StyleSheet, type ScrollViewInstance } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@/components/AppIcon";
-import { colors } from "@/lib/theme";
+import { colors, headerActionColors } from "@/lib/theme";
 import { ReportsOverview } from "./ReportsOverview";
 import { ReportStatusBadge } from "./ReportStatusBadge";
 
@@ -27,7 +27,7 @@ export function ReportsPageGuide({ visible, onClose }: { visible: boolean; onClo
   const [feedback, setFeedback] = useState("");
   const [details, setDetails] = useState<string | null>(null);
   const [completed, setCompleted] = useState<Set<Target>>(new Set());
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const positions = useRef<Partial<Record<Target, number>>>({});
   const active: { id: Target; title: string; body: string; action: string } = STEPS[step];
   useEffect(() => {
@@ -57,14 +57,14 @@ export function ReportsPageGuide({ visible, onClose }: { visible: boolean; onClo
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.toolbar}>
           <View style={{ flex: 1 }}><Text accessibilityRole="header" style={styles.title}>Paano gamitin ang My Reports</Text><Text style={styles.demoCaption}>Pagsasanay lang · Walang ise-save</Text></View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Isara ang demo" onPress={close} style={styles.close}><Ionicons name="close" size={22} color={colors.onSurfaceVariant} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Isara ang demo" onPress={close} style={{ width: 44, height: 44, ...headerActionColors.secondary, borderWidth: 1, borderRadius: 14, alignItems: "center", justifyContent: "center", marginLeft: 8 }}><Ionicons name="close" size={22} color={colors.onSurfaceVariant} /></Pressable>
         </View>
         <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.demoContent}>
           <View onLayout={event => { positions.current.refresh = event.nativeEvent.layout.y; }}>
             <View style={styles.demoHeader}>
               <Text style={styles.pageTitle}>My Reports</Text>
               <DemoTarget active={active.id === "refresh"} style={{ borderRadius: 16 }}>
-                <Pressable accessibilityRole="button" accessibilityLabel="Subukan ang refresh" onPress={() => done("refresh", "Na-refresh ang demo.")} style={styles.refresh}><Ionicons name="refresh-outline" size={20} color={colors.primary} /></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="Subukan ang refresh" onPress={() => done("refresh", "Na-refresh ang demo.")} style={{ width: 44, height: 44, ...headerActionColors.primary, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center" }}><Ionicons name="refresh-outline" size={20} color={colors.primary} /></Pressable>
               </DemoTarget>
             </View>
           </View>
@@ -128,11 +128,11 @@ const styles = StyleSheet.create({
   toolbar: { paddingHorizontal: 18, paddingVertical: 12, flexDirection: "row", alignItems: "center", backgroundColor: "white", borderBottomWidth: 1, borderBottomColor: "#E4E8F0" },
   title: { fontSize: 16, lineHeight: 24, fontWeight: "600", color: colors.onSurface },
   demoCaption: { fontSize: 11, lineHeight: 17, color: colors.onSurfaceVariant, marginTop: 3 },
-  close: { width: 44, height: 44, backgroundColor: "#F0F3FA", borderRadius: 14, alignItems: "center", justifyContent: "center", marginLeft: 8 },
+
   demoContent: { padding: 14, paddingBottom: 22 },
   demoHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 8, marginBottom: 12 },
   pageTitle: { fontSize: 22, lineHeight: 30, color: colors.onSurface, fontWeight: "600" },
-  refresh: { width: 44, height: 44, backgroundColor: colors.residentTint, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+
   search: { flexDirection: "row", alignItems: "center", backgroundColor: "white", borderRadius: 15, paddingLeft: 12 },
   searchInput: { flex: 1, fontSize: 13, lineHeight: 20, paddingHorizontal: 10, paddingVertical: 14, color: colors.onSurface },
   scopes: { flexDirection: "row", padding: 5, backgroundColor: "white", borderRadius: 15, gap: 4 },

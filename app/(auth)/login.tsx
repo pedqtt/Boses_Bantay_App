@@ -1,3 +1,4 @@
+import { AuthLink } from "@/components/auth/AuthLink";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Text, TextInput } from "@/components/AppText";
 import { useRef, useState } from "react";
@@ -125,7 +126,7 @@ export default function LoginScreen() {
               <Text className="text-[13px] text-ink-faint mt-1.5">{PHONE_FORMAT_HINT}</Text>
             </View>
 
-            <View className="mb-8">
+            <View className="mb-6">
               <Text className="text-[12px] font-semibold text-ink-faint mb-2 uppercase tracking-wider">
                 Password
               </Text>
@@ -188,25 +189,19 @@ export default function LoginScreen() {
               ) : (
                 <Text className="text-[13px] text-ink-faint mt-1.5">{LOGIN_PASSWORD_HINT}</Text>
               )}
-              <Pressable
-                onPress={() => router.push("/(auth)/forgot-password")}
-                hitSlop={8}
-                className="self-end mt-3"
-              >
-                <Text className="text-brand text-[15px] font-medium">Nakalimutan ang password?</Text>
-              </Pressable>
+              <View style={{ alignSelf: "flex-end", marginTop: 16, maxWidth: "100%" }}>
+                <AuthLink label="Nakalimutan ang password?" subtle onPress={() => router.push("/(auth)/forgot-password")} />
+              </View>
             </View>
             </View>
 
 
-            <View className="mt-2" style={{ paddingBottom: 0 }}>
+            <View style={{ paddingBottom: 0 }}>
               <AuthActionGroup
                 secondary={
-                  <View className="flex-row flex-wrap justify-center items-center">
-                    <Text className="text-ink-soft text-[16px]">Wala pang account? </Text>
-                    <Pressable onPress={() => router.push("/(auth)/register")}>
-                      <Text className="text-brand font-semibold text-[16px]">Magrehistro</Text>
-                    </Pressable>
+                  <View className="flex-row flex-wrap justify-center items-center" style={{ columnGap: 12, rowGap: 10, paddingVertical: 2 }}>
+                    <Text variant="secondary" style={{ color: "#52617A" }}>Wala pang account?</Text>
+                    <AuthLink label="Magrehistro" onPress={() => router.push("/(auth)/register")} />
                   </View>
                 }
               >

@@ -228,7 +228,7 @@ export function RecordControls({
           <Pressable onPress={onAppend} accessibilityRole="button"
             disabled={answerStatus === "transcribing" || answerStatus === "extracting" || answerStatus === "error"}
             accessibilityState={{ disabled: answerStatus === "transcribing" || answerStatus === "extracting" || answerStatus === "error" }}
-            className="flex-row items-center justify-center bg-brand-50 border border-brand-100 rounded-full px-5 py-3 active:opacity-70"
+            className="flex-row items-center justify-center bg-brand-50 border border-brand-outline rounded-full px-5 py-3 active:opacity-70"
             style={{ opacity: answerStatus === "transcribing" || answerStatus === "extracting" || answerStatus === "error" ? 0.45 : 1 }}>
             <Ionicons name="add-circle-outline" size={20} color={colors.primary} style={{ marginRight: 8 }} />
             <Text className="text-[14px] leading-5 font-semibold text-brand">Dagdag recording</Text>

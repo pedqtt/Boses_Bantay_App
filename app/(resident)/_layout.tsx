@@ -1,14 +1,15 @@
+import { NavbarScrollProvider, useNavbarScrollController } from "@/lib/navbar-scroll";
 import { useTypography } from "@/lib/typography-context";
 import { Text } from "@/components/AppText";
 import { ComplaintCameraRecovery } from "@/components/report/ComplaintCameraRecovery";
 import { useEffect, useRef, useState } from "react";
 import { Tabs, router, usePathname } from "expo-router";
-import { View, Pressable, Animated, PanResponder, Dimensions, Easing, useWindowDimensions, type ColorValue } from "react-native";
+import { View, Pressable, Animated, PanResponder, Easing, useWindowDimensions, type ColorValue } from "react-native";
 import { Ionicons } from "@/components/AppIcon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
 import { colors } from "@/lib/theme";
-import { useAppPreferences } from "@/lib/app-preferences";
+import { getBotButtonSize, useAppPreferences } from "@/lib/app-preferences";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -58,7 +59,7 @@ function TabIcon({
   return (
     <View style={{ width: 46, height: 30, alignItems: "center", justifyContent: "center" }}>
       <Animated.View pointerEvents="none" style={{ position: "absolute", top: -6, width: 62, height: 60 + extraHeight, borderRadius: 19, backgroundColor: colors.residentSelected, borderWidth: 1, borderColor: colors.residentAccentOutline, opacity: highlight, transform: [{ scale: highlight.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1] }) }] }} />
-      <Ionicons name={focused ? filled : outline} size={22} color={focused ? colors.primary : color} style={{ fontStyle: "normal", fontWeight: "normal" }} />
+      <Ionicons name={focused ? filled : outline} size={22} color={focused ? colors.primary : typeof color === "string" ? color : colors.primary} style={{ fontStyle: "normal", fontWeight: "normal" }} />
     </View>
   );
 }
@@ -188,7 +189,6 @@ function ReportFabButton({
  * floating bot button hovering over an active recording would undercut
  * that same goal.
  */
-const FAB_SIZE = 72;
 const FAB_EDGE_MARGIN = 16;
 // Below this many px of total movement, a touch is treated as a tap that
 // just happened to wobble slightly, not a drag — without a threshold,
@@ -224,52 +224,83 @@ function BotFab({
   insetTop,
   position,
   onPositionChange,
+  showWelcome,
+  onDismissWelcome,
 }: {
   bottom: number;
   insetTop: number;
   position: FabPosition | null;
   onPositionChange: (pos: FabPosition) => void;
+  showWelcome: boolean;
+  onDismissWelcome: () => void;
 }) {
-  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const { preferences } = useAppPreferences();
+  const fabSize = getBotButtonSize(preferences.botButtonSize);
   const fadeEnabled = useRef(preferences.fadeBotWhenIdle);
   fadeEnabled.current = preferences.fadeBotWhenIdle;
 
   const minX = FAB_EDGE_MARGIN;
-  const maxX = screenWidth - FAB_EDGE_MARGIN - FAB_SIZE;
+  const maxX = screenWidth - FAB_EDGE_MARGIN - fabSize;
   const minY = insetTop + FAB_EDGE_MARGIN;
   // Floor of the drag range matches the button's normal resting spot — it
   // can be dragged up and sideways freely, but not lower than where it
   // already sits, so it can never end up overlapping the tab bar.
-  const maxY = screenHeight - bottom - FAB_SIZE;
+  const maxY = screenHeight - bottom - fabSize;
 
   const restingPosition: FabPosition = { x: maxX, y: maxY };
-  const startPosition = position ?? restingPosition;
+  const startPosition = position ? {
+    x: position.x < screenWidth / 2 ? minX : maxX,
+    y: Math.min(Math.max(position.y, minY), maxY),
+  } : restingPosition;
 
   const pan = useRef(new Animated.ValueXY(startPosition)).current;
   const currentValue = useRef<FabPosition>(startPosition);
-  const opacity = useRef(new Animated.Value(1)).current;
+  const activeTint = useRef(new Animated.Value(1)).current;
+  const pressed = useRef(false);
+  const focused = useRef(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragging = useRef(false);
+  const welcomeVisible = useRef(showWelcome);
+  welcomeVisible.current = showWelcome;
+  const [welcomeMounted, setWelcomeMounted] = useState(showWelcome);
+  const welcomeProgress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (showWelcome) setWelcomeMounted(true);
+    const animation = Animated.timing(welcomeProgress, {
+      toValue: showWelcome ? 1 : 0,
+      duration: showWelcome ? 240 : 160,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => {
+      if (finished && !showWelcome) setWelcomeMounted(false);
+    });
+    return () => animation.stop();
+  }, [showWelcome, welcomeProgress]);
+
   function wakeFab() {
     if (idleTimer.current) clearTimeout(idleTimer.current);
     idleTimer.current = null;
-    opacity.stopAnimation();
-    Animated.timing(opacity, { toValue: 1, duration: 120, useNativeDriver: false }).start();
+    activeTint.stopAnimation();
+    Animated.timing(activeTint, { toValue: 1, duration: 160, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }
   function scheduleFade() {
     if (idleTimer.current) clearTimeout(idleTimer.current);
-    if (!fadeEnabled.current) { opacity.stopAnimation(); opacity.setValue(1); return; }
-    if (dragging.current) return;
+    if (!fadeEnabled.current) { activeTint.stopAnimation(); activeTint.setValue(1); return; }
+    idleTimer.current = null;
+    if (welcomeVisible.current || dragging.current || pressed.current || focused.current) return;
     idleTimer.current = setTimeout(() => {
       idleTimer.current = null;
-      Animated.timing(opacity, { toValue: 0.55, duration: 300, useNativeDriver: false }).start();
+      if (!fadeEnabled.current || welcomeVisible.current || dragging.current || pressed.current || focused.current) return;
+      activeTint.stopAnimation();
+      Animated.timing(activeTint, { toValue: 0, duration: 420, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start();
     }, 3500);
   }
   useEffect(() => {
     wakeFab(); scheduleFade();
-    return () => { if (idleTimer.current) clearTimeout(idleTimer.current); opacity.stopAnimation(); };
-  }, [preferences.fadeBotWhenIdle]);
+    return () => { if (idleTimer.current) clearTimeout(idleTimer.current); activeTint.stopAnimation(); };
+  }, [preferences.fadeBotWhenIdle, showWelcome]);
 
 
   const panResponder = useRef(
@@ -278,6 +309,7 @@ function BotFab({
       onMoveShouldSetPanResponder: (_evt, gesture) =>
         Math.abs(gesture.dx) > DRAG_THRESHOLD || Math.abs(gesture.dy) > DRAG_THRESHOLD,
       onPanResponderGrant: () => {
+        onDismissWelcome();
         dragging.current = true; wakeFab();
         pan.setOffset(currentValue.current);
         pan.setValue({ x: 0, y: 0 });
@@ -338,25 +370,53 @@ function BotFab({
       // either way (driver mode is JS either way, see above), but this
       // avoids RN having to recompute layout on every frame the way a
       // changing left/top would, which transform does not trigger.
-      style={{ opacity, transform: [{ translateX: pan.x }, { translateY: pan.y }] }}
+      style={{ transform: [{ translateX: pan.x }, { translateY: pan.y }] }}
     >
+      {welcomeMounted && (
+        <Animated.View pointerEvents={showWelcome ? "auto" : "none"} style={{
+          opacity: welcomeProgress,
+          transform: [{ translateY: welcomeProgress.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
+          position: "absolute", bottom: fabSize + 12,
+          ...(startPosition.x < (minX + maxX) / 2 ? { left: 0 } : { right: 0 }),
+          width: Math.min(240, screenWidth - FAB_EDGE_MARGIN * 2),
+          backgroundColor: "#E7EEFF", borderRadius: 20,
+          borderWidth: 1, borderColor: "#A8BBE8",
+          paddingHorizontal: 17, paddingTop: 13, paddingBottom: 17,
+          gap: 9,
+          boxShadow: [{ offsetX: 0, offsetY: 3, blurRadius: 18, color: "rgba(25,47,88,0.18)" }],
+        }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary }} />
+              <Text variant="caption" style={{ color: colors.primary, fontWeight: "600", letterSpacing: 0.2 }}>Barangay Bot</Text>
+            </View>
+            <Pressable onPress={onDismissWelcome} accessibilityRole="button" accessibilityLabel="Isara ang paanyaya" hitSlop={10} style={{ width: 28, height: 28, marginTop: -6, marginRight: -6, alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="close" size={16} color="#64748B" />
+            </Pressable>
+          </View>
+          <Text variant="body" style={{ color: "#102452", fontWeight: "700", lineHeight: 24 }}>May tanong po kayo?</Text>
+          <Text variant="secondary" style={{ color: "#2F4773", marginTop: -5, lineHeight: 21 }}>Magtanong sa akin tungkol sa barangay.</Text>
+          <View pointerEvents="none" style={{ position: "absolute", bottom: -5, ...(startPosition.x < (minX + maxX) / 2 ? { left: 26 } : { right: 26 }), width: 9, height: 9, backgroundColor: "#E7EEFF", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#A8BBE8", transform: [{ rotate: "45deg" }] }} />
+        </Animated.View>
+      )}
       <Pressable
-        onPressIn={wakeFab}
-        onPressOut={scheduleFade}
-        onFocus={wakeFab}
-        onBlur={scheduleFade}
-        onPress={() => router.push("/(resident)/bot")}
+        onPressIn={() => { pressed.current = true; wakeFab(); }}
+        onPressOut={() => { pressed.current = false; scheduleFade(); }}
+        onFocus={() => { focused.current = true; wakeFab(); }}
+        onBlur={() => { focused.current = false; scheduleFade(); }}
+        onPress={() => { onDismissWelcome(); router.push("/(resident)/bot"); }}
         accessibilityRole="button"
         // No visible text label anymore (removed per explicit request), so
         // this accessibilityLabel is the only place the button's purpose is
         // still spelled out — screen readers still announce "Ask the Bot,"
         // even though sighted users now rely on the icon alone.
         accessibilityLabel="Ask the Bot. Draggable — you can move it anywhere on screen."
-        className="items-center justify-center bg-brand"
+        className="items-center justify-center"
         style={{
-          width: FAB_SIZE,
-          height: FAB_SIZE,
-          borderRadius: FAB_SIZE / 2,
+          width: fabSize,
+          height: fabSize,
+          borderRadius: fabSize / 2,
+          backgroundColor: "#7181AE",
           borderWidth: 4,
           borderColor: "white",
           shadowColor: colors.primary,
@@ -366,13 +426,21 @@ function BotFab({
           elevation: 2,
         }}
       >
-        <Ionicons name="chatbubble-ellipses" size={30} color="white" />
+        {/* Keep the rim, icon and shadow opaque; only the blue surface softens. */}
+        <Animated.View pointerEvents="none" style={{
+          position: "absolute", top: 0, right: 0, bottom: 0, left: 0,
+          borderRadius: (fabSize - 8) / 2,
+          backgroundColor: colors.primary,
+          opacity: activeTint,
+        }} />
+        <Ionicons name="chatbubble-ellipses" size={Math.round(fabSize * 0.42)} color="white" />
       </Pressable>
     </Animated.View>
   );
 }
 
 export default function ResidentLayout() {
+  const { width, height } = useWindowDimensions();
   const { scale } = useTypography();
   const { fontScale } = useWindowDimensions();
   const textHeightExtra = Math.max(0, Math.ceil(18 * scale * Math.max(1, fontScale)) - 18);
@@ -400,12 +468,26 @@ export default function ResidentLayout() {
     pathname === "/verify-id" ||
     pathname === "/service-complaint" || pathname === "/change-password";
   const tabBarHeight = 72 + insets.bottom + textHeightExtra;
+  const navbarScroll = useNavbarScrollController(pathname, tabBarHeight);
   // Lifted out of BotFab itself — see the comment on BotFab for why: it's
   // conditionally rendered, so state local to it would reset every time
   // the resident leaves and returns to a screen where it's shown.
   const [botFabPosition, setBotFabPosition] = useState<{ x: number; y: number } | null>(null);
+  // ResidentLayout survives tab changes; a fresh login/app mount gets one invitation.
+  const [showBotWelcome, setShowBotWelcome] = useState(true);
+  const welcomePath = useRef(pathname);
+  useEffect(() => {
+    const timer = setTimeout(() => setShowBotWelcome(false), 12000);
+    return () => clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (welcomePath.current !== pathname) setShowBotWelcome(false);
+    welcomePath.current = pathname;
+  }, [pathname]);
+
 
   return (
+    <NavbarScrollProvider value={navbarScroll.value}>
     <View style={{ flex: 1, backgroundColor: colors.residentBackground }}>
       <ComplaintCameraRecovery />
     <Tabs
@@ -426,8 +508,23 @@ export default function ResidentLayout() {
         tabBarItemStyle: { paddingHorizontal: 2 },
         sceneStyle: { backgroundColor: colors.residentBackground },
         // One rounded background layer; keep the outer bar unclipped for the raised report action.
-        tabBarBackground: () => <View pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#FFFFFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden" }} />,
+        tabBarBackground: () => (
+          <View pointerEvents="none" style={{
+            position: "absolute", top: 0, right: 0, bottom: 0, left: 0,
+            backgroundColor: "#FFFFFF",
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            // Upward shadows separate the bar from scrolling content on Android and iOS.
+            boxShadow: [
+              { offsetX: 0, offsetY: -6, blurRadius: 20, spreadDistance: 0, color: "rgba(25, 47, 88, 0.10)" },
+              { offsetX: 0, offsetY: -1, blurRadius: 4, spreadDistance: 0, color: "rgba(25, 47, 88, 0.07)" },
+            ],
+          }} />
+        ),
         tabBarStyle: {
+          position: "absolute",
+          bottom: 0, left: 0, right: 0,
+          transform: [{ translateY: navbarScroll.translateY }],
           height: tabBarHeight,
           paddingBottom: insets.bottom + 8,
           paddingTop: 11,
@@ -488,34 +585,16 @@ export default function ResidentLayout() {
           tabBarButton: (props) => <ReportFabButton {...props} />,
         }}
       />
-      {/*
-        Bot dropped out of the tab bar — it's still reachable via the
-        floating BotFab above and Home's "Ask the Bot" quick-access card.
-        `href: null` is required here, not just omitting this entry: Expo
-        Router auto-generates a plain tab button for any route file inside
-        a <Tabs> folder that isn't explicitly registered, using the raw
-        filename as an unstyled label with no icon — that was rendering as
-        a stray, broken-looking 6th "bot" tab alongside the real, styled
-        floating button. `href: null` keeps the route navigable
-        (router.push still works) while telling the tab bar not to render
-        a button for it at all.
-      */}
-      <Tabs.Screen name="bot" options={{ href: null }} />
-      <Tabs.Screen name="notifications" options={{ href: null }} />
-      <Tabs.Screen name="settings" options={{ href: null }} />
-      <Tabs.Screen name="change-password" options={{ href: null }} />
-      {/* Same href: null treatment — verify-id and pending are pushed to
-          directly (from the Profile tab, or the report-flow gate) and
-          aren't meant to be one of the five visible tabs. */}
-      <Tabs.Screen name="verify-id" options={{ href: null }} />
-      <Tabs.Screen name="pending" options={{ href: null }} />
-      {/* Service/infrastructure complaint flow - pushed to from the
-          chooseType stage inside report.tsx, not one of the five visible
-          tabs. Same href: null treatment as verify-id/pending above. */}
-      <Tabs.Screen name="service-complaint" options={{ href: null }} />
-      {/* Report detail page - pushed to from a tap on any card in
-          reports.tsx. Same href: null treatment. */}
-      <Tabs.Screen name="report-detail" options={{ href: null }} />
+      {/* Expo Router 58 redirects focused `href: null` tabs to Home. Keep
+          these routes registered and navigable, but hide their tab items. */}
+      <Tabs.Screen name="bot" options={{ tabBarItemStyle: { display: "none" } }} />
+      <Tabs.Screen name="notifications" options={{ tabBarItemStyle: { display: "none" } }} />
+      <Tabs.Screen name="settings" options={{ tabBarItemStyle: { display: "none" } }} />
+      <Tabs.Screen name="change-password" options={{ tabBarItemStyle: { display: "none" } }} />
+      <Tabs.Screen name="verify-id" options={{ tabBarItemStyle: { display: "none" } }} />
+      <Tabs.Screen name="pending" options={{ tabBarItemStyle: { display: "none" } }} />
+      <Tabs.Screen name="service-complaint" options={{ tabBarItemStyle: { display: "none" } }} />
+      <Tabs.Screen name="report-detail" options={{ tabBarItemStyle: { display: "none" } }} />
       <Tabs.Screen
         name="directory"
         options={{
@@ -547,12 +626,16 @@ export default function ResidentLayout() {
     </Tabs>
     {!hideBotFab && preferences.showBot && (
       <BotFab
+        key={`${preferences.botButtonSize}-${width}-${height}`}
         bottom={tabBarHeight + 20}
         insetTop={insets.top}
         position={botFabPosition}
         onPositionChange={setBotFabPosition}
+        showWelcome={showBotWelcome}
+        onDismissWelcome={() => setShowBotWelcome(false)}
       />
     )}
     </View>
+    </NavbarScrollProvider>
   );
 }

@@ -13,6 +13,7 @@ import {
   Keyboard,
   Platform,
   ScrollView,
+  type ScrollViewInstance,
   UIManager,
   type LayoutChangeEvent,
 } from "react-native";
@@ -98,7 +99,7 @@ type FocusLike = {
 const DEFAULT_GAP = 96;
 
 export function useKeyboardFocusScroll(gapAboveKeyboard: number = DEFAULT_GAP) {
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const containerHeight = useRef(0);
   const keyboardHeight = useRef(0);
   // State (not just the ref above) because this one has to trigger a

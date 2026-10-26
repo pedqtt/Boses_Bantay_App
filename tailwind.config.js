@@ -14,6 +14,7 @@ module.exports = {
         brand: {
           50: "#DCE5F7",
           100: "#BECEEE",
+          outline: "#9BB1DA",
           400: "#5065AE",
           DEFAULT: "#021C84",
           dark: "#01165C",

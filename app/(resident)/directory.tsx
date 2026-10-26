@@ -1,5 +1,7 @@
+import { useFocusEffect } from "expo-router";
+import { useNavbarScroll } from "@/lib/navbar-scroll";
 import { Text, TextInput } from "@/components/AppText";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { View, ScrollView, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@/components/AppIcon";
@@ -12,6 +14,7 @@ import { colors } from "@/lib/theme";
 const QC_HELPLINE: DirectoryContact = { id: "qc-helpline-122", name: "Quezon City Emergency Hotline", role: "", phone: "122", urgent: true };
 type Filter = "all" | "emergency" | "services";
 export default function DirectoryScreen() {
+  const navbarScroll = useNavbarScroll();
   const [contacts, setContacts] = useState<DirectoryContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -19,9 +22,11 @@ export default function DirectoryScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const requestId = useRef(0);
-  const fetchContacts = useCallback(async (silent = false) => {
+  const hasLoaded = useRef(false);
+  const fetchContacts = useCallback(async (refresh = false) => {
     const request = ++requestId.current;
-    if (!silent) setLoading(true); else setRefreshing(true);
+    setLoading(!hasLoaded.current);
+    setRefreshing(refresh);
     setLoadError(null);
     try {
       if (!isSupabaseConfigured || !supabase) throw Error("Hindi pa naka-configure ang directory. Pakikontak ang admin.");
@@ -35,9 +40,9 @@ export default function DirectoryScreen() {
       if (request !== requestId.current) return;
       console.warn("[directory] load failed", error);
       setLoadError("Hindi ma-update ang directory. Pakisuri ang internet at subukan muli.");
-    } finally { if (request === requestId.current) { setLoading(false); setRefreshing(false); } }
+    } finally { if (request === requestId.current) { hasLoaded.current = true; setLoading(false); setRefreshing(false); } }
   }, []);
-  useEffect(() => { void fetchContacts(); return () => { requestId.current++; }; }, [fetchContacts]);
+  useFocusEffect(useCallback(() => { void fetchContacts(); return () => { requestId.current++; }; }, [fetchContacts]));
   const categories: { id: Filter; label: string }[] = [
     { id: "all", label: "Lahat" }, { id: "emergency", label: "Emergency" }, { id: "services", label: "Serbisyo" },
   ];
@@ -60,7 +65,7 @@ export default function DirectoryScreen() {
         </View>
         <View className="flex-row" style={{ gap: 8, marginTop: 10 }}>{categories.map(category => <Pressable key={category.id} accessibilityRole="button" accessibilityState={{ selected: filter === category.id }} onPress={() => setFilter(category.id)} className="flex-1 items-center justify-center rounded-lg active:opacity-70" style={{ minHeight: 40, backgroundColor: filter === category.id ? colors.residentSelected : "white" }}><Text style={{ fontSize: 12, lineHeight: 18, fontWeight: filter === category.id ? "600" : "400", color: filter === category.id ? colors.primary : colors.onSurfaceVariant }}>{category.label}</Text></Pressable>)}</View>
       </View>
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void fetchContacts(true); }} tintColor={colors.primary} />}>
+      <ScrollView onScroll={navbarScroll.onScroll} onScrollBeginDrag={navbarScroll.onScrollBeginDrag} scrollEventThrottle={16} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: navbarScroll.bottomPadding }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void fetchContacts(true); }} tintColor={colors.primary} />}>
         <PrimaryDirectoryHotline contact={QC_HELPLINE} />
         {loadError && <View className="bg-white border border-gray-200 rounded-2xl p-5 mb-5"><Text accessibilityRole="alert" className="text-[14px] leading-6 text-ink-soft">{loadError}</Text>{contacts.length > 0 && <Text className="text-[12px] text-ink-soft leading-5 mt-1">Ang huling na-load na contacts ang ipinapakita.</Text>}<Pressable accessibilityRole="button" onPress={() => { void fetchContacts(true); }} className="self-start bg-brand-50 rounded-xl px-4 py-3 mt-3"><Text className="text-brand font-semibold text-[13px]">Subukan muli</Text></Pressable></View>}
         {loading ? <View className="items-center py-9"><ActivityIndicator color={colors.primary} /><Text className="text-[13px] text-ink-soft mt-3">Kinukuha ang directory...</Text></View> : !filtered.length && !loadError ? <View className="bg-white border border-gray-200 rounded-[20px] p-7 items-center"><View className="bg-brand-50 rounded-2xl p-4"><Ionicons name={contacts.length ? "search-outline" : "call-outline"} size={28} color={colors.primary} /></View><Text className="text-[16px] font-semibold text-ink mt-4 text-center">{contacts.length ? "Walang tumugmang contact" : "Wala pang nakatalang contact"}</Text><Text className="text-[13px] leading-6 text-ink-soft text-center mt-2">{contacts.length ? "Subukan ang ibang keyword o ipakita lahat ng contact." : "Dito lalabas ang mga contact na inilathala ng barangay."}</Text>{contacts.length > 0 && <Pressable accessibilityRole="button" onPress={() => { setQuery(""); setFilter("all"); }} className="bg-brand-50 rounded-xl px-4 py-3 mt-4"><Text className="text-brand text-[13px] font-semibold">Ipakita lahat</Text></Pressable>}</View> : <View>

@@ -62,7 +62,7 @@ export function IntroScreen({
             else's half-finished narrative into it would be worse than
             losing it. */}
         {hasSavedDraft && (
-          <View className="border border-brand-100 bg-brand-50 rounded-2xl p-4 mb-6">
+          <View className="border border-brand-outline bg-brand-50 rounded-2xl p-4 mb-6">
             <View className="flex-row items-center mb-1.5">
               <Ionicons name="time-outline" size={16} color={colors.primary} />
               <Text className={`${REPORT_TYPE.fieldLabel} ml-1.5`}>
@@ -98,7 +98,7 @@ export function IntroScreen({
               not another recording. */}
           <View>
             <View className="flex-row items-start">
-              <View className="bg-brand-50 border border-brand-100 rounded-xl items-center justify-center mr-3" style={{ width: 36, height: 36 }}>
+              <View className="bg-brand-50 border border-brand-outline rounded-xl items-center justify-center mr-3" style={{ width: 36, height: 36 }}>
                 <Ionicons name="person-outline" size={18} color={colors.primary} />
               </View>
               <View className="flex-1">
@@ -113,7 +113,7 @@ export function IntroScreen({
           {CHUNKS.map((chunk, i) => (
             <View key={chunk.key} className="mt-4 pt-4 border-t border-gray-100">
               <View className="flex-row items-start">
-                <View className="bg-brand-50 border border-brand-100 rounded-xl items-center justify-center mr-3" style={{ width: 36, height: 36 }}>
+                <View className="bg-brand-50 border border-brand-outline rounded-xl items-center justify-center mr-3" style={{ width: 36, height: 36 }}>
                   <Ionicons name={chunk.icon as any} size={18} color={colors.primary} />
                 </View>
                 <View className="flex-1">

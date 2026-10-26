@@ -1,40 +1,47 @@
+import { BackButton } from "@/components/BackButton";
+import { useNavbarScroll } from "@/lib/navbar-scroll";
 import { useCallback, useRef, useState } from "react";
 import { FONT_SIZE_OPTIONS, type FontSizePreference } from "@/lib/typography";
 import { TypographyPreview, useTypography } from "@/lib/typography-context";
 import { Text } from "@/components/AppText";
-import { View, Pressable, ScrollView, Switch, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, Pressable, ScrollView, Switch, StyleSheet, ActivityIndicator, Alert, type ScrollViewInstance } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@/components/AppIcon";
 import { colors } from "@/lib/theme";
 import { homeStyles } from "@/components/home/homeStyles";
-import { DEFAULT_PREFERENCES, updateAppPreferences, useAppPreferences } from "@/lib/app-preferences";
+import { BOT_BUTTON_SIZES, type BotButtonSize, DEFAULT_PREFERENCES, updateAppPreferences, useAppPreferences } from "@/lib/app-preferences";
 
 export default function SettingsScreen() {
+  const navbarScroll = useNavbarScroll();
   const { preferences, loaded, error } = useAppPreferences();
   const text = useTypography();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const [resetDone, setResetDone] = useState(false);
   const [draftSize, setDraftSize] = useState<FontSizePreference>(text.size);
+  const [draftBotSize, setDraftBotSize] = useState<BotButtonSize>(preferences.botButtonSize);
+  useFocusEffect(useCallback(() => { setDraftBotSize(preferences.botButtonSize); }, [preferences.botButtonSize]));
+  const pendingBotSize = draftBotSize !== preferences.botButtonSize;
+  const botSizeLabel = BOT_BUTTON_SIZES.find(option => option.id === preferences.botButtonSize)?.label;
   useFocusEffect(useCallback(() => { setDraftSize(text.size); }, [text.size]));
   const pendingSize = draftSize !== text.size;
   const currentSizeLabel = FONT_SIZE_OPTIONS.find(option => option.id === text.size)?.label;
   const previewSizeLabel = FONT_SIZE_OPTIONS.find(option => option.id === draftSize)?.label;
-  const controlsDefault = preferences.showBot && preferences.fadeBotWhenIdle && preferences.notificationsEnabled;
-  const allDefault = controlsDefault && text.size === "standard" && draftSize === "standard";
+  const controlsDefault = preferences.showBot && preferences.fadeBotWhenIdle && preferences.notificationsEnabled && preferences.botButtonSize === "standard";
+  const allDefault = controlsDefault && text.size === "standard" && draftSize === "standard" && draftBotSize === "standard";
   function confirmReset() {
-    Alert.alert("Ibalik sa default?", "I-o-on muli ang notifications, floating Bot, at idle fade. Para sa text size, pipiliin ang Karaniwan sa preview. Pindutin pa rin ang Apply para gamitin ito.", [
+    Alert.alert("Ibalik sa default?", "I-o-on muli ang notifications, floating Bot, at idle fade. Ibabalik din sa Karaniwan ang laki ng Bot button. Para sa text size, pipiliin ang Karaniwan sa preview. Pindutin pa rin ang Apply para gamitin ito.", [
       { text: "Kanselahin", style: "cancel" },
       { text: "Ibalik", onPress: () => {
         updateAppPreferences(DEFAULT_PREFERENCES);
-        setDraftSize("standard"); setResetDone(true);
+        setDraftSize("standard"); setDraftBotSize("standard"); setResetDone(true);
         if (text.size !== "standard") scrollRef.current?.scrollTo({ y: 0, animated: true });
       } },
     ]);
   }
   return <SafeAreaView edges={["top"]} style={s.screen}>
-    <View style={s.header}><Pressable accessibilityRole="button" accessibilityLabel="Bumalik" onPress={() => { if (router.canGoBack()) router.back(); else router.replace("/(resident)/profile"); }} style={s.back}><Ionicons name="chevron-back" size={22} color={colors.primary} /></Pressable><Text variant="screenTitle" accessibilityRole="header" style={s.title}>Settings</Text></View>
-    <ScrollView ref={scrollRef} contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+    <View style={s.header}><BackButton showLabel={false} onPress={() => { if (router.canGoBack()) router.back(); else router.replace("/(resident)/profile"); }} /><Text variant="screenTitle" accessibilityRole="header" style={s.title}>Settings</Text></View>
+    <ScrollView onScroll={navbarScroll.onScroll} onScrollBeginDrag={navbarScroll.onScrollBeginDrag} scrollEventThrottle={16} ref={scrollRef} contentContainerStyle={[s.body, { paddingBottom: navbarScroll.bottomPadding }]} showsVerticalScrollIndicator={false}>
       <View style={s.section}>
         <Text accessibilityRole="header" variant="section" style={s.sectionTitle}>Pagbabasa</Text>
         <View style={s.typeCard}>
@@ -67,7 +74,38 @@ export default function SettingsScreen() {
         <View style={s.card}>
           <PreferenceRow icon="chatbubble-ellipses-outline" title="Floating chatbot" description="Ipakita ang Bot button na puwedeng ilipat." value={preferences.showBot} disabled={!loaded} onChange={showBot => updateAppPreferences({ showBot })} />
           <View style={s.divider} />
-          <PreferenceRow icon="contrast-outline" title="Pahinain kapag idle" description="Bawasan ang opacity kapag hindi ginagamit." value={preferences.fadeBotWhenIdle} disabled={!loaded || !preferences.showBot} onChange={fadeBotWhenIdle => updateAppPreferences({ fadeBotWhenIdle })} />
+          <PreferenceRow icon="contrast-outline" title="Pahinain kapag idle" description="Palambutin ang kulay kapag hindi ginagamit." value={preferences.fadeBotWhenIdle} disabled={!loaded || !preferences.showBot} onChange={fadeBotWhenIdle => updateAppPreferences({ fadeBotWhenIdle })} />
+          <View style={s.divider} />
+          <View style={{ paddingVertical: 18, gap: 12, opacity: preferences.showBot ? 1 : 0.5 }}>
+            <View><Text variant="body" style={s.rowTitle}>Laki ng Bot button</Text><Text variant="caption" style={s.currentSize}>Ginagamit ngayon: {botSizeLabel}</Text><Text variant="caption" style={s.description}>Pumili, tingnan ang halimbawa, saka i-apply.</Text></View>
+            <View accessibilityRole="radiogroup" accessibilityLabel="Laki ng floating Bot button" style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {BOT_BUTTON_SIZES.map(option => {
+                const selected = draftBotSize === option.id;
+                return <Pressable key={option.id} accessibilityRole="radio" accessibilityLabel={option.label} accessibilityState={{ checked: selected, disabled: !loaded || !preferences.showBot }} disabled={!loaded || !preferences.showBot} onPress={() => setDraftBotSize(option.id)} style={{ flexGrow: 1, flexBasis: 104, minWidth: 104, alignItems: "center", justifyContent: "flex-end", gap: 10, paddingVertical: 14, paddingHorizontal: 6, borderRadius: 14, borderWidth: 1, borderColor: selected ? colors.residentAccentOutline : "#DFE5EF", backgroundColor: selected ? "#EEF3FC" : "#FFFFFF" }}>
+                  <View style={{ height: 88, justifyContent: "center", alignItems: "center" }}><View style={{ width: option.size, height: option.size, borderRadius: option.size / 2, backgroundColor: colors.primary, borderWidth: 4, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center" }}><Ionicons name="chatbubble-ellipses" size={Math.round(option.size * 0.42)} color="#FFFFFF" /></View></View>
+                  <Text variant="label" style={{ color: selected ? colors.primary : "#52617A", fontWeight: selected ? "600" : "500", textAlign: "center" }}>{option.label}</Text>
+                  <Ionicons name={selected ? "radio-button-on" : "radio-button-off"} size={18} color={selected ? colors.primary : "#64748B"} />
+                </Pressable>;
+              })}
+            </View>
+            <View style={s.applyFooter}>
+              <Text variant="caption" accessibilityLiveRegion="polite" style={s.applyHint}>{pendingBotSize ? "Hindi pa naka-apply ang napiling laki ng Bot button." : "Ginagamit na ang laki na ito."}</Text>
+              <View style={s.applyActions}>
+                {pendingBotSize && <Pressable accessibilityRole="button" accessibilityLabel="Kanselahin ang napiling laki ng Bot" onPress={() => setDraftBotSize(preferences.botButtonSize)} style={s.cancelSize}><Text variant="label" style={{ color: "#52617A", fontWeight: "500" }}>Kanselahin</Text></Pressable>}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="I-apply ang laki ng Bot button"
+                  accessibilityState={{ disabled: !loaded || !preferences.showBot || !pendingBotSize }}
+                  disabled={!loaded || !preferences.showBot || !pendingBotSize}
+                  onPress={() => updateAppPreferences({ botButtonSize: draftBotSize })}
+                  style={[s.applyButton, (!loaded || !preferences.showBot || !pendingBotSize) && s.applyButtonDisabled]}
+                >
+                  <Ionicons name="checkmark-outline" size={20} color={pendingBotSize ? "#FFFFFF" : "#64748B"} />
+                  <Text variant="label" style={[s.applyButtonText, !pendingBotSize && { color: "#64748B" }]}>{pendingBotSize ? "Apply Bot size" : "Applied"}</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
           <View style={s.cardNote}><Text variant="caption" style={s.cardNoteText}>Available pa rin ang Bot sa Home kapag nakatago ang floating button.</Text></View>
         </View>
       </View>
@@ -92,7 +130,7 @@ function PreferenceRow({ icon, title, description, value, disabled, onChange }: 
   return <View style={[s.row, disabled && { opacity: 0.5 }]}><View style={homeStyles.itemIcon}><Ionicons name={icon} size={21} color={colors.primary} /></View><View style={{ flex: 1, minWidth: 0 }}><Text variant="body" style={s.rowTitle}>{title}</Text><Text variant="caption" style={s.description}>{description}</Text></View><Switch accessibilityLabel={title} accessibilityHint={description} value={value} disabled={disabled} onValueChange={onChange} trackColor={{ false: "#DCE2ED", true: "#C5D2F6" }} thumbColor={value ? colors.primary : "#FFFFFF"} /></View>;
 }
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#FFFFFF" }, header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }, back: { ...homeStyles.headerButton, width: 44, height: 44, borderRadius: 14 }, title: { flex: 1, fontSize: 26, lineHeight: 34, fontWeight: "600", color: "#14244B" }, body: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 128, backgroundColor: colors.residentBackground },
+  screen: { flex: 1, backgroundColor: "#FFFFFF" }, header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }, title: { flex: 1, fontSize: 26, lineHeight: 34, fontWeight: "600", color: "#14244B" }, body: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 128, backgroundColor: colors.residentBackground },
   section: { marginBottom: 28 }, sectionTitle: { ...homeStyles.sectionTitle, marginBottom: 12, paddingHorizontal: 2 }, card: { ...homeStyles.card, paddingHorizontal: 16, overflow: "hidden" }, row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 18 }, rowTitle: { fontWeight: "600", color: "#172033" }, description: { color: "#64748B", marginTop: 4 }, divider: { height: StyleSheet.hairlineWidth, backgroundColor: "#E3E8F0" }, cardNote: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E3E8F0", paddingVertical: 14 }, cardNoteText: { color: "#64748B" }, sectionNote: { color: "#64748B", marginTop: 12, paddingHorizontal: 2 },
   typeCard: { ...homeStyles.card, padding: 18 }, typeHeader: { flexDirection: "row", alignItems: "center", gap: 12 }, typeIcon: { width: 44, minHeight: 44, paddingVertical: 6, borderRadius: 14, backgroundColor: colors.residentTint, alignItems: "center", justifyContent: "center" }, currentSize: { color: "#64748B", marginTop: 4 }, typeDescription: { color: "#52617A", marginTop: 16, marginBottom: 16 }, sizeChoices: { flexDirection: "row", flexWrap: "wrap", gap: 10 }, sizeChoice: { flexGrow: 1, flexBasis: "45%", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: 52, borderWidth: 1, borderColor: "#DFE5EF", borderRadius: 13, padding: 12 }, sizeChoiceSelected: { borderColor: colors.residentAccentOutline, backgroundColor: colors.residentSelected }, sizeChoiceLabel: { flexShrink: 1, color: "#52617A", fontWeight: "500" }, typePreview: { marginTop: 18, padding: 16, borderRadius: 14, backgroundColor: "#F7F9FD", borderWidth: 1, borderColor: "#E6EBF3" }, previewLabel: { color: "#64748B", fontWeight: "500", marginBottom: 16 },
   applyFooter: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E3E8F0", marginTop: 18, paddingTop: 14 }, applyHint: { color: "#64748B", marginBottom: 12 }, applyActions: { flexDirection: "row", flexWrap: "wrap", alignItems: "stretch", gap: 8 }, applyButton: { flexGrow: 1, flexBasis: 150, minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 14, backgroundColor: colors.primary }, applyButtonDisabled: { backgroundColor: "#EDF0F5" }, applyButtonText: { color: "#FFFFFF", fontWeight: "600" }, cancelSize: { minHeight: 50, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },

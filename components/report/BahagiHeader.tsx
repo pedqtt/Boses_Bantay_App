@@ -1,6 +1,6 @@
+import { BackButton } from "@/components/BackButton";
 import { Text } from "@/components/AppText";
-import { View, Pressable } from "react-native";
-import { Ionicons } from "@/components/AppIcon";
+import { View } from "react-native";
 import { colors } from "@/lib/theme";
 
 type BahagiHeaderProps = {
@@ -141,18 +141,7 @@ export function BahagiHeader({
       }}
     >
       <View className={`flex-row items-center ${hasProgress ? "mb-4" : ""}`}>
-        <Pressable
-          onPress={onBack}
-          disabled={backDisabled}
-          accessibilityRole="button"
-          accessibilityLabel="Bumalik"
-          accessibilityState={{ disabled: Boolean(backDisabled) }}
-          style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: colors.residentTint, alignItems: "center", justifyContent: "center", opacity: backDisabled ? 0.4 : 1 }}
-          hitSlop={8}
-          className="active:opacity-60"
-        >
-          <Ionicons name="chevron-back" size={21} color={colors.primary} />
-        </Pressable>
+        <BackButton showLabel={false} onPress={onBack} disabled={backDisabled} />
 
         {/* Same thin-rule-as-separator pattern PhoneInput uses between
             "+63" and its digit field - a minimalist divider instead of
@@ -166,7 +155,7 @@ export function BahagiHeader({
           {label}
         </Text>
         {stepText && (
-          <View className="bg-brand-50 border border-brand-100 rounded-full px-3 py-1.5">
+          <View className="bg-brand-50 border border-brand-outline rounded-full px-3 py-1.5">
             <Text className="text-[13px] font-semibold text-brand-dark">{stepText}</Text>
           </View>
         )}

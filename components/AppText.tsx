@@ -1,12 +1,12 @@
 import { createContext, forwardRef, useContext } from "react";
-import { Text as NativeText, TextInput as NativeTextInput, StyleSheet, type TextProps, type TextInputProps } from "react-native";
+import { Text as NativeText, TextInput as NativeTextInput, StyleSheet, type TextProps, type TextInputProps, type TextInstance, type TextInputInstance } from "react-native";
 import { cssInterop } from "nativewind";
 import { roleForSize, textMetrics, type TextRole } from "@/lib/typography";
 import { useTypography } from "@/lib/typography-context";
 
 const InText = createContext(false);
 type AppTextProps = TextProps & { variant?: TextRole; className?: string; preserveTruncation?: boolean };
-const TextBase = forwardRef<NativeText, AppTextProps>(function AppText({ style, children, variant, numberOfLines, preserveTruncation = false, allowFontScaling = true, ...props }, ref) {
+const TextBase = forwardRef<TextInstance, AppTextProps>(function AppText({ style, children, variant, numberOfLines, preserveTruncation = false, allowFontScaling = true, ...props }, ref) {
   const nested = useContext(InText);
   const { scale } = useTypography();
   const flattened = StyleSheet.flatten(style) || {};
@@ -17,10 +17,10 @@ const TextBase = forwardRef<NativeText, AppTextProps>(function AppText({ style, 
   return <NativeText {...props} ref={ref} allowFontScaling={allowFontScaling} numberOfLines={lines} style={[style, metrics]}><InText.Provider value={true}>{children}</InText.Provider></NativeText>;
 });
 export const Text = cssInterop(TextBase, { className: "style" });
-export type Text = NativeText;
+export type Text = TextInstance;
 
 type AppInputProps = TextInputProps & { className?: string };
-const InputBase = forwardRef<NativeTextInput, AppInputProps>(function AppTextInput({ style, allowFontScaling = true, ...props }, ref) {
+const InputBase = forwardRef<TextInputInstance, AppInputProps>(function AppTextInput({ style, allowFontScaling = true, ...props }, ref) {
   const { scale } = useTypography();
   const flattened = StyleSheet.flatten(style) || {};
   const size = typeof flattened.fontSize === "number" ? flattened.fontSize : 16;
@@ -31,4 +31,4 @@ const InputBase = forwardRef<NativeTextInput, AppInputProps>(function AppTextInp
   return <NativeTextInput {...props} ref={ref} allowFontScaling={allowFontScaling} style={[style, metrics, { minHeight }]} />;
 });
 export const TextInput = cssInterop(InputBase, { className: "style" });
-export type TextInput = NativeTextInput;
+export type TextInput = TextInputInstance;

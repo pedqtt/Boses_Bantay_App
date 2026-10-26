@@ -1,14 +1,17 @@
+import { BackButton } from "@/components/BackButton";
+import { useNavbarScroll } from "@/lib/navbar-scroll";
 import { useTypography } from "@/lib/typography-context";
 import { Text, TextInput } from "@/components/AppText";
 import { homeStyles } from "@/components/home/homeStyles";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Animated, Easing, SectionList, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@/components/AppIcon";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { reportDate, type AccountReport } from "@/lib/myReports";
-import { colors } from "@/lib/theme";
+import { colors, headerActionColors } from "@/lib/theme";
 import { useAppPreferences } from "@/lib/app-preferences";
 import { ReportStatusBadge } from "./ReportStatusBadge";
 
@@ -47,9 +50,10 @@ function notificationDayLabel(report: AccountReport) {
 function storageKey(owner: string, report: AccountReport) {
   return `report_notice.${owner}.${report.source}.${report.id}`.replace(/[^a-zA-Z0-9_.-]/g, "_");
 }
-export function ReportNotifications({ owner, reports, loading: reportLoading, error: reportError, partial: reportPartial, refresh, children, sample = false, page = false }: {
-  page?: boolean; sample?: boolean; owner: string; reports: AccountReport[]; loading: boolean; error: string; partial: boolean; refresh: () => void; children?: (parts: { bell: ReactNode; preview: ReactNode }) => ReactNode;
+export function ReportNotifications({ owner, reports, loading: reportLoading, error: reportError, partial: reportPartial, refresh, refreshing: manualRefreshing = false, children, sample = false, page = false }: {
+  page?: boolean; sample?: boolean; owner: string; reports: AccountReport[]; loading: boolean; error: string; partial: boolean; refresh: () => void | Promise<void>; refreshing?: boolean; children?: (parts: { bell: ReactNode; preview: ReactNode }) => ReactNode;
 }) {
+  const navbarScroll = useNavbarScroll();
   const { preferences } = useAppPreferences();
   const loading = sample ? false : reportLoading;
   const error = sample ? "" : reportError;
@@ -64,49 +68,50 @@ export function ReportNotifications({ owner, reports, loading: reportLoading, er
   const [selection, setSelection] = useState<{ owner: string; report: AccountReport } | null>(null);
   const selectedItem = selection?.owner === owner ? selection.report : null;
   const { height: windowHeight, fontScale } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { scale: textScale } = useTypography();
   const badgeSize = Math.max(22, Math.ceil(18 * textScale * Math.max(1, fontScale)) + 4);
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const sheetTranslation = useRef(new Animated.Value(windowHeight)).current;
+  const sheetY = useRef(new Animated.Value(windowHeight)).current;
   const panelHeight = useRef(0);
-  const modalShown = useRef(false);
-  const entranceStarted = useRef(false);
+  const modalReady = useRef(false);
+  const entering = useRef(false);
   const closing = useRef(false);
-  function animateEntrance() {
-    if (!modalShown.current || !panelHeight.current || entranceStarted.current) return;
-    entranceStarted.current = true;
-    sheetTranslation.setValue(panelHeight.current + 12);
-    Animated.parallel([
-      Animated.timing(backdropOpacity, { toValue: 1, duration: 170, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(sheetTranslation, { toValue: 0, duration: 240, easing: Easing.bezier(0.16, 1, 0.3, 1), useNativeDriver: true }),
-    ]).start();
-  }
-  function showDetails() {
-    modalShown.current = true;
-    animateEntrance();
+  const motionId = useRef(0);
+  function enterDetails() {
+    if (!modalReady.current || !panelHeight.current || entering.current || closing.current) return;
+    entering.current = true;
+    sheetY.setValue(panelHeight.current + 12);
+    Animated.timing(sheetY, { toValue: 0, duration: 190, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }
   function closeDetails(afterClose?: () => void) {
     if (!selectedItem) { afterClose?.(); return; }
     if (closing.current) return;
     closing.current = true;
-    Animated.parallel([
-      Animated.timing(backdropOpacity, { toValue: 0, duration: 150, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      Animated.timing(sheetTranslation, { toValue: panelHeight.current + 12, duration: 180, easing: Easing.bezier(0.4, 0, 1, 1), useNativeDriver: true }),
-    ]).start(({ finished }) => {
+    const id = ++motionId.current;
+    sheetY.stopAnimation();
+    Animated.timing(sheetY, {
+      toValue: (panelHeight.current || windowHeight) + 12,
+      duration: 160, easing: Easing.in(Easing.quad), useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (!finished || motionId.current !== id) return;
       closing.current = false;
-      if (finished) { setSelection(null); afterClose?.(); }
+      setSelection(null);
+      afterClose?.();
     });
   }
-  useEffect(() => () => { backdropOpacity.stopAnimation(); sheetTranslation.stopAnimation(); }, [backdropOpacity, sheetTranslation]);
-
-  useEffect(() => { setSelection(null); setQuery(""); setFilter("all"); setUndo(null); }, [owner]);
+  useEffect(() => {
+    ++motionId.current; sheetY.stopAnimation();
+    setSelection(null); setQuery(""); setFilter("all"); setUndo(null);
+  }, [owner, sheetY]);
+  useEffect(() => () => { ++motionId.current; sheetY.stopAnimation(); }, [sheetY]);
   const currentOwner = useRef(owner);
   currentOwner.current = owner;
   // This is a list of current report updates, not a fabricated event history.
   const items = useMemo(() => [...(sample ? SAMPLE_NOTIFICATIONS : reports)].sort((a, b) => (Date.parse(b.updatedAt || b.createdAt) || 0) - (Date.parse(a.updatedAt || a.createdAt) || 0)).slice(0, 50), [reports, sample]);
   useEffect(() => {
     let active = true;
-    setSeen({ owner: "", values: {} }); setStorageError(false); setMarking(false);
+    setSeen(previous => previous.owner === owner ? previous : { owner: "", values: {} });
+    setStorageError(false); setMarking(false);
     if (sample) {
       const update = () => setSeen({ owner, values: sampleRead.get(owner) ?? {} });
       update(); sampleListeners.add(update);
@@ -159,9 +164,9 @@ export function ReportNotifications({ owner, reports, loading: reportLoading, er
     catch { if (currentOwner.current === account) setStorageError(true); }
   }
   async function openDetails(item: AccountReport) {
-    backdropOpacity.stopAnimation(); sheetTranslation.stopAnimation();
-    closing.current = false; modalShown.current = false; entranceStarted.current = false; panelHeight.current = 0;
-    backdropOpacity.setValue(0); sheetTranslation.setValue(windowHeight);
+    ++motionId.current;
+    sheetY.stopAnimation(); sheetY.setValue(windowHeight);
+    panelHeight.current = 0; modalReady.current = false; entering.current = false; closing.current = false;
     setSelection({ owner, report: item });
     setMarking(true);
     try { await markRead([item]); } finally { setMarking(false); }
@@ -195,8 +200,8 @@ export function ReportNotifications({ owner, reports, loading: reportLoading, er
     } catch { if (currentOwner.current === action.owner) setStorageError(true); }
     finally { setMarking(false); }
   }
-  const bell = <Pressable accessibilityRole="button" accessibilityLabel={`Notifications${preferences.notificationsEnabled && unread ? `, ${unread} hindi pa nababasa` : ""}`} onPress={() => router.push("/(resident)/notifications")} style={s.bell}>
-      <Ionicons name="notifications-outline" size={24} color={colors.primary} />
+  const bell = <Pressable accessibilityRole="button" accessibilityLabel={`Notifications${preferences.notificationsEnabled && unread ? `, ${unread} hindi pa nababasa` : ""}`} onPress={() => router.push("/(resident)/notifications")} style={{ width: 48, height: 48, borderRadius: 16, borderWidth: 1, ...headerActionColors.primary, alignItems: "center", justifyContent: "center" }}>
+      <Ionicons name="notifications-outline" size={23} color={colors.primary} />
       {preferences.notificationsEnabled && unread > 0 && <View style={[s.badge, { height: badgeSize, minWidth: badgeSize, borderRadius: badgeSize / 2 }]}><Text variant="caption" style={s.badgeText}>{unread > 9 ? "9+" : unread}</Text></View>}
     </Pressable>;
   const preview = <View style={s.previewSection}>
@@ -215,16 +220,21 @@ export function ReportNotifications({ owner, reports, loading: reportLoading, er
   </View>;
   if (page) return (
       <SafeAreaView edges={["top", "bottom"]} style={s.screen}>
-        <View style={s.header}><Pressable accessibilityRole="button" accessibilityLabel="Bumalik" onPress={() => { if (router.canGoBack()) router.back(); else router.replace("/(resident)/home"); }} style={s.close}><Ionicons name="chevron-back" size={23} color={colors.primary} /></Pressable><Text variant="screenTitle" accessibilityRole="header" style={s.title}>Notifications</Text></View>
+        <View style={s.header}><BackButton showLabel={false} onPress={() => { if (router.canGoBack()) router.back(); else router.replace("/(resident)/home"); }} /><Text variant="screenTitle" accessibilityRole="header" style={s.title}>Notifications</Text></View>
         <View style={s.searchBox}><Ionicons name="search-outline" size={19} color="#64748B" /><TextInput accessibilityLabel="Hanapin ang notification" value={query} onChangeText={setQuery} placeholder="Hanapin ang title, reference o status" placeholderTextColor="#64748B" autoCorrect={false} returnKeyType="search" style={s.searchInput} />{query.length > 0 && <Pressable accessibilityRole="button" accessibilityLabel="Burahin ang paghahanap" onPress={() => setQuery("")} style={s.clearSearch}><Ionicons name="close-circle" size={18} color="#64748B" /></Pressable>}</View>
-        <View style={s.toolbar}><Text style={s.count}>{loading || !ready ? "Kinukuha ang updates…" : `${unread} hindi pa nababasa`}</Text><Pressable accessibilityRole="button" disabled={!ready || !unread || marking} onPress={() => { void changeReadState(items.filter(isUnread), false); }} style={s.mark}><Text style={[s.markText, (!unread || marking) && { color: "#64748B" }]}>{marking ? "Ina-update…" : "Basahin lahat"}</Text><Ionicons name="checkmark-done-outline" size={17} color={!unread || marking ? "#64748B" : colors.primary} /></Pressable></View>
-        <View style={s.filters}>
-          {([{ id: "all", label: "Lahat", count: items.length }, { id: "unread", label: "Hindi pa nababasa", count: unread }] as const).map(option => <Pressable key={option.id} accessibilityRole="button" accessibilityState={{ selected: filter === option.id }} onPress={() => setFilter(option.id)} style={[s.filter, filter === option.id && s.filterSelected]}><Text style={[s.filterLabel, filter === option.id && s.filterLabelSelected]}>{option.label}</Text><View style={[s.filterCount, filter === option.id && s.filterCountSelected]}><Text style={[s.filterCountText, filter === option.id && s.filterLabelSelected]}>{option.count}</Text></View></Pressable>)}
+        <View accessibilityRole="tablist" accessibilityLabel="Mga filter ng notification" style={[s.filters, textScale * fontScale > 1.2 && { flexDirection: "column" }]}>
+          {([{ id: "all", label: "Lahat", count: items.length }, { id: "unread", label: "Hindi nabasa", count: unread }] as const).map(option => {
+            const selected = filter === option.id;
+            return <Pressable key={option.id} accessibilityRole="tab" accessibilityLabel={`${option.label}, ${option.count} notifications`} accessibilityState={{ selected }} onPress={() => setFilter(option.id)} style={[s.filter, selected && s.filterSelected]}>
+              <Text variant="label" style={[s.filterLabel, selected && s.filterLabelSelected]}>{option.label}</Text>
+              <View style={[s.filterCount, selected && s.filterCountSelected]}><Text variant="caption" style={[s.filterCountText, selected && s.filterCountTextSelected]}>{option.count}</Text></View>
+            </Pressable>;
+          })}
         </View>
         {(partial || storageError) && <Text accessibilityRole="alert" style={s.notice}>{partial ? "May ilang report na hindi ma-load. " : ""}{storageError ? "Hindi na-save o ma-load ang read status sa device." : ""}</Text>}
         {error ? <View style={s.empty}><Ionicons name="cloud-offline-outline" size={32} color={colors.primary} /><Text style={s.emptyText}>{error}</Text><Pressable accessibilityRole="button" onPress={refresh} style={s.mark}><Text style={s.markText}>Subukan muli</Text></Pressable></View>
           : loading ? <View style={s.empty}><ActivityIndicator color={colors.primary} /><Text style={s.emptyText}>Kinukuha ang updates…</Text></View>
-          : <SectionList stickySectionHeadersEnabled={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" sections={sections} renderSectionHeader={({ section }) => <View style={s.dayHeading}><Text style={s.dayText}>{section.title}</Text><View style={s.dayRule} /></View>} keyExtractor={item => `${item.source}:${item.id}`} refreshing={loading} onRefresh={sample ? undefined : refresh} contentContainerStyle={{ paddingTop: 8, paddingBottom: 24, flexGrow: 1 }}
+          : <SectionList onScroll={navbarScroll.onScroll} onScrollBeginDrag={navbarScroll.onScrollBeginDrag} scrollEventThrottle={16} stickySectionHeadersEnabled={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" sections={sections} renderSectionHeader={({ section }) => <View style={s.dayHeading}><Text style={s.dayText}>{section.title}</Text><View style={s.dayRule} /></View>} keyExtractor={item => `${item.source}:${item.id}`} refreshing={manualRefreshing} onRefresh={sample ? undefined : refresh} contentContainerStyle={{ paddingTop: 8, paddingBottom: navbarScroll.bottomPadding, flexGrow: 1 }}
             ListEmptyComponent={<View style={s.empty}><Ionicons name="notifications-off-outline" size={34} color="#64748B" /><Text style={s.emptyTitle}>{search ? "Walang tumugmang notification" : filter === "unread" ? "Nabasa na ang lahat" : "Wala pang notifications"}</Text><Text style={s.emptyText}>{search ? "Subukan ang ibang title, reference o status." : filter === "unread" ? "Wala nang hindi nababasang update." : "Lalabas dito ang mga update sa inyong reports."}</Text>{search && <Pressable accessibilityRole="button" onPress={() => setQuery("")} style={s.mark}><Text style={s.markText}>Alisin ang paghahanap</Text></Pressable>}</View>}
             renderItem={({ item }) => <Pressable accessibilityRole="button" accessibilityLabel={`${isUnread(item) ? "Hindi pa nababasa. " : ""}${item.category}, ${item.status}, ${reportDate(item.updatedAt || item.createdAt)}`} android_ripple={{ color: "rgba(2,31,148,0.04)" }} onPress={() => { void openDetails(item); }} accessibilityHint="Buksan ang buong detalye ng notification" style={[s.inboxRow, isUnread(item) && s.inboxUnread]}>
               <View style={[s.inboxAvatar, item.status === "Resolved" && s.inboxResolved, isUnread(item) && s.inboxAvatarUnread]}><Ionicons name={item.status === "Resolved" ? "checkmark-outline" : item.hearingDate && !item.hearingCompleted ? "calendar-outline" : "document-text-outline"} size={21} color={item.status === "Resolved" ? "#397354" : colors.primary} /></View>
@@ -236,14 +246,16 @@ export function ReportNotifications({ owner, reports, loading: reportLoading, er
               <View style={s.inboxState}>{isUnread(item) && <View style={s.dot} />}</View>
             </Pressable>} />}
 
-        {undo?.owner === owner && <View accessibilityLiveRegion="polite" style={s.undoBar}><Text style={s.undoText}>{undo.message}</Text><Pressable accessibilityRole="button" accessibilityLabel="Ibalik ang dating read status" disabled={marking} onPress={() => { void undoReadChange(); }} style={s.undoButton}><Text style={s.undoButtonText}>Ibalik</Text></Pressable></View>}
+        {undo?.owner === owner && <View accessibilityLiveRegion="polite" style={[s.undoBar, { marginBottom: navbarScroll.bottomPadding }]}><Text style={s.undoText}>{undo.message}</Text><Pressable accessibilityRole="button" accessibilityLabel="Ibalik ang dating read status" disabled={marking} onPress={() => { void undoReadChange(); }} style={s.undoButton}><Text style={s.undoButtonText}>Ibalik</Text></Pressable></View>}
 
-        <Modal visible={Boolean(selectedItem)} transparent animationType="none" hardwareAccelerated onShow={showDetails} onRequestClose={() => closeDetails()}>
+        <Modal visible={Boolean(selectedItem)} transparent animationType="none" hardwareAccelerated statusBarTranslucent navigationBarTranslucent onShow={() => { modalReady.current = true; enterDetails(); }} onRequestClose={() => closeDetails()}>
           <View style={s.sheetOverlay}>
-            <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(18,28,49,0.3)", opacity: backdropOpacity }]} />
+            <StatusBar style="light" animated={false} />
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(18,28,49,0.3)" }]} />
+            <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: insets.top, backgroundColor: "#17294B" }} />
             <Pressable accessibilityRole="button" accessibilityLabel="Isara ang notification" onPress={() => closeDetails()} style={StyleSheet.absoluteFill} />
-            <AnimatedSafeAreaView edges={["bottom"]} onLayout={event => { panelHeight.current = event.nativeEvent.layout.height; animateEntrance(); }} style={[s.sheet, { transform: [{ translateY: sheetTranslation }] }]}>
-              <View style={s.sheetHeader}><Text accessibilityRole="header" style={s.sheetLabel}>Detalye ng notification</Text><Pressable accessibilityRole="button" accessibilityLabel="Isara" onPress={() => closeDetails()} style={s.close}><Ionicons name="close" size={22} color="#52617A" /></Pressable></View>
+            <AnimatedSafeAreaView edges={["bottom"]} onLayout={event => { panelHeight.current = event.nativeEvent.layout.height; enterDetails(); }} style={[s.sheet, { transform: [{ translateY: sheetY }] }]}>
+              <View style={s.sheetHeader}><Text accessibilityRole="header" style={s.sheetLabel}>Detalye ng notification</Text><Pressable accessibilityRole="button" accessibilityLabel="Isara" onPress={() => closeDetails()} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center", ...headerActionColors.secondary, borderWidth: 1, borderRadius: 14 }}><Ionicons name="close" size={22} color="#52617A" /></Pressable></View>
               {selectedItem && <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.sheetBody}>
                 <Text style={s.sheetTitle}>{selectedItem.category}</Text>
                 <Text selectable style={s.sheetReference}>{selectedItem.referenceNo} · {selectedItem.kind === "blotter" ? "Blotter report" : "Service complaint"}</Text>
@@ -267,9 +279,18 @@ const s = StyleSheet.create({
   dayHeading: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 20, paddingTop: 19, paddingBottom: 11 }, dayText: { fontSize: 11, lineHeight: 18, fontWeight: "600", color: "#64748B" }, dayRule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: "#E3E8F1" }, undoBar: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#23324D", margin: 16, marginTop: 8, paddingLeft: 16, paddingRight: 6, borderRadius: 15 }, undoText: { flex: 1, fontSize: 12, lineHeight: 19, color: "#FFFFFF" }, undoButton: { minHeight: 48, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" }, undoButtonText: { fontSize: 12, lineHeight: 18, fontWeight: "600", color: "#CEDCFF" },
   searchBox: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 20, marginTop: 16, paddingLeft: 14, paddingRight: 4, borderRadius: 14, borderWidth: 1, borderColor: "#E0E6EF", backgroundColor: "white" }, searchInput: { flex: 1, minWidth: 0, minHeight: 48, paddingVertical: 12, fontSize: 13, lineHeight: 20, color: "#172033" }, clearSearch: { width: 40, height: 44, alignItems: "center", justifyContent: "center" },
   sheetOverlay: { flex: 1, justifyContent: "flex-end" }, sheet: { maxHeight: "82%", backgroundColor: "#FFFFFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden" }, sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, padding: 20, paddingBottom: 12 }, sheetLabel: { fontSize: 13, lineHeight: 20, color: "#64748B", fontWeight: "500" }, sheetBody: { paddingHorizontal: 24, paddingBottom: 28 }, sheetTitle: { fontSize: 23, lineHeight: 31, fontWeight: "600", color: "#172033" }, sheetReference: { fontSize: 12, lineHeight: 20, color: "#64748B", marginTop: 8, paddingBottom: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E5EAF2" }, detailLabel: { fontSize: 11, lineHeight: 18, fontWeight: "500", color: "#64748B", marginTop: 18, marginBottom: 4 }, detailValue: { fontSize: 14, lineHeight: 22, color: "#374151" }, readAction: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.residentTint, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12, marginTop: 24 }, openReport: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: colors.primary, borderRadius: 14, padding: 14, marginTop: 10 }, openReportText: { fontSize: 13, lineHeight: 20, fontWeight: "600", color: "#FFFFFF" },
-  inboxRow: { flexDirection: "row", alignItems: "flex-start", gap: 13, marginHorizontal: 16, marginBottom: 8, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderTopRightRadius: 16, borderBottomRightRadius: 16, overflow: "hidden", paddingLeft: 13, paddingRight: 16, paddingVertical: 18, borderLeftWidth: 3, borderLeftColor: "transparent", backgroundColor: "#FFFFFF", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E8ECF3" }, inboxUnread: { backgroundColor: "#D5E0F7", borderLeftColor: colors.primary }, inboxAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#E8EEFA", alignItems: "center", justifyContent: "center", marginTop: 2 }, inboxResolved: { backgroundColor: "#EAF3ED" }, inboxAvatarUnread: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#D4DFF3" }, inboxContent: { flex: 1, minWidth: 0 }, inboxTop: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 4 }, inboxSender: { flex: 1, fontSize: 12, lineHeight: 18, color: "#52617A", fontWeight: "500" }, inboxTime: { fontSize: 10, lineHeight: 16, color: "#64748B" }, inboxTimeUnread: { color: colors.primary, fontWeight: "600" }, inboxSubject: { fontSize: 14, lineHeight: 21, color: "#374151", fontWeight: "400" }, inboxBold: { fontWeight: "700", color: "#14244B" }, inboxSnippet: { fontSize: 12, lineHeight: 19, color: "#64748B", marginTop: 4 }, inboxState: { width: 7, alignSelf: "center" },
-  filters: { flexDirection: "row", backgroundColor: "transparent", marginHorizontal: 20, padding: 0, borderRadius: 0, gap: 8, marginTop: 2 }, filter: { flexDirection: "row", alignItems: "center", justifyContent: "center", minHeight: 44, gap: 8, paddingHorizontal: 14, borderRadius: 14 }, filterSelected: { backgroundColor: colors.residentSelected }, filterLabel: { flexShrink: 1, fontSize: 12, lineHeight: 18, color: "#64748B", fontWeight: "500" }, filterLabelSelected: { color: colors.primary, fontWeight: "600" }, filterCount: { minWidth: 20, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 6, backgroundColor: "#E2E7F0", alignItems: "center" }, filterCountSelected: { backgroundColor: colors.residentTint }, filterCountText: { fontSize: 10, lineHeight: 15, fontWeight: "600", color: "#64748B" }, previewSection: { marginBottom: 28 }, previewHeading: homeStyles.sectionHeading, previewTitle: homeStyles.sectionTitle, previewCard: { ...homeStyles.card, paddingHorizontal: 16 }, previewRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 20 }, previewDivider: homeStyles.divider, previewIcon: homeStyles.itemIcon, previewRowTitle: homeStyles.itemTitle, previewText: { fontSize: 12, lineHeight: 19, color: "#64748B", flexShrink: 1 }, previewDate: { ...homeStyles.metadata, marginTop: 4 }, previewMessage: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 20 }, previewWarning: { fontSize: 11, lineHeight: 18, color: "#92400E", paddingBottom: 12 },
-  bell: { ...homeStyles.headerButton, position: "relative" }, badge: { position: "absolute", top: -4, right: -4, minWidth: 22, height: 22, paddingHorizontal: 5, borderRadius: 11, backgroundColor: colors.error, borderWidth: 2, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center" }, badgeText: { color: "#FFFFFF", fontSize: 10, lineHeight: 14, fontWeight: "700", fontVariant: ["tabular-nums"], includeFontPadding: false },
-  screen: { flex: 1, backgroundColor: colors.residentBackground }, header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12, gap: 12, backgroundColor: "white", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }, title: { fontSize: 26, lineHeight: 34, fontWeight: "700", color: "#14244B", letterSpacing: -0.5 }, close: { width: 44, height: 44, alignItems: "center", justifyContent: "center", backgroundColor: "#F0F3FA", borderRadius: 14 }, toolbar: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 10 }, count: { fontSize: 12, color: "#64748B" }, mark: { flexDirection: "row", gap: 5, minHeight: 44, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" }, markText: { fontSize: 12, color: colors.primary, fontWeight: "600" },
+  inboxRow: { flexDirection: "row", alignItems: "flex-start", gap: 13, marginHorizontal: 16, marginBottom: 8, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderTopRightRadius: 16, borderBottomRightRadius: 16, overflow: "hidden", paddingLeft: 13, paddingRight: 16, paddingVertical: 18, borderLeftWidth: 3, borderLeftColor: "transparent", backgroundColor: "#FFFFFF", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E8ECF3" }, inboxUnread: { backgroundColor: "#E9EFFB", borderLeftColor: colors.primary }, inboxAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#E8EEFA", alignItems: "center", justifyContent: "center", marginTop: 2 }, inboxResolved: { backgroundColor: "#EAF3ED" }, inboxAvatarUnread: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#D4DFF3" }, inboxContent: { flex: 1, minWidth: 0 }, inboxTop: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 4 }, inboxSender: { flex: 1, fontSize: 12, lineHeight: 18, color: "#52617A", fontWeight: "500" }, inboxTime: { fontSize: 10, lineHeight: 16, color: "#64748B" }, inboxTimeUnread: { color: colors.primary, fontWeight: "600" }, inboxSubject: { fontSize: 14, lineHeight: 21, color: "#374151", fontWeight: "400" }, inboxBold: { fontWeight: "700", color: "#14244B" }, inboxSnippet: { fontSize: 12, lineHeight: 19, color: "#64748B", marginTop: 4 }, inboxState: { width: 7, alignSelf: "center" },
+  filters: { flexDirection: "row", marginHorizontal: 20, marginTop: 12, marginBottom: 8, gap: 10 },
+  filter: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 52, gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: "#DCE3EE", backgroundColor: "#FFFFFF" },
+  filterSelected: { backgroundColor: "#DCE6FA", borderColor: colors.residentAccentOutline },
+  filterLabel: { flexShrink: 1, color: "#52617A", fontWeight: "500" },
+  filterLabelSelected: { color: colors.primary, fontWeight: "600" },
+  filterCount: { minWidth: 26, minHeight: 26, flexShrink: 0, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, backgroundColor: "#F0F3F8", alignItems: "center", justifyContent: "center" },
+  filterCountSelected: { backgroundColor: "#FFFFFF" },
+  filterCountText: { fontWeight: "600", color: "#52617A", fontVariant: ["tabular-nums"] },
+  filterCountTextSelected: { color: colors.primary },
+  previewSection: { marginBottom: 28 }, previewHeading: homeStyles.sectionHeading, previewTitle: homeStyles.sectionTitle, previewCard: { ...homeStyles.card, paddingHorizontal: 16 }, previewRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 20 }, previewDivider: homeStyles.divider, previewIcon: homeStyles.itemIcon, previewRowTitle: homeStyles.itemTitle, previewText: { fontSize: 12, lineHeight: 19, color: "#64748B", flexShrink: 1 }, previewDate: { ...homeStyles.metadata, marginTop: 4 }, previewMessage: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 20 }, previewWarning: { fontSize: 11, lineHeight: 18, color: "#92400E", paddingBottom: 12 },
+  badge: { position: "absolute", top: -4, right: -4, minWidth: 22, height: 22, paddingHorizontal: 5, borderRadius: 11, backgroundColor: "#D92D43", borderWidth: 2, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center" }, badgeText: { color: "#FFFFFF", fontSize: 10, lineHeight: 14, fontWeight: "700", fontVariant: ["tabular-nums"], includeFontPadding: false },
+  screen: { flex: 1, backgroundColor: colors.residentBackground }, header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12, gap: 12, backgroundColor: "white", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }, title: { fontSize: 26, lineHeight: 34, fontWeight: "700", color: "#14244B", letterSpacing: -0.5 }, toolbar: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 10, columnGap: 12, rowGap: 2 }, count: { fontSize: 12, color: "#64748B" }, mark: { flexDirection: "row", gap: 5, minHeight: 44, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" }, markText: { fontSize: 12, color: colors.primary, fontWeight: "600" },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary }, empty: { flex: 1, alignItems: "center", justifyContent: "center", padding: 30, gap: 12 }, emptyTitle: { fontSize: 17, fontWeight: "600", color: "#172033" }, emptyText: { fontSize: 13, lineHeight: 21, color: "#64748B", textAlign: "center" }, notice: { color: "#92400E", fontSize: 12, lineHeight: 19, paddingHorizontal: 20, paddingTop: 8 },
 });

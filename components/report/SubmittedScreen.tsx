@@ -2,7 +2,7 @@ import { Text } from "@/components/AppText";
 import { ReportPrimaryLabel } from "./ReportPrimaryLabel";
 import { reportStyles } from "./reportStyles";
 import { useEffect, useRef, useState } from "react";
-import { View, Pressable, Alert, ActivityIndicator } from "react-native";
+import { View, Pressable, Alert, ActivityIndicator, type ViewInstance } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@/components/AppIcon";
 import Animated, {
@@ -101,7 +101,7 @@ export function SubmittedScreen({ kind = "blotter", referenceNo, onViewReports, 
     transform: [{ scale: 0.6 + 0.4 * badgeIn.value }],
   }));
 
-  const snapshotRef = useRef<View>(null);
+  const snapshotRef = useRef<ViewInstance>(null);
   const [saving, setSaving] = useState(false);
 
   async function handleSaveSnapshot() {
