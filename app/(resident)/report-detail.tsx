@@ -1,3 +1,5 @@
+import { PinnedLocationLink } from "@/components/report/ComplaintLocationPin";
+import { parseLocationPin, type LocationPin } from "@/lib/map-location";
 import { useNavbarScroll } from "@/lib/navbar-scroll";
 import { Text } from "@/components/AppText";
 import { useAuth } from "@/lib/auth-context";
@@ -38,6 +40,7 @@ type ReportDetailData = {
   isSample: boolean;
   fields: Record<string, string>;
   photoPaths: string[];
+  locationPin?: LocationPin | null;
   ownerId: string;
   assignedToMe: boolean;
   createdByMe: boolean;
@@ -262,6 +265,7 @@ export default function ReportDetailScreen() {
             isSample: false,
             fields,
             photoPaths: Array.isArray(fullDetails.photoPaths) ? fullDetails.photoPaths : [],
+            locationPin: parseLocationPin(fullDetails.locationPin),
             ownerId: user.id, createdByMe: row.user_id === user.id, assignedToMe: source === "service_complaints" && row.assigned_to === user.id,
           });
           setLoading(false);
@@ -400,6 +404,7 @@ export default function ReportDetailScreen() {
                   </Card>
 
 
+                  {data.locationPin && <PinnedLocationLink pin={data.locationPin} />}
                   {data.photoPaths.length > 0 && <SavedComplaintPhotos paths={data.photoPaths} />}
                 </View>
               )}

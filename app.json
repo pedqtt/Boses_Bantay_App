@@ -48,7 +48,15 @@
           "isAccessMediaLocationEnabled": false
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Gamitin ang inyong lokasyon upang mag-pin ng lugar ng report kapag pinili ninyo ang kasalukuyang lokasyon.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
     ],
     "extra": {
       "router": {

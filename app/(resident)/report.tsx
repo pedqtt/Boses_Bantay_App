@@ -1,3 +1,4 @@
+import { liveDataCache } from "@/lib/live-data-cache";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Alert, View } from "react-native";
 import { saveRecordedClip } from "@/lib/api/recordingFile";
@@ -13,7 +14,6 @@ import {
   setAudioModeAsync,
 } from "expo-audio";
 import { transcribeVoiceReport } from "@/lib/api/transcribe";
-import { summarizeForOfficer } from "@/lib/api/llm";
 import { saveDraft, loadDraft, clearDraft } from "@/lib/api/reportDraft";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
@@ -508,80 +508,45 @@ export default function ReportScreen() {
       const payload = buildPayload(answers, chunks);
       const refNo = `BGY-${Math.floor(100000 + Math.random() * 900000)}`;
 
-      // TEMPORARY: the actual backend write (auth check + Supabase insert)
-      // is currently unreliable, and a failure there was blocking the whole
-      // flow with an alert the resident had no way to act on - the report
-      // itself was fine, the backend wasn't. Bypassed for now: any failure
-      // in this inner block is logged, not thrown, so a broken backend
-      // can't strand a resident on Review. The flow always reaches
-      // SubmittedScreen with a locally-generated reference number below.
-      //
-      // KNOWN GAP while this bypass is active: if this inner block throws,
-      // the report is NOT actually saved anywhere - the resident sees a
-      // reference number for a submission that only happened locally. Once
-      // the backend issue is fixed, remove this try/catch (letting a real
-      // insert failure propagate to the outer catch again) so submission
-      // failures are surfaced and blocked like before, not silently
-      // bypassed.
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) throw new Error("You must be logged in to submit a report.");
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error("Mag-login muli bago ipasa ang report.");
 
-        // The officer brief is generated here, once, and stored with the
-        // report. It is explicitly allowed to fail: a null brief means the
-        // officer sees the raw statement plus the structured fields, which
-        // is no worse than today's paper process. Blocking a filing
-        // because a summary model was unavailable would be indefensible.
-        const brief = await summarizeForOfficer(payload.raw.narrative, payload.structured);
-
-        const { error } = await supabase.from("reports").insert({
-          reference_no: refNo,
-          user_id: user.id,
-          status: "Under Review",
-          category: payload.machineValues.incidentCategory || "General",
-          summary: payload.raw.narrative || "Details provided in full report",
-
-          // Layer 1 - raw, legally authoritative, never AI-altered.
-          full_details: payload.structured,
+      // Keep the complete original statement and structured answers in JSON.
+      // The live reports table accepts these shared columns for both report types.
+      const narrative = payload.raw.narrative?.trim() || "Details provided in full report";
+      const location = payload.structured.location?.trim() || "Hindi tinukoy";
+      const { data, error } = await supabase.from("reports").insert({
+        reference_no: refNo,
+        user_id: user.id,
+        status: "Under Review",
+        category: payload.machineValues.incidentCategory || "Blotter",
+        summary: narrative,
+        description: narrative,
+        location,
+        full_details: {
+          ...payload.structured,
+          type: "blotter",
           raw_narrative: payload.raw.narrative,
           raw_transcripts: payload.raw.transcripts,
-
-          // Layer 2 - structured, promoted to real columns so the fields
-          // the barangay needs to search and roll up aren't buried in
-          // JSON.
-          complainant_age: payload.structured.complainantAge
-            ? Number(payload.structured.complainantAge) || null
-            : null,
-          complainant_contact: payload.structured.complainantContact || null,
-          complainant_gender: payload.machineValues.complainantGender,
-          filed_by_guardian: payload.machineValues.filedByGuardian === "guardian",
-          guardian_name: payload.structured.guardianName || null,
-          respondent_name: payload.structured.respondentName || null,
-          incident_at_text: payload.structured.incidentAt || null,
-          incident_location_text: payload.structured.location || null,
-          witnesses: payload.structured.witnesses || null,
-          evidence: payload.structured.evidence || null,
           blotter_type: payload.machineValues.blotterType,
           incident_category: payload.machineValues.incidentCategory,
+          complainant_gender: payload.machineValues.complainantGender,
+          filed_by_guardian: payload.machineValues.filedByGuardian === "guardian",
           request_cctv_review: payload.machineValues.requestCctv === "true",
-
-          // Layer 3 - officer triage aid. Clearly separate from the
-          // record.
-          officer_brief: brief,
-        });
-
-        if (error) throw error;
-
-        if (profile?.id) await clearDraft(profile.id);
-      } catch (backendErr: any) {
-        console.warn(
-          "[report] TEMPORARY bypass: backend submission failed, continuing anyway ->",
-          backendErr?.message ?? backendErr
-        );
+        },
+      }).select("id,reference_no").single();
+      if (error) {
+        console.warn("[report] blotter insert failed", { code: error.code, message: error.message });
+        throw new Error(error.code === "42501"
+          ? "Hindi pinayagan ng database ang pag-save. Pakikontak ang admin para sa report permissions."
+          : "Hindi na-save ang blotter sa server. Pakisubukan muli.");
       }
+      if (!data?.id || data.reference_no !== refNo) {
+        throw new Error("Hindi makumpirma ang pag-save. Tingnan muna ang Aking Reports bago muling magpasa.");
+      }
+      if (profile?.id) await clearDraft(profile.id).catch(() => {});
 
+      liveDataCache.accounts.delete(user.id);
       setReferenceNo(refNo);
       setStage("submitted");
     } catch (err: any) {

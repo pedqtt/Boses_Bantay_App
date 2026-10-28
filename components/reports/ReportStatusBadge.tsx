@@ -9,11 +9,12 @@ const softPalette: Record<string, { bg: string; fg: string }> = {
   Resolved: { bg: "#E9F6EE", fg: "#166539" },
   "CFA Issued": { bg: "#F0EAFB", fg: "#6833A0" },
 };
-export function ReportStatusBadge({ status, soft = false }: { status: string; soft?: boolean }) {
-  if (!soft && isKnownReportStatus(status)) return <StatusPill status={status} />;
-  const palette = softPalette[status] ?? { bg: "#EDF0F5", fg: "#374151" };
-  return <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: palette.bg, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 5, maxWidth: "100%" }}>
-    <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: palette.fg, marginRight: 6 }} />
-    <Text style={{ fontSize: 11, lineHeight: 16, fontWeight: "600", color: palette.fg, flexShrink: 1 }}>{status}</Text>
+export function reportStatusColors(status: string) { return softPalette[status] ?? { bg: "#EDF0F5", fg: "#374151" }; }
+export function ReportStatusBadge({ status, soft = false, compact = false, outlined = false, unread }: { status: string; soft?: boolean; compact?: boolean; outlined?: boolean; unread?: boolean }) {
+  if (!soft && !outlined && !compact && unread === undefined && isKnownReportStatus(status)) return <StatusPill status={status} />;
+  const palette = reportStatusColors(status);
+  return <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: outlined || unread ? "#FFFFFF" : palette.bg, borderWidth: outlined || unread !== undefined ? 1 : 0, borderColor: outlined || unread ? palette.fg : "transparent", borderRadius: compact ? 7 : 8, paddingHorizontal: compact ? 7 : 9, paddingVertical: compact ? 2 : 5, maxWidth: "100%" }}>
+    <View style={{ width: 6, height: 6, borderRadius: 3, flexShrink: 0, backgroundColor: palette.fg, marginRight: 6 }} />
+    <Text style={{ fontSize: compact ? 10 : 11, lineHeight: compact ? 15 : 16, fontWeight: compact ? "700" : "600", color: palette.fg, flexShrink: 1 }}>{status}</Text>
   </View>;
 }

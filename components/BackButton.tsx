@@ -13,7 +13,7 @@ type BackButtonProps = {
 export function BackButton({ onPress, disabled = false, showLabel = true }: BackButtonProps) {
   const [pressed, setPressed] = useState(false);
   return <Pressable
-    onPress={onPress} disabled={disabled}
+    onPress={onPress} disabled={disabled} hitSlop={4}
     onPressIn={() => setPressed(true)}
     onPressOut={() => setPressed(false)}
     accessibilityRole="button" accessibilityLabel="Bumalik"
@@ -22,21 +22,21 @@ export function BackButton({ onPress, disabled = false, showLabel = true }: Back
     // Use concrete styles so the surface survives NativeWind's Pressable interop.
     style={[styles.button, showLabel ? styles.labelled : styles.iconOnly, pressed && !disabled && styles.pressed, disabled && styles.disabled]}
   >
-    <Ionicons name="chevron-back" size={22} color={colors.primary} />
+    <Ionicons name="chevron-back" size={showLabel ? 20 : 22} color={colors.primary} />
     {showLabel && <Text variant="label" style={styles.label}>Bumalik</Text>}
   </Pressable>;
 }
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#DEE7F8", borderColor: "#8EA8D8", borderWidth: 1,
-    minHeight: 44, minWidth: 44, borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    minHeight: 46, minWidth: 46, borderRadius: 13,
     flexDirection: "row", alignItems: "center", justifyContent: "center",
-    alignSelf: "flex-start", gap: 4,
+    alignSelf: "flex-start", gap: 5, shadowColor: "#14244B", shadowOpacity: 0.045, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1,
   },
-  labelled: { paddingHorizontal: 10, paddingVertical: 8 },
-  iconOnly: { width: 44, height: 44 },
-  pressed: { backgroundColor: "#CCDAF2" },
+  labelled: { paddingLeft: 11, paddingRight: 16, paddingVertical: 10 },
+  iconOnly: { width: 46, height: 46 },
+  pressed: { backgroundColor: "#FFFFFF", transform: [{ scale: 0.97 }], shadowOpacity: 0, elevation: 0 },
   disabled: { opacity: 0.45 },
   label: { color: colors.primary, fontWeight: "600" },
 });

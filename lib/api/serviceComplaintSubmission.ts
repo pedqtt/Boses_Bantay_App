@@ -1,10 +1,14 @@
+import { isWithinMilagrosa } from "@/lib/service-area";
+import { parseLocationPin, type LocationPin } from "@/lib/map-location";
 import type { SupabaseClient } from "@supabase/supabase-js";
 export type ServiceComplaintInput = {
   referenceNo: string; userId: string; category: { value: string; label: string };
-  location: string; description: string; photoPaths: string[];
+  location: string; locationPin?: LocationPin | null; description: string; photoPaths: string[];
 };
 export function buildServiceComplaintRow(input: ServiceComplaintInput) {
   if (!input.userId || !input.referenceNo || !input.category.value || !input.location.trim() || !input.description.trim()) throw new Error("Kumpletuhin muna ang report bago ipasa.");
+  if (input.locationPin && !parseLocationPin(input.locationPin)) throw new Error("Hindi wasto ang pin sa mapa. Piliin muli ang lokasyon.");
+  if (input.locationPin && !isWithinMilagrosa(input.locationPin)) throw new Error("Pumili ng pin sa loob ng Barangay Milagrosa bago ipasa ang report.");
   if (input.photoPaths.length > 5) throw new Error("Hanggang 5 larawan lang po.");
   // These columns match the live reports schema; category IDs and paths stay in JSON.
   return {
@@ -13,7 +17,8 @@ export function buildServiceComplaintRow(input: ServiceComplaintInput) {
     description: input.description.trim(), location: input.location.trim(),
     full_details: { type: "service_complaint", category: input.category.value,
       categoryLabel: input.category.label, location: input.location.trim(),
-      description: input.description.trim(), photoPaths: input.photoPaths },
+      description: input.description.trim(), photoPaths: input.photoPaths,
+      ...(input.locationPin ? { locationPin: parseLocationPin(input.locationPin) } : {}) },
   };
 }
 export async function insertServiceComplaint(client: SupabaseClient, input: ServiceComplaintInput) {

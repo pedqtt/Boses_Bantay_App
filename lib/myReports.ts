@@ -1,10 +1,10 @@
 import { KNOWN_STATUSES, type ReportKind, type ReportStatus } from "@/lib/sampleReports";
-export type ReportSource = "reports" | "service_complaints" | "pre_blotters";
+export type ReportSource = "reports" | "service_complaints" | "pre_blotters" | "notifications";
 export type AccountReport = {
   id: string; source: ReportSource; referenceNo: string; category: string; summary: string;
   status: string; createdAt: string; updatedAt: string | null; location: string;
   kind: ReportKind; createdByMe: boolean; assignedToMe: boolean; photoCount: number;
-  hearingDate: string | null; hearingCompleted: boolean;
+  hearingDate: string | null; hearingCompleted: boolean; noticeMessage?: string; noticeType?: string; noticeTarget?: string; noticeLevel?: string; noticeSender?: string;
 };
 export function isKnownReportStatus(status: string): status is ReportStatus {
   return (KNOWN_STATUSES as readonly string[]).includes(status);

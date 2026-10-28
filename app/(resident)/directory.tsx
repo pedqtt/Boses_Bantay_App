@@ -1,3 +1,4 @@
+import { liveDataCache } from "@/lib/live-data-cache";
 import { useFocusEffect } from "expo-router";
 import { useNavbarScroll } from "@/lib/navbar-scroll";
 import { Text, TextInput } from "@/components/AppText";
@@ -15,14 +16,14 @@ const QC_HELPLINE: DirectoryContact = { id: "qc-helpline-122", name: "Quezon Cit
 type Filter = "all" | "emergency" | "services";
 export default function DirectoryScreen() {
   const navbarScroll = useNavbarScroll();
-  const [contacts, setContacts] = useState<DirectoryContact[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [contacts, setContacts] = useState<DirectoryContact[]>(() => liveDataCache.directory ?? []);
+  const [loading, setLoading] = useState(liveDataCache.directory === null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const requestId = useRef(0);
-  const hasLoaded = useRef(false);
+  const hasLoaded = useRef(liveDataCache.directory !== null);
   const fetchContacts = useCallback(async (refresh = false) => {
     const request = ++requestId.current;
     setLoading(!hasLoaded.current);
@@ -33,16 +34,23 @@ export default function DirectoryScreen() {
       const { data, error } = await supabase.from("emergency_contacts").select("*").eq("is_active", true).order("contact_id", { ascending: true });
       if (error) throw error;
       if (request !== requestId.current) return;
-      setContacts((data ?? []).map(contact => ({ id: String(contact.contact_id), name: String(contact.agency_name || contact.name || "Contact"),
+      const nextContacts = (data ?? []).map(contact => ({ id: String(contact.contact_id), name: String(contact.agency_name || contact.name || "Contact"),
         role: String(contact.contact_person || contact.role || ""), phone: String(contact.phone_number || contact.phone || ""),
-        urgent: String(contact.category).toLowerCase() === "emergency" || contact.urgent === true })));
+        urgent: String(contact.category).toLowerCase() === "emergency" || contact.urgent === true }));
+      liveDataCache.directory = nextContacts;
+      setContacts(nextContacts);
     } catch (error) {
       if (request !== requestId.current) return;
       console.warn("[directory] load failed", error);
       setLoadError("Hindi ma-update ang directory. Pakisuri ang internet at subukan muli.");
     } finally { if (request === requestId.current) { hasLoaded.current = true; setLoading(false); setRefreshing(false); } }
   }, []);
-  useFocusEffect(useCallback(() => { void fetchContacts(); return () => { requestId.current++; }; }, [fetchContacts]));
+  useFocusEffect(useCallback(() => {
+    if (!hasLoaded.current) void fetchContacts();
+    if (!supabase) return () => { requestId.current++; };
+    const channel = supabase.channel("directory-contacts-live").on("postgres_changes", { event: "*", schema: "public", table: "emergency_contacts" }, () => { void fetchContacts(); }).subscribe();
+    return () => { requestId.current++; void supabase.removeChannel(channel); };
+  }, [fetchContacts]));
   const categories: { id: Filter; label: string }[] = [
     { id: "all", label: "Lahat" }, { id: "emergency", label: "Emergency" }, { id: "services", label: "Serbisyo" },
   ];

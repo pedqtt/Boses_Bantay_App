@@ -4,13 +4,12 @@ import { Modal, View, Pressable, ScrollView, Keyboard, KeyboardAvoidingView, Pla
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@/components/AppIcon";
 import { colors, headerActionColors } from "@/lib/theme";
-import { ReportsOverview } from "./ReportsOverview";
 import { ReportStatusBadge } from "./ReportStatusBadge";
 
 const STEPS = [
-  { id: "overview", title: "Piliin ang status", body: "Pindutin ang Aktibo para makita ang mga bukas na report.", action: "Pindutin ang Aktibo sa itaas." },
+  { id: "overview", title: "Piliin ang status", body: "Sa Filters, piliin ang Aktibo at i-apply upang makita ang mga bukas na report.", action: "Pindutin ang Aktibo sa Katayuan." },
   { id: "search", title: "Maghanap ng report", body: "I-type ang “ilaw” sa search box.", action: "I-type: ilaw" },
-  { id: "scope", title: "Piliin ang mga report mo", body: "Pindutin ang Ginawa ko. Nakatalaga naman para sa mga concern na ibinigay sa iyo.", action: "Pindutin ang Ginawa ko." },
+  { id: "scope", title: "Piliin ang mga report mo", body: "Sa Filters, piliin ang Ginawa ko. Nakatalaga naman para sa mga concern na ibinigay sa iyo. I-apply ang napili.", action: "Pindutin ang Ginawa ko." },
   { id: "card", title: "Buksan ang report", body: "Pindutin ang card para makita ang detalye. Ang badge ang kasalukuyang status.", action: "Pindutin ang unang report card." },
 ] as const;
 type Target = "refresh" | "overview" | "search" | "scope" | "card" | "status";
@@ -70,7 +69,10 @@ export function ReportsPageGuide({ visible, onClose }: { visible: boolean; onClo
           </View>
           <View onLayout={event => { positions.current.overview = event.nativeEvent.layout.y; }}>
             <DemoTarget active={active.id === "overview"} style={{ marginBottom: 12 }}>
-              <ReportsOverview total={3} active={2} closed={1} unavailable={false} partial={false} selected={filter} onSelect={value => { setFilter(value); done("overview", value === "closed" ? "Tapos na report lang ang ipinapakita." : value === "active" ? "Aktibong reports lang ang ipinapakita." : "Lahat ng demo reports ang ipinapakita."); }} />
+              <View style={{ backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#D0DBEC", borderRadius: 14, padding: 12 }}>
+                <Text style={{ fontSize: 11, lineHeight: 17, color: "#64748B", marginBottom: 8 }}>Katayuan</Text>
+                <View style={{ flexDirection: "row", gap: 5 }}>{([{ id: "all", label: "Lahat", count: 3 }, { id: "active", label: "Aktibo", count: 2 }, { id: "closed", label: "Tapos na", count: 1 }] as const).map(option => <Pressable key={option.id} accessibilityRole="tab" accessibilityState={{ selected: filter === option.id }} onPress={() => { setFilter(option.id); done("overview", option.id === "active" ? "Aktibong reports lang ang ipinapakita." : option.id === "closed" ? "Tapos na reports lang ang ipinapakita." : "Lahat ng demo reports ang ipinapakita."); }} style={{ flex: 1, minHeight: 44, borderRadius: 10, padding: 6, alignItems: "center", justifyContent: "center", backgroundColor: filter === option.id ? "#E9EFFC" : "#FFFFFF" }}><Text style={{ fontSize: 11, lineHeight: 17, fontWeight: "600", color: filter === option.id ? colors.primary : "#64748B" }}>{option.label}</Text></Pressable>)}</View>
+              </View>
             </DemoTarget>
           </View>
           <View onLayout={event => { positions.current.search = event.nativeEvent.layout.y; }}>

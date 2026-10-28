@@ -12,15 +12,6 @@ export function displayDirectoryPhone(phone: string): string {
   if (/^\+639\d{9}$/.test(digits)) return `+63 ${digits.slice(3, 6)} ${digits.slice(6, 9)} ${digits.slice(9)}`;
   return phone;
 }
-function contactIcon(contact: DirectoryContact): keyof typeof Ionicons.glyphMap {
-  const text = `${contact.name} ${contact.role}`.toLowerCase();
-  if (/fire|bfp/.test(text)) return "flame-outline";
-  if (/police|pnp/.test(text)) return "shield-checkmark-outline";
-  if (/health|clinic|hospital|rhu|medical/.test(text)) return "medkit-outline";
-  if (/tanod|patrol/.test(text)) return "walk-outline";
-  if (/barangay hall|captain|kagawad/.test(text)) return "business-outline";
-  return contact.urgent ? "alert-circle-outline" : "call-outline";
-}
 async function callContact(contact: DirectoryContact) {
   const phone = contact.phone.replace(/[^0-9+]/g, "");
   if (!phone) return;
@@ -61,7 +52,6 @@ export function DirectoryContactCard({ contact }: { contact: DirectoryContact })
   return <View style={styles.card}>
     <View style={styles.contactBody}>
       <View style={styles.identity}>
-        <View style={[styles.categoryBadge, { backgroundColor: contact.urgent ? colors.errorContainer : colors.residentTint }]}><Ionicons name={contactIcon(contact)} size={18} color={accent} /></View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.name}>{contact.name}</Text>
           {contact.role ? <Text style={styles.role}>{contact.role}</Text> : null}
@@ -92,7 +82,6 @@ const styles = StyleSheet.create({
   card: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "white", borderWidth: 1, borderColor: "#E1E6EF", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 9, minHeight: 80,
     shadowColor: "#182858", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.02, shadowRadius: 6 },
   contactBody: { flex: 1, minWidth: 0 },
-  categoryBadge: { width: 30, minHeight: 36, alignSelf: "stretch", borderRadius: 10, alignItems: "center", justifyContent: "center" },
   numberTarget: { alignSelf: "stretch", minHeight: 32, justifyContent: "center", marginTop: 3, paddingVertical: 3 },
   identity: { flexDirection: "row", alignItems: "stretch", gap: 9 },
   name: { fontSize: 15, lineHeight: 21, fontWeight: "600", color: colors.onSurface },

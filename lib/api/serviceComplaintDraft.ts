@@ -1,9 +1,10 @@
+import { parseLocationPin, type LocationPin } from "@/lib/map-location";
 import * as SecureStore from "expo-secure-store";
 import { COMPLAINT_STEPS, type ComplaintStep } from "@/lib/serviceComplaintFlow";
 import type { VoiceDescriptionDraft } from "@/components/report/VoiceDescriptionInput";
 
 export type ComplaintDraft = {
-  step: ComplaintStep; categoryId: string | null; location: string; description: string;
+  step: ComplaintStep; categoryId: string | null; location: string; locationPin?: LocationPin | null; description: string;
   images: string[]; voiceDraft: VoiceDescriptionDraft;
   pendingPhoto: { replaceUri: string | null } | null;
 };
@@ -58,7 +59,7 @@ export async function loadComplaintDraft(userId: string): Promise<ComplaintDraft
     typeof draft.location !== "string" || typeof draft.description !== "string" ||
     !Array.isArray(draft.images) || !draft.images.every(uri => typeof uri === "string") ||
     !draft.voiceDraft || !Array.isArray(draft.voiceDraft.clips)) return null;
-  return { ...draft, images: draft.images.slice(0, 5), pendingPhoto: draft.pendingPhoto && (draft.pendingPhoto.replaceUri === null || typeof draft.pendingPhoto.replaceUri === "string") ? draft.pendingPhoto : null };
+  return { ...draft, locationPin: parseLocationPin(draft.locationPin), images: draft.images.slice(0, 5), pendingPhoto: draft.pendingPhoto && (draft.pendingPhoto.replaceUri === null || typeof draft.pendingPhoto.replaceUri === "string") ? draft.pendingPhoto : null };
 }
 export function clearComplaintDraft(userId: string): Promise<void> {
   return enqueue(userId, async () => {

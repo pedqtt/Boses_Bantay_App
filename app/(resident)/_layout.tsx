@@ -30,12 +30,8 @@ function SubtleTabButton(props: Pick<BottomTabBarButtonProps, "onPress" | "onLon
 }
 
 
-// Active tab gets a pill behind its icon — still a second signal beyond
-// color alone (shape, not just hue, changes on selection), but a soft
-// brand-tinted fill instead of a solid block. A fully solid pill next to
-// four quiet outline icons was the loudest thing in the bar; a tint keeps
-// the same "unmistakable at a glance" property (constraint: never rely on
-// color alone) while reading as calm rather than a bright patch.
+// Keep the selection surface around the icon, so it doesn't crowd the label.
+// Each tab fades its own tint as focus changes; no layout or icon movement.
 function TabIcon({
   focused,
   outline,
@@ -47,18 +43,15 @@ function TabIcon({
   filled: IconName;
   color: ColorValue;
 }) {
-  const { scale } = useTypography();
-  const { fontScale } = useWindowDimensions();
-  const extraHeight = Math.max(0, Math.ceil(18 * scale * Math.max(1, fontScale)) - 18);
   const highlight = useRef(new Animated.Value(focused ? 1 : 0)).current;
   useEffect(() => {
-    const animation = Animated.timing(highlight, { toValue: focused ? 1 : 0, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true });
+    const animation = Animated.timing(highlight, { toValue: focused ? 1 : 0, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: true });
     animation.start();
     return () => animation.stop();
   }, [focused, highlight]);
   return (
-    <View style={{ width: 46, height: 30, alignItems: "center", justifyContent: "center" }}>
-      <Animated.View pointerEvents="none" style={{ position: "absolute", top: -6, width: 62, height: 60 + extraHeight, borderRadius: 19, backgroundColor: colors.residentSelected, borderWidth: 1, borderColor: colors.residentAccentOutline, opacity: highlight, transform: [{ scale: highlight.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1] }) }] }} />
+    <View style={{ width: 48, height: 34, alignItems: "center", justifyContent: "center" }}>
+      <Animated.View pointerEvents="none" style={{ position: "absolute", width: 48, height: 34, borderRadius: 13, backgroundColor: "#E8EFFB", borderWidth: 1, borderColor: "#B9CDEE", opacity: highlight, transform: [{ scale: highlight.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }} />
       <Ionicons name={focused ? filled : outline} size={22} color={focused ? colors.primary : typeof color === "string" ? color : colors.primary} style={{ fontStyle: "normal", fontWeight: "normal" }} />
     </View>
   );
@@ -73,7 +66,7 @@ function TabLabel({ focused, color, children }: { focused: boolean; color: Color
         color,
         fontSize: 11,
         fontWeight: focused ? "600" : "500",
-        marginTop: 4,
+        marginTop: 3,
         lineHeight: 15,
         textAlign: "center",
         fontStyle: "normal",
@@ -139,7 +132,7 @@ function ReportFabButton({
           borderRadius: 20,
           marginTop: -20,
           borderWidth: 3,
-          borderColor: "white",
+          borderColor: focused ? "#DCE8FF" : "white",
           // Toned down from the original (0.28 opacity, radius 8,
           // elevation 6) — enough was still a genuine depth cue that
           // this control is raised above the bar, but the brand-blue glow

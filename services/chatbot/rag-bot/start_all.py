@@ -119,8 +119,9 @@ def main():
         raise RuntimeError('The chatbot backend .env needs its Supabase URL and service-role key.')
     host = (backend_env.get('OLLAMA_HOST') or 'http://localhost:11434').rstrip('/')
     mobile_url = urlparse(mobile_env.get('EXPO_PUBLIC_RAG_API_URL') or '')
-    if mobile_url.scheme != 'http' or mobile_url.port != 8503 or not mobile_url.hostname:
-        raise RuntimeError('This local launcher needs EXPO_PUBLIC_RAG_API_URL=http://<laptop-IP>:8503. Keep hosted URLs in a separate environment.')
+    hosted_api = mobile_url.scheme == 'https' and bool(mobile_url.hostname)
+    if not hosted_api and (mobile_url.scheme != 'http' or mobile_url.port != 8503 or not mobile_url.hostname):
+        raise RuntimeError('Set EXPO_PUBLIC_RAG_API_URL to a Railway HTTPS URL or http://<laptop-IP>:8503.')
     if args.check:
         voice_settings(backend_env)
         print('Setup OK: Node, Expo, Ollama, Python, and local chatbot configuration found.')
@@ -130,10 +131,13 @@ def main():
     # Detect the local route without sending a network packet. Refresh the local
     # URL before Expo reads .env, so a Wi-Fi IP change does not strand the phone.
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as route:
-            route.connect(('192.0.2.1', 80))
-            lan_ip = route.getsockname()[0]
-        if lan_ip and not lan_ip.startswith('127.'):
+        if hosted_api:
+            print('Using hosted chatbot and transcription API: ' + mobile_url.scheme + '://' + mobile_url.netloc)
+        else:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as route:
+                route.connect(('192.0.2.1', 80))
+                lan_ip = route.getsockname()[0]
+        if not hosted_api and lan_ip and not lan_ip.startswith('127.'):
             current_url = f'http://{lan_ip}:8503'
             if current_url != mobile_env['EXPO_PUBLIC_RAG_API_URL']:
                 set_key(str(PROJECT / '.env'), 'EXPO_PUBLIC_RAG_API_URL', current_url)

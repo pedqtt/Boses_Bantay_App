@@ -1,3 +1,5 @@
+import { PinnedLocationLink } from "./ComplaintLocationPin";
+import type { LocationPin } from "@/lib/map-location";
 import { Text } from "@/components/AppText";
 import { View, Pressable, Image } from "react-native";
 import { Ionicons } from "@/components/AppIcon";
@@ -21,8 +23,8 @@ export function ServiceComplaintIntro() {
   </View>;
 }
 
-export function ServiceComplaintReview({ category, location, description, images, onEdit, onPhoto }: {
-  category: string; location: string; description: string; images: string[];
+export function ServiceComplaintReview({ category, location, locationPin, description, images, onEdit, onPhoto }: {
+  category: string; location: string; locationPin?: LocationPin | null; description: string; images: string[];
   onEdit: (step: ComplaintStep) => void; onPhoto: (index: number) => void;
 }) {
   const rows: { label: string; value: string; icon: keyof typeof Ionicons.glyphMap; step: ComplaintStep }[] = [
@@ -38,6 +40,7 @@ export function ServiceComplaintReview({ category, location, description, images
         <Pressable accessibilityRole="button" accessibilityLabel={`Baguhin: ${row.label}`} onPress={() => onEdit(row.step)} className="bg-brand-50 rounded-xl px-3 py-2 ml-2 active:opacity-70"><Text className="text-[13px] font-semibold text-brand">Baguhin</Text></Pressable>
       </View>
       <Text className={REPORT_TYPE.body} style={{ lineHeight: 27 }}>{row.value}</Text>
+      {row.label === "Lokasyon" && locationPin && <PinnedLocationLink pin={locationPin} />}
     </ReportCard>)}
     <ReportCard className="p-4 mb-4">
       <View className="flex-row items-center justify-between mb-3">

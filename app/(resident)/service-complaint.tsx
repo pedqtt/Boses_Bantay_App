@@ -1,4 +1,7 @@
+import { liveDataCache } from "@/lib/live-data-cache";
 import { Text } from "@/components/AppText";
+import { ComplaintLocationPin } from "@/components/report/ComplaintLocationPin";
+import { parseLocationPin, pinCoordinates, type LocationPin } from "@/lib/map-location";
 import { insertServiceComplaint } from "@/lib/api/serviceComplaintSubmission";
 import { loadComplaintDraft, saveComplaintDraft, clearComplaintDraft, type ComplaintDraft } from "@/lib/api/serviceComplaintDraft";
 import { ComplaintAttachments } from "@/components/report/ComplaintAttachments";
@@ -188,6 +191,7 @@ export default function ServiceComplaintScreen() {
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const [category, setCategory] = useState<Category | null>(null);
   const [location, setLocation] = useState("");
+  const [locationPin, setLocationPin] = useState<LocationPin | null>(null);
   const [description, setDescription] = useState("");
   const [voiceDraft, setVoiceDraft] = useState<VoiceDescriptionDraft>({ clips: [] });
   const [voiceBusy, setVoiceBusy] = useState(false);
@@ -213,7 +217,7 @@ export default function ServiceComplaintScreen() {
   const snapshot = useRef<ComplaintDraft | null>(null);
   const owner = useRef(profile?.id);
   owner.current = profile?.id;
-  snapshot.current = { step, categoryId: category?.value ?? null, location, description, images, voiceDraft, pendingPhoto: pendingPhoto.current };
+  snapshot.current = { step, categoryId: category?.value ?? null, location, locationPin, description, images, voiceDraft, pendingPhoto: pendingPhoto.current };
 
   function persistDraft(patch: Partial<ComplaintDraft> = {}) {
     if (!profile?.id || !snapshot.current) return Promise.resolve();
@@ -230,7 +234,7 @@ export default function ServiceComplaintScreen() {
         if (cancelled) return;
         if (saved) {
           setStep(saved.step); setCategory(CATEGORIES.find(c => c.value === saved.categoryId) ?? null);
-          setLocation(saved.location); setDescription(saved.description); setImages(saved.images);
+          setLocation(saved.location); setLocationPin(parseLocationPin(saved.locationPin)); setDescription(saved.description); setImages(saved.images);
           setVoiceDraft(saved.voiceDraft); pendingPhoto.current = saved.pendingPhoto;
           snapshot.current = saved;
         }
@@ -261,14 +265,14 @@ export default function ServiceComplaintScreen() {
     if (!category && !location.trim() && !description.trim() && !images.length) return;
     const timer = setTimeout(() => { if (!skipPersistence.current) void persistDraft().catch(() => {}); }, 400);
     return () => clearTimeout(timer);
-  }, [draftReady, step, category, location, description, images, voiceDraft, submitted, profile?.id]);
+  }, [draftReady, step, category, location, locationPin, description, images, voiceDraft, submitted, profile?.id]);
 
 
   function resetForm() {
     pendingPhoto.current = null;
     setStep("intro"); setEditingFromReview(false); setSubmitError(""); submitLock.current = false;
     setCategory(null);
-    setLocation("");
+    setLocation(""); setLocationPin(null);
     setDescription("");
     setVoiceDraft({ clips: [] }); handleVoiceBusy(false);
     setImages([]); setAttachmentBusy(false); attachmentLock.current = false;
@@ -419,7 +423,7 @@ export default function ServiceComplaintScreen() {
       }
       databaseAttempted = true;
       const receipt = await insertServiceComplaint(supabase, {
-        referenceNo: refNo, userId: user.id, category, location, description, photoPaths,
+        referenceNo: refNo, userId: user.id, category, location, locationPin, description, photoPaths,
       });
       committed = true;
       skipPersistence.current = true; completed.current = true;
@@ -542,6 +546,12 @@ export default function ServiceComplaintScreen() {
             <View className="mb-5"><GuideCard><Text className={REPORT_TYPE.hint}>Isama ang kalye, purok, o malapit na palatandaan. Ilarawan kung ano ang sira o problemang napansin ninyo.</Text></GuideCard></View>
             <FormField label="Lokasyon" value={location} onChangeText={setLocation}
               placeholder="Hal. tapat ng Blk 3 Lot 12, Purok 5" />
+            <ComplaintLocationPin value={locationPin} onChange={pin => {
+              const previousLabel = locationPin ? (locationPin.address ?? "Pin sa mapa: " + pinCoordinates(locationPin)) : "";
+              setLocationPin(pin);
+              if (pin && (!location.trim() || location === previousLabel)) setLocation(pin.address ?? "Pin sa mapa: " + pinCoordinates(pin));
+              else if (!pin && location === previousLabel) setLocation("");
+            }} />
             <Text className={`${REPORT_TYPE.fieldLabel} mb-3`}>Paglalarawan ng problema</Text>
             <Text className={`${REPORT_TYPE.helper} mb-4`}>Maaaring mag-record o mag-type. Maaari ring baguhin ang transcript bago magpatuloy.</Text>
             <VoiceDescriptionInput value={description} onChangeText={setDescription}
@@ -551,7 +561,7 @@ export default function ServiceComplaintScreen() {
             onCamera={() => { void selectPhotos(true); }} onGallery={() => { void selectPhotos(false); }} onPhoto={setViewerIndex}
             onRemovePhoto={removeImage} />}
           {step === "review" && <ServiceComplaintReview category={category?.label ?? ""}
-            location={location.trim()} description={description.trim()} images={images}
+            location={location.trim()} locationPin={locationPin} description={description.trim()} images={images}
             onEdit={next => { if (!submitting) { setEditingFromReview(true); goTo(next); } }}
             onPhoto={setViewerIndex} />}
         </KeyboardAwareScrollView>
